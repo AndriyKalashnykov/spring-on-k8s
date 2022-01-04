@@ -1,0 +1,66 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+spec:
+  # Set how many pods we want for this app.
+  replicas: 1
+  selector:
+    matchLabels:
+      # This Deployment is targeting pods owning a label role=app.
+      role: app
+  # All pods created by the enclosing Deployment will share the same template.
+  template:
+    metadata:
+      labels:
+        # Attach a label role=app to this pod instance
+        # (used by Deployment and LoadBalancer objects).
+        role: app
+      annotations:
+        # Using these annotations we configure Prometheus to scrape app metrics.
+        # This app will run just fine even if Prometheus is not running.
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/actuator/prometheus"
+        prometheus.io/port:  "8080"
+    spec:
+      containers:
+        - name: app
+          # Make sure to update this property, and use your own Docker image.
+          image: andriykalashnykov/spring-on-k8s:latest
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              memory: 1Gi
+          ports:
+            - name: http
+              containerPort: 8080
+          # We use a LivenessProbe and a ReadinessProbe to mark this pod
+          # as ready as soon as the app is actually running.
+          # Using these K8s features, network traffic will not be sent to this app
+          # until this endpoint returns a 200 OK response.
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/liveness
+            initialDelaySeconds: 20
+            failureThreshold: 20
+            periodSeconds: 1
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/readiness
+            initialDelaySeconds: 30
+            failureThreshold: 2
+            periodSeconds: 1
+          env:
+            # Read the ConfigMap mounted as a volume under /etc/config.
+            - name: SPRING_CONFIG_IMPORT
+              value: configtree:/etc/config/
+          volumeMounts:
+            - mountPath: /etc/config
+              name: config
+      volumes:
+        - name: config
+          configMap:
+            name: config

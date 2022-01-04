@@ -1,0 +1,37 @@
+# Enable actuator endpoints:
+#  - health: used by LivenessProbe and ReadinessProbe to mark this app as running
+#  - prometheus: used by Prometheus to scrape app metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+
+server:
+  port: 8080
+  http2:
+    enabled: true
+  servlet:
+    context-path: "/"
+
+spring:
+  jmx:
+    unique-names: true
+  h2:
+    console:
+      enabled: true
+      path: /console
+      settings:
+        trace: false
+        web-allow-others: false
+        
+logging.pattern.console: "%clr(%d{YYYY-MM-dd E HH:mm:ss.SSS}){faint} %clr(%-5p) %clr(${PID}){faint} %clr([%8.15t]){faint} %clr(%c{1.}:%L){cyan} %clr(:){red} %clr(%m){faint}%n"
+logging.level.ROOT: "INFO"
+logging.level.org.springframework.: "INFO"
+logging.level.com.test.example: "DEBUG"
+logging.level.org.hibernate.SQL: "INFO"
+logging.level.liquibase: "INFO"
+logging.level.org.quartz: "INFO"
+logging.file.path: "."
+logging.file.name: "application.log"
+logging.pattern.file: "%d{YYYY-MM-dd E HH:mm:ss.SSS} %-5p ${PID} [%8.15t] %c{1.}:%L : %m%n"

@@ -1,0 +1,13 @@
+accelerator:
+  displayName: Spring on K8s
+  description: A Sample Spring Boot App
+  iconUrl: https://raw.githubusercontent.com/sample-accelerators/icons/master/icon-tanzu-light.png
+  tags: []
+  options:
+  - name: optionName
+    label: Nice Label
+    display: true
+    defaultValue: "Spring on K8s"
+engine:
+  include:
+  - '**'
