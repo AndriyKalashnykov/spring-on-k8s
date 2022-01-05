@@ -21,10 +21,10 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
         <image.publish>false</image.publish>
-        <image.name>andriykalashnykov/spring-on-k8s</image.name>
+        <image.name>andriykalashnykov/spring-on-k8s:latest</image.name>
         <docker.publishRegistry.username>andriykalashnykov</docker.publishRegistry.username>
         <docker.publishRegistry.password>YOUR-REGISTRY-PASSWORD</docker.publishRegistry.password>
-        <docker.publishRegistry.url>https://registry-1.docker.io</docker.publishRegistry.url>
+        <docker.publishRegistry.url>docker.io</docker.publishRegistry.url>
     </properties>
 
     <dependencies>
