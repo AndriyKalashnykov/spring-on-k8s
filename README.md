@@ -129,6 +129,9 @@ $ docker run --rm -p 8080:8080 andriykalashnykov/spring-on-k8s
 ## Scan for [Log4j 2 CVE-2021-44228](https://www.docker.com/blog/apache-log4j-2-cve-2021-44228/) 
 
 ```bash
+# scan for all CVE
+$ docker scan andriykalashnykov/spring-on-k8s
+# scan for CVE-2021-44228
 $ docker scan andriykalashnykov/spring-on-k8s | grep 'Arbitrary Code Execution'
 ```
 
