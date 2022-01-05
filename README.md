@@ -22,16 +22,22 @@ class HelloController {
 
 ## How to use it?
 
+### Pre-requisites
+
+Install and use JDK 17
+```bash
+sdk install java 17.0.1.12.1-amzn
+sdk use java 17.0.1.12.1-amzn
+```
+
 Compile this app using a JDK:
 ```bash
-$ mvn clean package
+$ mvn clean package -Djava.version=17
 ```
 
 You can run this app locally:
 ```bash
 $ mvn spring-boot:run
-// or
-$ java -jar target/spring-on-k8s.jar
 ```
 
 The app is available at [http://localhost:8080](http://localhost:8080)
@@ -70,34 +76,51 @@ Our goal is to run this app in a K8s cluster: you first need to package
 this app in a Docker image.
 
 Here's a `Dockerfile` you can use:
+
 ```Dockerfile
-# 1. First build we build this app.
-FROM adoptopenjdk:11-jdk-hotspot as BUILDER
-RUN mkdir /build
-ADD . /build
+ARG MVN_VERSION=3.8.4
+ARG JDK_VERSION=17
+
+FROM maven:${MVN_VERSION}-amazoncorretto-${JDK_VERSION} as build
+
 WORKDIR /build
-# Use Maven wrapper script to build & test this app.
-RUN ./mvnw -B clean package
-RUN mkdir -p target/dependency && (cd target/dependency; jar -xf ../*.jar)
+COPY pom.xml .
+# create a layer with all of the Manven dependencies, first time it takes a while consequent call are very fast
+RUN mvn dependency:go-offline
 
-# As this point the app is built & tested,
-# and the artifact is available in /build/target.
+COPY ./pom.xml /tmp/
+COPY ./src /tmp/src/
+WORKDIR /tmp/
+# build the project
+RUN mvn clean package
 
-# 2. We build the target image, containing the app artifact.
-FROM adoptopenjdk:11-jre-hotspot
-VOLUME /tmp
-# We don't want to run this app as root, so let's create a new user.
-RUN useradd -m -s /bin/bash app
-USER app
-# Copy the app artifact from the previous run.
-ARG DEPENDENCY=/build/target/dependency
-COPY --from=BUILDER ${DEPENDENCY}/BOOT-INF/lib /app/lib
-COPY --from=BUILDER ${DEPENDENCY}/META-INF /app/META-INF
-COPY --from=BUILDER ${DEPENDENCY}/BOOT-INF/classes /app
-# Since this container is using Java 11+, you don't need to add extra args:
-# '+UseContainerSupport' is enabled by default to automatically tune JVM memory
-# settings according to container memory resources.
-ENTRYPOINT ["java","-cp","app:app/lib/*","com.vmware.demos.springonk8s.Application"]
+# extract JAR Layers
+WORKDIR /tmp/target
+RUN java -Djarmode=layertools -jar *.jar extract
+
+# runtime image
+# use  gcr.io/distroless/java${JDK_VERSION}-debian11:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian11 for production
+FROM gcr.io/distroless/java${JDK_VERSION}-debian11:debug as runtime
+
+USER nonroot:nonroot
+WORKDIR /application
+
+# copy layers from build image to runtime image as nonroot user
+COPY --from=build --chown=nonroot:nonroot /tmp/target/dependencies/ ./
+COPY --from=build --chown=nonroot:nonroot /tmp/target/snapshot-dependencies/ ./
+COPY --from=build --chown=nonroot:nonroot /tmp/target/spring-boot-loader/ ./
+COPY --from=build --chown=nonroot:nonroot /tmp/target/application/ ./
+
+EXPOSE 8080
+
+ENV _JAVA_OPTIONS "-XX:MinRAMPercentage=80.0 -XX:MaxRAMPercentage=90.0 \
+-Djava.security.egd=file:/dev/./urandom \
+-Djava.awt.headless=true -Dfile.encoding=UTF-8 \
+-Dspring.output.ansi.enabled=ALWAYS \
+-Dspring.profiles.active=default"
+
+# set entrypoint to layered Spring Boot application
+ENTRYPOINT ["java", "org.springframework.boot.loader.JarLauncher"]
 ```
 
 Run this command to build this image:
@@ -115,27 +138,23 @@ to build & deploy your Docker image:
 
 ```bash 
 $ export DOCKER_PWD=YOUR-REGISTRY-PASSWORD
-$ mvn spring-boot:build-image -Dimage.publish=true -Dimage.name=andriykalashnykov/spring-on-k8s -Ddocker.publishRegistry.username=andriykalashnykov -Ddocker.publishRegistry.password=${DOCKER_PWD}
+$ mvn clean spring-boot:build-image -Djava.version=17 -Dimage.publish=true -Dimage.name=andriykalashnykov/spring-on-k8s -Ddocker.publishRegistry.username=andriykalashnykov -Ddocker.publishRegistry.password=${DOCKER_PWD}
 ```
 
-This command will take care of building a Docker image containing
-a base image, a JRE, and this image will be optimized (unzipped
-JAR file, different layers for app/config/lib).
+## Scan for [Log4j 2 CVE-2021-44228](https://www.docker.com/blog/apache-log4j-2-cve-2021-44228/) and other vulnerabilities 
 
-or
+```bash
+# scan for all CVEs
+$ docker scan andriykalashnykov/spring-on-k8s
+# scan for CVE-2021-44228
+$ docker scan andriykalashnykov/spring-on-k8s | grep 'Arbitrary Code Execution'
+```
+
+### Use workaround to mitigate `Log4j 2 CVE-2021-44228` by creating Docker image with [custom buildpack](https://github.com/alexandreroman/cve-2021-44228-workaround-buildpack)
 
 ```bash
 $ pack build andriykalashnykov/spring-on-k8s -b ghcr.io/alexandreroman/cve-2021-44228-workaround-buildpack -b paketo-buildpacks/java --builder paketobuildpacks/builder:buildpackless-base
 $ docker run --rm -p 8080:8080 andriykalashnykov/spring-on-k8s
-```
-
-## Scan for [Log4j 2 CVE-2021-44228](https://www.docker.com/blog/apache-log4j-2-cve-2021-44228/) 
-
-```bash
-# scan for all CVE
-$ docker scan andriykalashnykov/spring-on-k8s
-# scan for CVE-2021-44228
-$ docker scan andriykalashnykov/spring-on-k8s | grep 'Arbitrary Code Execution'
 ```
 
 ## Deploying to Kubernetes
@@ -171,6 +190,6 @@ Feel free to open issues & send PR.
 
 ## License
 
-Copyright &copy; 2021 [VMware, Inc. or its affiliates](https://vmware.com).
+Copyright &copy; 2022 [VMware, Inc. or its affiliates](https://vmware.com).
 
 This project is licensed under the [Apache Software License version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
