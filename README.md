@@ -192,7 +192,6 @@ Hello Kubernetes!
 
 ```bash
 $ kapp delete -a spring-on-k8s --yes
-$ kapp list -A
 ```
 
 ## Contribute
