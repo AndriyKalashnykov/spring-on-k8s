@@ -37,7 +37,7 @@ $ mvn clean package -Djava.version=17
 
 You can run this app locally:
 ```bash
-$ mvn spring-boot:run
+$ mvn clean spring-boot:run -Djava.version=17
 ```
 
 The app is available at [http://localhost:8080](http://localhost:8080)
