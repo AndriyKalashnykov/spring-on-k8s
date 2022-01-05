@@ -75,7 +75,7 @@ $ curl http://localhost:8080/actuator | jq .
 Our goal is to run this app in a K8s cluster: you first need to package
 this app in a Docker image.
 
-Here's a `Dockerfile` you can use:
+Here's a [`Dockerfile`](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/facebc172dbb9f068167da774b50b41ae3385a82/Dockerfile) you can use:
 
 ```Dockerfile
 ARG MVN_VERSION=3.8.4

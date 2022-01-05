@@ -20,7 +20,7 @@ WORKDIR /tmp/target
 RUN java -Djarmode=layertools -jar *.jar extract
 
 # runtime image
-# use  gcr.io/distroless/java${JDK_VERSION}-debian11:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian11 for production
+# use gcr.io/distroless/java${JDK_VERSION}-debian11:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian11 for production
 FROM gcr.io/distroless/java${JDK_VERSION}-debian11:debug as runtime
 
 USER nonroot:nonroot
