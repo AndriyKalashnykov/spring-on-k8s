@@ -19,7 +19,12 @@
         <java.version>11</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <image.publish>false</image.publish>
         <image.name>andriykalashnykov/spring-on-k8s</image.name>
+        <docker.publishRegistry.username>andriykalashnykov</docker.publishRegistry.username>
+        <docker.publishRegistry.password>YOUR-REGISTRY-PASSWORD</docker.publishRegistry.password>
+        <docker.publishRegistry.url>https://registry-1.docker.io</docker.publishRegistry.url>
     </properties>
 
     <dependencies>
@@ -95,14 +100,21 @@
                 <version>3.0.0-M5</version>
             </plugin>
 
-
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <image>
                         <name>${image.name}</name>
+                        <publish>${image.publish}</publish>
                     </image>
+                    <docker>
+                        <publishRegistry>
+                            <username>${docker.publishRegistry.username}</username>
+                            <password>${docker.publishRegistry.password}</password>
+                            <url>${docker.publishRegistry.url}</url>
+                        </publishRegistry>
+                    </docker>
                 </configuration>
             </plugin>
         </plugins>

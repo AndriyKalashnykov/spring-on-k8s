@@ -1,6 +1,6 @@
-# Running your Spring Boot app on Kubernetes
+# Running Spring Boot app on Kubernetes
 
-This project describes how to run your Spring Boot app on Kubernetes.
+This project describes how to run Spring Boot app on Kubernetes.
 You don't actually need to rewrite your app in order to target a K8s
 cluster: Spring Boot can run on many platforms, thanks to
 the abstraction level it provides.
@@ -34,7 +34,8 @@ $ mvn spring-boot:run
 $ java -jar target/spring-on-k8s.jar
 ```
 
-The app is available at http://localhost:8080:
+The app is available at [http://localhost:8080](http://localhost:8080)
+
 ```bash
 $ curl localhost:8080
 Hello world!
@@ -111,8 +112,10 @@ $ docker push andriykalashnykov/spring-on-k8s
 
 You can use [Cloud Native Buildpacks](https://buildpacks.io)
 to build & deploy your Docker image:
-```bash
-$ mvn spring-boot:build-image -Dimage.name=andriykalashnykov/spring-on-k8s
+
+```bash 
+$ export DOCKER_PWD=YOUR-REGISTRY-PASSWORD
+$ mvn spring-boot:build-image -Dimage.publish=true -Dimage.name=andriykalashnykov/spring-on-k8s -Ddocker.publishRegistry.username=andriykalashnykov -Ddocker.publishRegistry.password=${DOCKER_PWD}
 ```
 
 This command will take care of building a Docker image containing
@@ -140,7 +143,8 @@ $ docker scan andriykalashnykov/spring-on-k8s | grep 'Arbitrary Code Execution'
 This project includes Kubernetes descriptors, so you can easily deploy
 this app to your favorite K8s cluster:
 ```bash
-$ kubectl apply -k k8s
+$ kubectl apply -f k8s
+$ kubectl apply -f k8s -o yaml --dry-run=client
 ```
 
 Using this command, monitor the allocated IP address for this app:
@@ -153,9 +157,10 @@ app-lb   LoadBalancer   10.100.200.204   35.205.141.26   80:31633/TCP   90s
 At some point, you should see an IP address under the column `EXTERNAL-IP`.
 
 If you hit this address, you will get a greeting message from the app:
+
 ```bash
 $ curl 35.205.141.26
-Hello Kubernetes!%
+Hello Kubernetes!
 ```
 
 ## Contribute
