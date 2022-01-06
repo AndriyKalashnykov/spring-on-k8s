@@ -11,7 +11,7 @@ This app is made of a single REST controller:
 class HelloController {
     @Value("${app.message:Hello world!}")
     private String message;
-
+  
     @GetMapping(value = "/", produces = MediaType.TEXT_PLAIN_VALUE)
     String greeting() {
         // Just return a simple String.
@@ -184,7 +184,7 @@ At some point, you should see an IP address under the column `EXTERNAL-IP`.
 If you hit this address, you will get a greeting message from the app:
 
 ```bash
-$ curl xx.205.141.26
+$ curl $(kubectl -n spring-on-k8s get svc app | sed -n '2 p' | awk '{print $4}')
 Hello Kubernetes!
 ```
 
