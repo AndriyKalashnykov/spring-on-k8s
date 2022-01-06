@@ -22,6 +22,7 @@
 
         <image.publish>false</image.publish>
         <image.name>andriykalashnykov/spring-on-k8s:latest</image.name>
+        <image.builder>paketobuildpacks/builder:base</image.builder>
         <docker.publishRegistry.username>andriykalashnykov</docker.publishRegistry.username>
         <docker.publishRegistry.password>YOUR-REGISTRY-PASSWORD</docker.publishRegistry.password>
         <docker.publishRegistry.url>docker.io</docker.publishRegistry.url>
@@ -107,6 +108,7 @@
                     <image>
                         <name>${image.name}</name>
                         <publish>${image.publish}</publish>
+                        <builder>${image.builder}</builder>
                     </image>
                     <docker>
                         <publishRegistry>

@@ -1,8 +1,9 @@
 ARG MVN_VERSION=3.8.4
+ARG JDK_VENDOR=amazoncorretto
 ARG JDK_VERSION=17
 
 # https://hub.docker.com/_/maven?tab=tags&page=1&name=amazoncorretto
-FROM maven:${MVN_VERSION}-amazoncorretto-${JDK_VERSION} as build
+FROM maven:${MVN_VERSION}-${JDK_VENDOR}-${JDK_VERSION} as build
 
 WORKDIR /build
 COPY pom.xml .
