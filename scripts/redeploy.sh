@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -x
+# set -x
 
 export KUBECONFIG=~/.kube/config
 SRV_SVC=$(kubectl get service -n accelerator-system acc-server| sed -n '2 p' | awk '{print $4}')
