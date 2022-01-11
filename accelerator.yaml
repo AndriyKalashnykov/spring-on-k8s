@@ -2,12 +2,28 @@ accelerator:
   displayName: Spring Boot on K8s
   description: Spring Boot Sample App
   iconUrl: https://raw.githubusercontent.com/sample-accelerators/icons/master/icon-tanzu-light.png
-  tags: []
+  tags:
+    - tanzu
+    - accelerator
+    - java
+    - spring
+    - cloud   
   options:
-  - name: optionName
+  - name: projectName
     label: Label
     display: true
-    defaultValue: "Spring Boot on K8s"
+    defaultValue: "spring-ok-k8s"  
+  - name: projectDescription
+    label: Label
+    display: true
+    defaultValue: "Project description"
+  - name: usTO
+    label: Use Tanzu Oservability
+    description: "Use Tanzu Oservability"
+    inputType: toggle
+    display: true
+    dataType: boolean
+    defaultValue: true
 engine:
   include:
   - '**'
