@@ -10,11 +10,6 @@ accelerator:
     - cloud   
 
   options:
-  - name: projectName
-    label: Project Name
-    description: Project name for the Spring Boot Sample App
-    display: true
-    defaultValue: spring-ok-k8s
 
   - name: projectDescription
     label: Project Description
@@ -31,5 +26,11 @@ accelerator:
     defaultValue: true
 
 engine:
-  include:
-  - '**'
+  merge:
+  - include: [ "**" ]
+  - include: [ "pom.xml" ]
+    chain:
+    - type: ReplaceText
+      substitutions:
+      - text: spring-on-k8s
+        with: "#artifactId"
