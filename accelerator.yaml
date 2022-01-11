@@ -8,22 +8,28 @@ accelerator:
     - java
     - spring
     - cloud   
+
   options:
   - name: projectName
-    label: Label
+    label: Project Name
+    description: Project name for the Spring Boot Sample App
     display: true
-    defaultValue: "spring-ok-k8s"  
+    defaultValue: spring-ok-k8s
+
   - name: projectDescription
-    label: Label
+    label: Project Description
+    description: Project description for the Spring Boot Sample App
     display: true
-    defaultValue: "Project description"
+    defaultValue: Spring Boot Sample App for Kubernetes
+
   - name: usTO
     label: Use Tanzu Oservability
-    description: "Use Tanzu Oservability"
+    description: Use Tanzu Oservability
     inputType: toggle
     display: true
     dataType: boolean
     defaultValue: true
+
 engine:
   include:
   - '**'
