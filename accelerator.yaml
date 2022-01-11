@@ -18,8 +18,8 @@ accelerator:
     defaultValue: Spring Boot Sample App for Kubernetes
 
   - name: usTO
-    label: Use Tanzu Oservability (Wavefront) Freemium
-    description: Use Tanzu Oservability
+    label: Include Tanzu Oservability (Wavefront) Freemium
+    description: Include Tanzu Oservability (Wavefront) Freemium
     inputType: toggle
     display: true
     dataType: boolean
