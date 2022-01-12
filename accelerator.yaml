@@ -19,10 +19,10 @@ accelerator:
         text: 2.5.5
       - value: 2.5.2
         text: 2.5.2 
-      # - value: 2.3.9.RELEASE
-      #   text: 2.3.9.RELEASE
-      # - value: 2.3.4.RELEASE
-      #   text: 2.3.4.RELEASE
+      - value: 2.3.9.RELEASE
+        text: 2.3.9.RELEASE
+      - value: 2.3.4.RELEASE
+        text: 2.3.4.RELEASE
     required: true
     display: true
     defaultValue: 2.5.5
