@@ -11,46 +11,46 @@ accelerator:
 
   options:
 
-  - name: springBootVersion
-    label: Spring Boot Version
-    description: Spring Boot Version
+  # - name: springBootVersion
+  #   label: Spring Boot Version
+  #   description: Spring Boot Version
+  #   required: true
+  #   inputType: select
+  #   defaultValue: 2.5.5
+  #   choices:
+  #     - value: 2.5.5
+  #       text: 2.5.5
+  #     - value: 2.5.2
+  #       text: 2.5.2        
+  #     - value: 2.5.5
+  #       text: 2.5.5        
+  #     - value: 2.3.9.RELEASE
+  #       text: 2.3.9.RELEASE
+  #     - value: 2.3.4.RELEASE
+  #       text: 2.3.4.RELEASE
+
+  - name: imageRegistryUser
+    label: Image Registry User
+    description: Image Registry User
+    display: true
     required: true
-    inputType: select
-    defaultValue: 2.5.5
-    choices:
-      - value: 2.5.5
-        text: 2.5.5
-      - value: 2.5.2
-        text: 2.5.2        
-      - value: 2.5.5
-        text: 2.5.5        
-      - value: 2.3.9.RELEASE
-        text: 2.3.9.RELEASE
-      - value: 2.3.4.RELEASE
-        text: 2.3.4.RELEASE
+    defaultValue: andriykalashnykov
 
-  # - name: imageRegistryUser
-  #   label: Image Registry User
-  #   description: Image Registry User
-  #   display: true
-  #   required: true
-  #   defaultValue: andriykalashnykov
+  - name: imageRegistryPassword
+    label: Image Registry Password
+    description: Image Registry Password
+    display: true
+    required: true
+    defaultValue: YOUR-REGISTRY-PASSWORD    
 
-  # - name: imageRegistryPassword
-  #   label: Image Registry Password
-  #   description: Image Registry Password
-  #   display: true
-  #   required: true
-  #   defaultValue: YOUR-REGISTRY-PASSWORD    
-
-  # - name: usTO
-  #   label: Include Tanzu Oservability (Wavefront) Freemium
-  #   description: Include Tanzu Oservability (Wavefront) Freemium
-  #   inputType: toggle
-  #   display: true
-  #   dataType: boolean
-  #   defaultValue: true
-  #   required: true
+  - name: usTO
+    label: Include Tanzu Oservability (Wavefront) Freemium
+    description: Include Tanzu Oservability (Wavefront) Freemium
+    inputType: toggle
+    display: true
+    dataType: boolean
+    defaultValue: true
+    required: true
 
 # engine:
 #   merge:
