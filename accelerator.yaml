@@ -69,6 +69,10 @@ engine:
         with: "#artifactId"
     - type: ReplaceText
       substitutions:
+      - text: "2.5.5"
+        with: "#springBootVersion"        
+    - type: ReplaceText
+      substitutions:
       - text: "andriykalashnykov"
         with: "#imageRegistryUser"
     - type: ReplaceText
