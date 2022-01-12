@@ -77,6 +77,15 @@ https://wavefront.surf/us/8HggSpT5BD
 
 ```
 
+Click on generated link [https://wavefront.surf/us/8HggSpT5BD](https://wavefront.surf/us/8HggSpT5BD) and navigate to `Dashboards -> Spring Boot`
+
+
+![Spring Boot Dashboard](./docs/spring-dash.png "Spring Boot Dashboard")
+
+you may also want to check `Applications -> Traces`
+
+![Application Traces Dashboard](./docs/traces-dash.png "Application Traces Dashboard")
+
 ## How to use it?
 
 ### Pre-requisites
