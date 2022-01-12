@@ -14,10 +14,9 @@ accelerator:
   - name: springBootVersion
     label: Spring Boot Version
     description: Spring Boot Version
-    display: true
     required: true
     inputType: select
-    defaultValue: "2.5.5"
+    defaultValue: 2.5.5
     choices:
       - value: 2.5.5
         text: 2.5.5
@@ -51,6 +50,7 @@ accelerator:
     display: true
     dataType: boolean
     defaultValue: true
+    required: true
 
 engine:
   merge:
@@ -59,13 +59,13 @@ engine:
     chain:
     - type: ReplaceText
       substitutions:
-      - text: spring-on-k8s
+      - text: "spring-on-k8s"
         with: "#artifactId"
     - type: ReplaceText
       substitutions:
-      - text: andriykalashnykov
+      - text: "andriykalashnykov"
         with: "#imageRegistryUser"
     - type: ReplaceText
       substitutions:
-      - text: YOUR-REGISTRY-PASSWORD
+      - text: "YOUR-REGISTRY-PASSWORD"
         with: "#imageRegistryPassword"        
