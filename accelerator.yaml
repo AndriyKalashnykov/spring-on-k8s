@@ -14,20 +14,20 @@ accelerator:
   - name: springBootVersion
     # label: Spring Boot Version
     # description: Spring Boot Version
-    required: true
     inputType: select
-    defaultValue: "2.5.5"
     choices:
-      - value: "2.5.5"
-        text: "2.5.5"
-      - value: "2.5.2"
-        text: "2.5.2"      
-      - value: "2.5.5"
-        text: "2.5.5"
-      - value: "2.3.9.RELEASE"
-        text: "2.3.9.RELEASE"
-      - value: "2.3.4.RELEASE"
-        text: "2.3.4.RELEASE"
+      - value: 2.5.5
+        text: 2.5.5
+      - value: 2.5.2
+        text: 2.5.2   
+      - value: 2.5.5
+        text: 2.5.5
+      - value: 2.3.9.RELEASE
+        text: 2.3.9.RELEASE
+      - value: 2.3.4.RELEASE
+        text: 2.3.4.RELEASE
+    required: true
+    defaultValue: 2.5.5
 
   - name: imageRegistryUser
     label: Image Registry User
