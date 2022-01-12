@@ -52,20 +52,20 @@ accelerator:
     defaultValue: true
     required: true
 
-engine:
-  merge:
-  - include: [ "**" ]
-  - include: [ "pom.xml" ]
-    chain:
-    - type: ReplaceText
-      substitutions:
-      - text: "spring-on-k8s"
-        with: "#artifactId"
-    - type: ReplaceText
-      substitutions:
-      - text: "andriykalashnykov"
-        with: "#imageRegistryUser"
-    - type: ReplaceText
-      substitutions:
-      - text: "YOUR-REGISTRY-PASSWORD"
-        with: "#imageRegistryPassword"        
+# engine:
+#   merge:
+#   - include: [ "**" ]
+#   - include: [ "pom.xml" ]
+#     chain:
+#     - type: ReplaceText
+#       substitutions:
+#       - text: "spring-on-k8s"
+#         with: "#artifactId"
+#     - type: ReplaceText
+#       substitutions:
+#       - text: "andriykalashnykov"
+#         with: "#imageRegistryUser"
+#     - type: ReplaceText
+#       substitutions:
+#       - text: "YOUR-REGISTRY-PASSWORD"
+#         with: "#imageRegistryPassword"        
