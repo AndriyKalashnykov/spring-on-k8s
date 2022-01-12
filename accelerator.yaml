@@ -17,10 +17,10 @@ accelerator:
     choices:
       - value: 2.5.5
         text: 2.5.5
-      # - value: 2.5.2
-      #   text: 2.5.2   
-      # - value: 2.5.5
-      #   text: 2.5.5
+      - value: 2.5.2
+        text: 2.5.2   
+      - value: 2.5.5
+        text: 2.5.5
       # - value: 2.3.9.RELEASE
       #   text: 2.3.9.RELEASE
       # - value: 2.3.4.RELEASE
