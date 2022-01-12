@@ -12,8 +12,8 @@ accelerator:
   options:
 
   - name: springBootVersion
-    label: Spring Boot Version
-    description: Spring Boot Version
+    # label: Spring Boot Version
+    # description: Spring Boot Version
     required: true
     inputType: select
     defaultValue: "2.5.5"
