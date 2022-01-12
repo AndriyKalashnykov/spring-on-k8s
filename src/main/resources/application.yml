@@ -5,7 +5,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, prometheus
+        include: health,info,prometheus,wavefront
+#  metrics:
+#    export:
+#      wavefront:
+#        api-token: "$API_Token"
+#        uri: "$wavefront_instance"
+
+wavefront:
+  freemium-account: true
+  application:
+    name: spring-on-k8s
+    service: backend
 
 server:
   port: 8080

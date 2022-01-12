@@ -28,6 +28,28 @@
         <docker.publishRegistry.url>docker.io</docker.publishRegistry.url>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- wavefront -->
+            <dependency>
+                <groupId>com.wavefront</groupId>
+                <artifactId>wavefront-spring-boot-bom</artifactId>
+                <version>2.2.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- sleuth -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>2020.0.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -43,6 +65,19 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+
+        <!-- wavefront -->
+        <dependency>
+            <groupId>com.wavefront</groupId>
+            <artifactId>wavefront-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- sleuth -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-sleuth</artifactId>
         </dependency>
 
         <dependency>
