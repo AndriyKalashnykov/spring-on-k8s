@@ -10,7 +10,6 @@ accelerator:
     - cloud   
 
   options:
-
   - name: springBootVersion
     # label: Spring Boot Version
     # description: Spring Boot Version
