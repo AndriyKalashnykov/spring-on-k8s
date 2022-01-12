@@ -11,11 +11,35 @@ accelerator:
 
   options:
 
-  - name: projectDescription
-    label: Project Description
-    description: Project description for the Spring Boot Sample App
+  - name: springBootVersion
+    label: Spring Boot Version
+    description: Spring Boot Version
     display: true
-    defaultValue: Spring Boot Sample App for Kubernetes
+    inputType: select
+    defaultValue: "2.5.5"
+    choices:
+      - value: 2.5.5
+        text: 2.5.5
+      - value: 2.5.2
+        text: 2.5.2        
+      - value: 2.5.5
+        text: 2.5.5        
+      - value: 2.3.9.RELEASE
+        text: 2.3.9.RELEASE
+      - value: 2.3.4.RELEASE
+        text: 2.3.4.RELEASE
+
+  - name: imageRegistryUser
+    label: Image Registry User
+    description: Image Registry User
+    display: true
+    defaultValue: Image Registry User name
+
+  - name: imageRegistryPassword
+    label: Image Registry Password
+    description: Image Registry Password
+    display: true
+    defaultValue: Image Registry Password    
 
   - name: usTO
     label: Include Tanzu Oservability (Wavefront) Freemium
@@ -34,3 +58,11 @@ engine:
       substitutions:
       - text: spring-on-k8s
         with: "#artifactId"
+    - type: ReplaceText
+      substitutions:
+      - text: andriykalashnykov
+        with: "#imageRegistryUser"
+    - type: ReplaceText
+      substitutions:
+      - text: YOUR-REGISTRY-PASSWORD
+        with: "#imageRegistryPassword"        
