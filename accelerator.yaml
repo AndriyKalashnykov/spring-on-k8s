@@ -39,7 +39,7 @@ accelerator:
     label: Image Registry Password
     description: Image Registry Password
     display: true
-    defaultValue: Image Registry Password    
+    defaultValue: YOUR-REGISTRY-PASSWORD    
 
   - name: usTO
     label: Include Tanzu Oservability (Wavefront) Freemium
