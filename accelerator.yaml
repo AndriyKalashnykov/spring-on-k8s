@@ -84,7 +84,7 @@ engine:
   - include: [ "src/main/resources/application.yml" ]
       chain:
         - type: ReplaceText
-          condition: "#includeTO"
+          condition: "#includeTO == true"
           substitutions:
             - text: "#includeTO"
               with:  "' '"
