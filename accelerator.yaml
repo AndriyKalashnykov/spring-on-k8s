@@ -55,7 +55,6 @@ accelerator:
     display: true
     dataType: boolean
     defaultValue: false
-    required: true
 
 engine:
   merge:
