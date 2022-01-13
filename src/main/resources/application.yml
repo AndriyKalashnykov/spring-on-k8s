@@ -12,7 +12,7 @@ management:
 #        api-token: "$API_Token"
 #        uri: "$wavefront_instance"
 
-#includeTO wavefront:
+#includeTOwavefront:
 #includeTO  application:
 #includeTO  freemium-account: true
 #includeTO    application:
