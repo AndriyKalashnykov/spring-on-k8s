@@ -48,8 +48,7 @@ accelerator:
     required: true
     defaultValue: docker.io    
 
-
-  - name: usTO
+  - name: includeTO
     label: Include Tanzu Oservability (Wavefront) Freemium
     description: Include Tanzu Oservability (Wavefront) Freemium
     inputType: toggle
@@ -82,4 +81,12 @@ engine:
     - type: ReplaceText
       substitutions:
       - text: "docker.io"
-        with: "#imageRegistryURL"         
+        with: "#imageRegistryURL"
+  - include: [ "src/main/resources/application.yaml" ]
+      condition: "#includeTO"
+      chain:
+        - type: ReplaceText
+          substitutions:
+            - text: "#includeTO"
+              with:  "' '"
+

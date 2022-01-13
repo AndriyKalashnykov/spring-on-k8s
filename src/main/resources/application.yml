@@ -12,11 +12,12 @@ management:
 #        api-token: "$API_Token"
 #        uri: "$wavefront_instance"
 
-wavefront:
-  freemium-account: true
-  application:
-    name: spring-on-k8s
-    service: backend
+#includeTOwavefront:
+#includeTO  application:
+#includeTO  freemium-account: true
+#includeTO    application:
+#includeTO    name: spring-on-k8s
+#includeTO    service: backend
 
 server:
   port: 8080

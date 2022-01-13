@@ -220,7 +220,7 @@ $ kapp delete -a spring-on-k8s --yes
 Creating Tanzu App Accelerators
 
 [Creating Accelerators](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-index.html)
-
+and [Creating an accelerator.yaml](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-accelerator-yaml.html)
 
 ## Publishing the new accelerator
 
