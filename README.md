@@ -216,6 +216,33 @@ Hello Kubernetes!
 $ kapp delete -a spring-on-k8s --yes
 ```
 
+## Application Accelerator for VMware Tanzu
+Creating Tanzu App Accelerators
+
+[Creating Accelerators](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-index.html)
+
+
+## Publishing the new accelerator
+
+```bash
+tanzu acc create spring-on-k8s --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
+```
+
+or
+
+```bash
+mkdir -p ~/projects/; cd ~/projects/
+git clone git@github.com:AndriyKalashnykov/spring-on-k8s.git
+
+kubectl apply -f  ~/projects/spring-on-k8s/accelerator.yaml --namespace accelerator-system
+```
+
+## Deleting the accelerator
+
+```bash
+ tanzu acc delete spring-on-k8s
+``` 
+
 ## Contribute
 
 Contributions are always welcome!
