@@ -55,7 +55,7 @@ accelerator:
     inputType: toggle
     display: true
     dataType: boolean
-    defaultValue: true
+    defaultValue: false
     required: true
 
 engine:
