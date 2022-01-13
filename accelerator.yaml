@@ -55,7 +55,6 @@ accelerator:
     display: true
     dataType: boolean
     defaultValue: false
-    required: true
 
 engine:
   merge:
@@ -82,11 +81,11 @@ engine:
       substitutions:
       - text: "docker.io"
         with: "#imageRegistryURL"
-#  - include: [ "src/main/resources/application.yml" ]
-#      condition: "#includeTO"
-#      chain:
-#        - type: ReplaceText
-#          substitutions:
-#            - text: "#includeTO"
-#              with:  "' '"
+  - include: [ "src/main/resources/application.yml" ]
+      condition: "#includeTO"
+      chain:
+        - type: ReplaceText
+          substitutions:
+            - text: "#includeTO"
+              with:  "' '"
 
