@@ -82,10 +82,10 @@ engine:
       - text: "docker.io"
         with: "#imageRegistryURL"
   - include: [ "src/main/resources/application.yml" ]
-      chain:
-        - type: ReplaceText
-          condition: "#includeTO == true"
-          substitutions:
-            - text: "#includeTO"
-              with:  "' '"
+    chain:
+    - type: ReplaceText
+      condition: "#includeTO == true"
+      substitutions:
+      - text: "#includeTO"
+        with:  "' '"
 
