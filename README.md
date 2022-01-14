@@ -249,7 +249,7 @@ tanzu acc delete spring-on-k8s --kubeconfig $HOME/.kube/config
 
 ### With kubectl
 ```bash
-kubectl delete -f  ~/projects/spring-on-k8s/k8s-resourse.yaml.yaml --namespace accelerator-system
+kubectl delete -f  ~/projects/spring-on-k8s/k8s-resource.yaml --namespace accelerator-system
 ``` 
 
 ## Contribute
