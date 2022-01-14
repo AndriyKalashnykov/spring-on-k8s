@@ -224,23 +224,32 @@ and [Creating an accelerator.yaml](https://docs.vmware.com/en/Application-Accele
 
 ## Publishing the new accelerator
 
+### With Tanzu CLI
+
 ```bash
-tanzu acc create spring-on-k8s --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
+tanzu acc create spring-on-k8s --kubeconfig $HOME/.kube/config  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
 ```
 
-or
+### With kubectl
 
 ```bash
 mkdir -p ~/projects/; cd ~/projects/
 git clone git@github.com:AndriyKalashnykov/spring-on-k8s.git
 
-kubectl apply -f  ~/projects/spring-on-k8s/accelerator.yaml --namespace accelerator-system
+kubectl apply -f  ~/projects/spring-on-k8s/k8s-resource.yaml --namespace accelerator-system
 ```
 
 ## Deleting the accelerator
 
+### With Tanzu CLI
+
 ```bash
- tanzu acc delete spring-on-k8s
+tanzu acc delete spring-on-k8s --kubeconfig $HOME/.kube/config
+```
+
+### With kubectl
+```bash
+kubectl delete -f  ~/projects/spring-on-k8s/k8s-resourse.yaml.yaml --namespace accelerator-system
 ``` 
 
 ## Contribute
