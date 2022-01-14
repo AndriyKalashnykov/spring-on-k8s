@@ -86,6 +86,6 @@ engine:
     - type: ReplaceText
       condition: "#includeTO == true"
       substitutions:
-      - text: "#includeTO"
+      - text: "#includeTO "
         with:  "''"
 
