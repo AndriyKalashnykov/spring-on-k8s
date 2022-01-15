@@ -20,9 +20,7 @@ class HelloController {
 }
 ```
 
-## How to use it?
-
-### Pre-requisites
+## Pre-requisites
 
 - [sdkman](https://sdkman.io/install)
 
@@ -42,12 +40,14 @@ class HelloController {
 - [carvel](https://carvel.dev/)
 - [Taznu CLI and plugins](https://docs-staging.vmware.com/en/Tanzu-Application-Platform/1.0/tap/GUID-install-general.html#cli-and-plugin) Optional (to publish Application Accelerator)
 
-Compile this app using a JDK:
+### Compiling application
+
 ```bash
 $ mvn clean package -Djava.version=17
 ```
 
-You can run this app locally:
+### Running application locally
+
 ```bash
 $ mvn clean spring-boot:run -Djava.version=17
 ```
@@ -110,7 +110,7 @@ You can now push this image to your favorite Docker registry:
 $ docker push andriykalashnykov/spring-on-k8s
 ```
 
-## Scan for [Log4j 2 CVE-2021-44228](https://www.docker.com/blog/apache-log4j-2-cve-2021-44228/) and other vulnerabilities 
+## Scanning for [Log4j 2 CVE-2021-44228](https://www.docker.com/blog/apache-log4j-2-cve-2021-44228/) and other vulnerabilities 
 
 ```bash
 # scan for all CVEs
@@ -119,19 +119,19 @@ $ docker scan andriykalashnykov/spring-on-k8s:latest
 $ docker scan andriykalashnykov/spring-on-k8s:latest  | grep 'Arbitrary Code Execution'
 ```
 
-### Use workaround to mitigate `Log4j 2 CVE-2021-44228` by creating Docker image with [custom buildpack](https://github.com/alexandreroman/cve-2021-44228-workaround-buildpack)
+### Using workaround to mitigate `Log4j 2 CVE-2021-44228` by creating Docker image with [custom buildpack](https://github.com/alexandreroman/cve-2021-44228-workaround-buildpack)
 
 ```bash
 $ pack build andriykalashnykov/spring-on-k8s:latest  -b ghcr.io/alexandreroman/cve-2021-44228-workaround-buildpack -b paketo-buildpacks/java --builder paketobuildpacks/builder:buildpackless-base
 ```
 
-## Run Docker image
+## Running Docker image
 
 ```bash
 $ docker run --rm -p 8080:8080 andriykalashnykov/spring-on-k8s:latest 
 ```
 
-## Deploy to Kubernetes
+## Deploying application to Kubernetes
 
 This project includes Kubernetes descriptors, so you can easily deploy
 this app to your favorite K8s cluster:
@@ -156,13 +156,13 @@ $ curl $(kubectl -n spring-on-k8s get svc app | sed -n '2 p' | awk '{print $4}')
 Hello Kubernetes!
 ```
 
-## Undeploy from Kubernetes
+## Undeploy application from Kubernetes
 
 ```bash
 $ kapp delete -a spring-on-k8s --yes
 ```
 
-## Configure VMware Tanzu Observability (Wavefront) for Spring Boot
+## Configure VMware Tanzu Observability (Wavefront)
 
 Wavefront for Spring Boot allows you to quickly configure your
 environment, so Spring Boot components send metrics, histograms,
@@ -227,13 +227,12 @@ you may also want to check `Applications -> Traces`
 
 ![Application Traces Dashboard](./docs/traces-dash.png "Application Traces Dashboard")
 
-## Application Accelerator for VMware Tanzu
-Creating Tanzu App Accelerators
+## Using Application Accelerator for VMware Tanzu
 
-[Creating Accelerators](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-index.html)
+[Creating Application Accelerators](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-index.html)
 and [Creating an accelerator.yaml](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-accelerator-yaml.html)
 
-## Publish the new accelerator
+## Publishing the accelerator
 
 ### With kubectl
 
@@ -250,7 +249,7 @@ kubectl apply -f  ~/projects/spring-on-k8s/k8s-resource.yaml --namespace acceler
 tanzu acc create spring-on-k8s --kubeconfig $HOME/.kube/config  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
 ```
 
-## Delete the accelerator
+## Deleting the accelerator
 
 ### With kubectl
 ```bash
