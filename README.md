@@ -131,7 +131,7 @@ $ pack build andriykalashnykov/spring-on-k8s:latest  -b ghcr.io/alexandreroman/c
 $ docker run --rm -p 8080:8080 andriykalashnykov/spring-on-k8s:latest 
 ```
 
-## Deploying to Kubernetes
+## Deploy to Kubernetes
 
 This project includes Kubernetes descriptors, so you can easily deploy
 this app to your favorite K8s cluster:
@@ -156,13 +156,13 @@ $ curl $(kubectl -n spring-on-k8s get svc app | sed -n '2 p' | awk '{print $4}')
 Hello Kubernetes!
 ```
 
-## Undeploying from Kubernetes
+## Undeploy from Kubernetes
 
 ```bash
 $ kapp delete -a spring-on-k8s --yes
 ```
 
-## VMware Tanzu Observability (Wavefront) for Spring Boot
+## Configure VMware Tanzu Observability (Wavefront) for Spring Boot
 
 Wavefront for Spring Boot allows you to quickly configure your
 environment, so Spring Boot components send metrics, histograms,
@@ -233,7 +233,7 @@ Creating Tanzu App Accelerators
 [Creating Accelerators](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-index.html)
 and [Creating an accelerator.yaml](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-accelerator-yaml.html)
 
-## Publishing the new accelerator
+## Publish the new accelerator
 
 ### With kubectl
 
@@ -250,7 +250,7 @@ kubectl apply -f  ~/projects/spring-on-k8s/k8s-resource.yaml --namespace acceler
 tanzu acc create spring-on-k8s --kubeconfig $HOME/.kube/config  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
 ```
 
-## Deleting the accelerator
+## Delete the accelerator
 
 ### With kubectl
 ```bash
