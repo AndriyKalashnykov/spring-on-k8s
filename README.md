@@ -36,6 +36,7 @@ class HelloController {
 - [Docker](https://docs.docker.com/engine/install/)
 - [Cloud Native Buildpacks](https://buildpacks.io/docs/tools/pack/)
 - [curl](https://help.ubidots.com/en/articles/2165289-learn-how-to-install-run-curl-on-windows-macosx-linux)
+- [jq](https://github.com/stedolan/jq/wiki/Installation)
 - [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [carvel](https://carvel.dev/)
