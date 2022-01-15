@@ -40,7 +40,7 @@ class HelloController {
 - [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [carvel](https://carvel.dev/)
-- [Taznu CLI and plugins](https://docs-staging.vmware.com/en/Tanzu-Application-Platform/1.0/tap/GUID-install-general.html#cli-and-plugin) Optional (to deploy Application Accelerator)
+- [Taznu CLI and plugins](https://docs-staging.vmware.com/en/Tanzu-Application-Platform/1.0/tap/GUID-install-general.html#cli-and-plugin) Optional (to publish Application Accelerator)
 
 Compile this app using a JDK:
 ```bash
