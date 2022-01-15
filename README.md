@@ -24,11 +24,22 @@ class HelloController {
 
 ### Pre-requisites
 
-Install and use JDK 17
-```bash
-sdk install java 17.0.1.12.1-amzn
-sdk use java 17.0.1.12.1-amzn
-```
+- [sdkman](https://sdkman.io/install)
+
+    Install and use JDK 17
+
+    ```bash
+    sdk install java 17.0.1.12.1-amzn
+    sdk use java 17.0.1.12.1-amzn
+    ```
+- [Apache Maven](https://maven.apache.org/install.html)
+- [Docker](https://docs.docker.com/engine/install/)
+- [Cloud Native Buildpacks](https://buildpacks.io/docs/tools/pack/)
+- [curl](https://help.ubidots.com/en/articles/2165289-learn-how-to-install-run-curl-on-windows-macosx-linux)
+- [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+- [carvel](https://carvel.dev/)
+- [Taznu CLI and plugins](https://docs-staging.vmware.com/en/Tanzu-Application-Platform/1.0/tap/GUID-install-general.html#cli-and-plugin) Optional (to deploy Application Accelerator)
 
 Compile this app using a JDK:
 ```bash
@@ -157,9 +168,8 @@ environment, so Spring Boot components send metrics, histograms,
 and traces/spans to the Wavefront service, for more details see
 how to [examine Spring Boot data in Wavefront dashboards and charts](https://docs.wavefront.com/wavefront_springboot.html#prerequisites-for-wavefront-spring-boot-starter)
 
+Now you can run the project and observe `api-token` and `Wavefront console URL (one-time use link)`:
 
-Now you can run the project and observe Wavefront libraries automatically negotiated and created `api-token`: `dc9addea-8bae-467e-8f04-6b5dcfad1527`
-and `one-time use link` : `https://wavefront.surf/us/8HggSpT5BD`
 
 ```bash
 $ mvn clean package
