@@ -20,72 +20,6 @@ class HelloController {
 }
 ```
 
-## VMware Tanzu Observability (Wavefront) for Spring Boot
-
-Wavefront for Spring Boot allows you to quickly configure your 
-environment, so Spring Boot components send metrics, histograms, 
-and traces/spans to the Wavefront service, for more details see
-how to [examine Spring Boot data in Wavefront dashboards and charts](https://docs.wavefront.com/wavefront_springboot.html#prerequisites-for-wavefront-spring-boot-starter)
-
-
-Now you can run the project and observe Wavefront libraries automatically negotiated and created `api-token`: `dc9addea-8bae-467e-8f04-6b5dcfad1527`
-and `one-time use link` : `https://wavefront.surf/us/8HggSpT5BD`
-
-```bash
-$ mvn clean package
-
-[INFO] Scanning for projects...
-  .   ____          _            __ _ _
- /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
-( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
- \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
-  '  |____| .__|_| |_|_| |_\__, | / / / /
- =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::                (v2.5.5)
-
-2022-01-12 Wed 16:28:04.185 INFO  59841 [    main] com.vmware.demos.springonk8s.ApplicationTests:55 : Starting ApplicationTests using Java 17.0.1 on akalashnyko-a02.vmware.com with PID 59841 (started by akalashnykov in /Users/akalashnykov/projects/spring-on-k8s)
-2022-01-12 Wed 16:28:04.186 INFO  59841 [    main] com.vmware.demos.springonk8s.ApplicationTests:659 : No active profile set, falling back to default profiles: default
-2022-01-12 Wed 16:28:04.820 INFO  59841 [    main] org.springframework.cloud.context.scope.GenericScope:283 : BeanFactory id=964ae347-b9e4-313e-8d67-3ac7de89d489
-2022-01-12 Wed 16:28:05.287 INFO  59841 [    main] org.springframework.boot.web.embedded.tomcat.TomcatWebServer:108 : Tomcat initialized with port(s): 0 (http)
-2022-01-12 Wed 16:28:05.295 INFO  59841 [    main] org.apache.catalina.core.StandardService:173 : Starting service [Tomcat]
-2022-01-12 Wed 16:28:05.296 INFO  59841 [    main] org.apache.catalina.core.StandardEngine:173 : Starting Servlet engine: [Apache Tomcat/9.0.53]
-2022-01-12 Wed 16:28:05.391 INFO  59841 [    main] org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/]:173 : Initializing Spring embedded WebApplicationContext
-2022-01-12 Wed 16:28:05.391 INFO  59841 [    main] org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext:290 : Root WebApplicationContext: initialization completed in 1189 ms
-2022-01-12 Wed 16:28:05.492 INFO  59841 [    main] io.micrometer.core.instrument.push.PushMeterRegistry:71 : publishing metrics for WavefrontMeterRegistry every 1m
-2022-01-12 Wed 16:28:07.116 INFO  59841 [    main] org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver:58 : Exposing 4 endpoint(s) beneath base path '/actuator'
-2022-01-12 Wed 16:28:07.201 INFO  59841 [    main] org.springframework.boot.web.embedded.tomcat.TomcatWebServer:220 : Tomcat started on port(s): 65081 (http) with context path ''
-2022-01-12 Wed 16:28:07.224 INFO  59841 [    main] com.vmware.demos.springonk8s.ApplicationTests:61 : Started ApplicationTests in 4.046 seconds (JVM running for 4.742)
-
-Your existing Wavefront account information has been restored from disk.
-
-To share this account, make sure the following is added to your configuration:
-
-        management.metrics.export.wavefront.api-token=dc9addea-8bae-467e-8f04-6b5dcfad1527
-        management.metrics.export.wavefront.uri=https://wavefront.surf
-
-Connect to your Wavefront dashboard using this one-time use link:
-https://wavefront.surf/us/8HggSpT5BD
-
-2022-01-12 Wed 16:28:07.773 INFO  59841 [o-auto-1-exec-1] org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/]:173 : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2022-01-12 Wed 16:28:07.773 INFO  59841 [o-auto-1-exec-1] org.springframework.web.servlet.DispatcherServlet:525 : Initializing Servlet 'dispatcherServlet'
-2022-01-12 Wed 16:28:07.775 INFO  59841 [o-auto-1-exec-1] org.springframework.web.servlet.DispatcherServlet:547 : Completed initialization in 2 ms
-[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.13 s - in com.vmware.demos.springonk8s.ApplicationTests
-[INFO] 
-[INFO] Results:
-[INFO] 
-[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0
-
-```
-
-Click on generated link [https://wavefront.surf/us/8HggSpT5BD](https://wavefront.surf/us/8HggSpT5BD) and navigate to `Dashboards -> Spring Boot`
-
-
-![Spring Boot Dashboard](./docs/spring-dash.png "Spring Boot Dashboard")
-
-you may also want to check `Applications -> Traces`
-
-![Application Traces Dashboard](./docs/traces-dash.png "Application Traces Dashboard")
-
 ## How to use it?
 
 ### Pre-requisites
@@ -215,6 +149,72 @@ Hello Kubernetes!
 ```bash
 $ kapp delete -a spring-on-k8s --yes
 ```
+
+## VMware Tanzu Observability (Wavefront) for Spring Boot
+
+Wavefront for Spring Boot allows you to quickly configure your
+environment, so Spring Boot components send metrics, histograms,
+and traces/spans to the Wavefront service, for more details see
+how to [examine Spring Boot data in Wavefront dashboards and charts](https://docs.wavefront.com/wavefront_springboot.html#prerequisites-for-wavefront-spring-boot-starter)
+
+
+Now you can run the project and observe Wavefront libraries automatically negotiated and created `api-token`: `dc9addea-8bae-467e-8f04-6b5dcfad1527`
+and `one-time use link` : `https://wavefront.surf/us/8HggSpT5BD`
+
+```bash
+$ mvn clean package
+
+[INFO] Scanning for projects...
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v2.5.5)
+
+2022-01-12 Wed 16:28:04.185 INFO  59841 [    main] com.vmware.demos.springonk8s.ApplicationTests:55 : Starting ApplicationTests using Java 17.0.1 on akalashnyko-a02.vmware.com with PID 59841 (started by akalashnykov in /Users/akalashnykov/projects/spring-on-k8s)
+2022-01-12 Wed 16:28:04.186 INFO  59841 [    main] com.vmware.demos.springonk8s.ApplicationTests:659 : No active profile set, falling back to default profiles: default
+2022-01-12 Wed 16:28:04.820 INFO  59841 [    main] org.springframework.cloud.context.scope.GenericScope:283 : BeanFactory id=964ae347-b9e4-313e-8d67-3ac7de89d489
+2022-01-12 Wed 16:28:05.287 INFO  59841 [    main] org.springframework.boot.web.embedded.tomcat.TomcatWebServer:108 : Tomcat initialized with port(s): 0 (http)
+2022-01-12 Wed 16:28:05.295 INFO  59841 [    main] org.apache.catalina.core.StandardService:173 : Starting service [Tomcat]
+2022-01-12 Wed 16:28:05.296 INFO  59841 [    main] org.apache.catalina.core.StandardEngine:173 : Starting Servlet engine: [Apache Tomcat/9.0.53]
+2022-01-12 Wed 16:28:05.391 INFO  59841 [    main] org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/]:173 : Initializing Spring embedded WebApplicationContext
+2022-01-12 Wed 16:28:05.391 INFO  59841 [    main] org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext:290 : Root WebApplicationContext: initialization completed in 1189 ms
+2022-01-12 Wed 16:28:05.492 INFO  59841 [    main] io.micrometer.core.instrument.push.PushMeterRegistry:71 : publishing metrics for WavefrontMeterRegistry every 1m
+2022-01-12 Wed 16:28:07.116 INFO  59841 [    main] org.springframework.boot.actuate.endpoint.web.EndpointLinksResolver:58 : Exposing 4 endpoint(s) beneath base path '/actuator'
+2022-01-12 Wed 16:28:07.201 INFO  59841 [    main] org.springframework.boot.web.embedded.tomcat.TomcatWebServer:220 : Tomcat started on port(s): 65081 (http) with context path ''
+2022-01-12 Wed 16:28:07.224 INFO  59841 [    main] com.vmware.demos.springonk8s.ApplicationTests:61 : Started ApplicationTests in 4.046 seconds (JVM running for 4.742)
+
+Your existing Wavefront account information has been restored from disk.
+
+To share this account, make sure the following is added to your configuration:
+
+        management.metrics.export.wavefront.api-token=dc9addea-8bae-467e-8f04-6b5dcfad1527
+        management.metrics.export.wavefront.uri=https://wavefront.surf
+
+Connect to your Wavefront dashboard using this one-time use link:
+https://wavefront.surf/us/8HggSpT5BD
+
+2022-01-12 Wed 16:28:07.773 INFO  59841 [o-auto-1-exec-1] org.apache.catalina.core.ContainerBase.[Tomcat].[localhost].[/]:173 : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2022-01-12 Wed 16:28:07.773 INFO  59841 [o-auto-1-exec-1] org.springframework.web.servlet.DispatcherServlet:525 : Initializing Servlet 'dispatcherServlet'
+2022-01-12 Wed 16:28:07.775 INFO  59841 [o-auto-1-exec-1] org.springframework.web.servlet.DispatcherServlet:547 : Completed initialization in 2 ms
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.13 s - in com.vmware.demos.springonk8s.ApplicationTests
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0
+
+```
+
+Click on generated link [https://wavefront.surf/us/8HggSpT5BD](https://wavefront.surf/us/8HggSpT5BD) and navigate to `Dashboards -> Spring Boot`
+
+
+![Spring Boot Dashboard](./docs/spring-dash.png "Spring Boot Dashboard")
+
+you may also want to check `Applications -> Traces`
+
+![Application Traces Dashboard](./docs/traces-dash.png "Application Traces Dashboard")
 
 ## Application Accelerator for VMware Tanzu
 Creating Tanzu App Accelerators
