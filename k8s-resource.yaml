@@ -4,6 +4,6 @@ metadata:
   name: spring-on-k8s
 spec:
   git:
-    url: https://github.com/AndriyKalashnykov/spring-on-k8s.git
+    url: https://github.com/AndriyKalashnykov/spring-on-k8s
     ref:
       branch: main
