@@ -17,6 +17,6 @@ then
     tanzu acc delete spring-on-k8s --kubeconfig $KC
 fi
 
-tanzu acc create spring-on-k8s --kubeconfig $KC  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
+#tanzu acc create spring-on-k8s --kubeconfig $KC  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
 
 
