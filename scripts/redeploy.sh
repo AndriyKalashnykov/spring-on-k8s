@@ -2,7 +2,7 @@
 
 # set -x
 
-git cmp "updated accelert"
+git cmp "updated accelerator"
 
 KC=~/.kube/config
 

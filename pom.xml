@@ -30,7 +30,7 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Wavefront -->
+<!--include-to
             <dependency>
                 <groupId>com.wavefront</groupId>
                 <artifactId>wavefront-spring-boot-bom</artifactId>
@@ -38,8 +38,8 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+include-to-->
 
-            <!-- Sleuth -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -67,100 +67,102 @@
             <scope>runtime</scope>
         </dependency>
 
-
-        <!-- wavefront -->
+<!--include-to
         <dependency>
             <groupId>com.wavefront</groupId>
             <artifactId>wavefront-spring-boot-starter</artifactId>
         </dependency>
+include-to-->
 
-        <!-- Sleuth -->
+<!--include-sleuth
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-sleuth</artifactId>
         </dependency>
+include-sleuth-->
 
-        <!-- OpenTracing -->
-<!--        <dependency>-->
-<!--            <groupId>io.opentracing.contrib</groupId>-->
-<!--            <artifactId>opentracing-spring-cloud-starter</artifactId>-->
-<!--            <version>0.5.9</version>-->
-<!--        </dependency>-->
+<!--include-opentracing
+                <dependency>
+                    <groupId>io.opentracing.contrib</groupId>
+                    <artifactId>opentracing-spring-cloud-starter</artifactId>
+                    <version>0.5.9</version>
+                </dependency>
+include-opentracing-->
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
-            <optional>true</optional>
-        </dependency>
+                <dependency>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-devtools</artifactId>
+                    <scope>runtime</scope>
+                    <optional>true</optional>
+                </dependency>
 
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
+                <dependency>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-test</artifactId>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
 
-    <build>
-        <finalName>${project.artifactId}</finalName>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.0.0</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
+            <build>
+                <finalName>${project.artifactId}</finalName>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.8.1</version>
                         <configuration>
-                            <rules>
-                                <requireMavenVersion>
-                                    <version>[3.0,)</version>
-                                </requireMavenVersion>
-                                <requireJavaVersion>
-                                    <version>[11,)</version>
-                                </requireJavaVersion>
-                            </rules>
+                            <source>${java.version}</source>
+                            <target>${java.version}</target>
                         </configuration>
-                    </execution>
-                </executions>
-            </plugin>
+                    </plugin>
 
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.0.0-M5</version>
-            </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.0.0</version>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireMavenVersion>
+                                            <version>[3.0,)</version>
+                                        </requireMavenVersion>
+                                        <requireJavaVersion>
+                                            <version>[11,)</version>
+                                        </requireJavaVersion>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
 
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <image>
-                        <name>${image.name}</name>
-                        <publish>${image.publish}</publish>
-                        <builder>${image.builder}</builder>
-                    </image>
-                    <docker>
-                        <publishRegistry>
-                            <username>${docker.publishRegistry.username}</username>
-                            <password>${docker.publishRegistry.password}</password>
-                            <url>${docker.publishRegistry.url}</url>
-                        </publishRegistry>
-                    </docker>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-</project>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>3.0.0-M5</version>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <image>
+                                <name>${image.name}</name>
+                                <publish>${image.publish}</publish>
+                                <builder>${image.builder}</builder>
+                            </image>
+                            <docker>
+                                <publishRegistry>
+                                    <username>${docker.publishRegistry.username}</username>
+                                    <password>${docker.publishRegistry.password}</password>
+                                    <url>${docker.publishRegistry.url}</url>
+                                </publishRegistry>
+                            </docker>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </project>

@@ -11,8 +11,8 @@ accelerator:
 
   options:
   - name: springBootVersion
-    # label: Spring Boot Version
-    # description: Spring Boot Version
+     label: Spring Boot Version
+     description: Spring Boot Version
     inputType: select
     choices:
       - value: 2.5.5
@@ -56,6 +56,22 @@ accelerator:
     dataType: boolean
     defaultValue: false
 
+  - name: libraryTO
+      label: TO implementation library
+      description: You can use either Spring Cloud Sleuth or OpenTracing to send trace data.
+    inputType: select
+    choices:
+      - value: SpringCloudSleuth
+        text: Spring Cloud Sleuth
+      - value: OpenTracing
+        text: OpenTracing
+    required: true
+    display: true
+    defaultValue: SpringCloudSleuth
+    dependsOn:
+      name: includeTO
+      value: true
+
 engine:
   merge:
   - include: [ "**" ]
@@ -81,6 +97,27 @@ engine:
       substitutions:
       - text: "docker.io"
         with: "#imageRegistryURL"
+    - type: ReplaceText
+      condition: "#includeTO == true"
+      substitutions:
+        - text: '<!--include-to'
+          with: "''"
+        - text: '--include-to-->'
+          with: "''"
+    - type: ReplaceText
+      condition: "#libraryTO == 'SpringCloudSleuth'"
+      substitutions:
+        - text: '<!--include-sleuth'
+          with: "''"
+        - text: '--include-sleuth-->'
+          with: "''"
+    - type: ReplaceText
+      condition: "#libraryTO == 'OpenTracing'"
+      substitutions:
+        - text: '<!--include-opentracing'
+          with: "''"
+        - text: '--include-opentracing-->'
+          with: "''"
   - include: [ "src/main/resources/application.yml" ]
     chain:
     - type: ReplaceText
