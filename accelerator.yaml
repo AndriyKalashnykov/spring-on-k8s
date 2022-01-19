@@ -70,7 +70,6 @@ accelerator:
     defaultValue: SpringCloudSleuth
     dependsOn:
       name: includeTO
-      value: true
 
 engine:
   merge:

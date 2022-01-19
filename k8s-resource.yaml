@@ -1,7 +1,7 @@
 apiVersion: accelerator.apps.tanzu.vmware.com/v1alpha1
 kind: Accelerator
 metadata:
-  name: k8s
+  name: spring-on-k8s
 spec:
   git:
     url: https://github.com/AndriyKalashnykov/spring-on-k8s.git
