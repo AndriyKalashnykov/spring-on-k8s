@@ -9,7 +9,7 @@ KC=~/.kube/config
 export KUBECONFIG=$KC
 
 SRV_SVC=$(kubectl get service -n accelerator-system acc-server| sed -n '2 p' | awk '{print $4}')
-
+tanzu acc list --server-url=http://$SRV_SVC
 CNT=$(tanzu acc list --server-url=http://$SRV_SVC } | grep -wc spring-on-k8s)
 
 if [ $CNT -eq 1 ]
