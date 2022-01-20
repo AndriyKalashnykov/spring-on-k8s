@@ -144,13 +144,13 @@ engine:
           with: "''"
         - text: 'include-opentracing-->'
           with: "''"
-  - include: [ "src/main/resources/application.yml" ]
-    chain:
-    - type: ReplaceText
-      condition: "#includeTO == true"
-      substitutions:
-      - text: "#includeTO "
-        with:  "''"
+#  - include: [ "src/main/resources/application.yml" ]
+#    chain:
+#    - type: ReplaceText
+#      condition: "#includeTO == true"
+#      substitutions:
+#      - text: "#includeTO "
+#        with:  "''"
 #    - type: ReplaceText
 #      condition: "#typeTO == 'Freemium'"
 #      substitutions:
