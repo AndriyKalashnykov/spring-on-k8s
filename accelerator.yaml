@@ -45,9 +45,9 @@ accelerator:
       - value: Regular
         text:  API Token + Instance URI
     defaultValue: Freemium
-    dependsOn:
-      name: includeTO
-      value: true
+#    dependsOn:
+#      name: includeTO
+#      value: true
 
   - name: apiToken
     label: API Token
