@@ -36,16 +36,14 @@ accelerator:
     defaultValue: false
 
   - name: typeTO
-    label: Tanzu Oservability (Wavefront) implementation library
-    description: You can use either Spring Cloud Sleuth or OpenTracing to send trace data.
+    label: Specify Tanzu Oservability (Wavefront) instance
+    description: Specify Tanzu Oservability (Wavefront) instance
     inputType: select
     choices:
       - value: Freemium
-        text: Freemium instance
+        text: Freemium Instance
       - value: Regular
-        text: Specify Wavefront Instance (API Token + Wavefront Instance URI)
-    required: true
-    display: true
+        text:  API Token + Instance URI
     defaultValue: Freemium
     dependsOn:
       name: includeTO
@@ -53,8 +51,6 @@ accelerator:
   - name: APIToken
     label: APIToken
     description: APIToken
-    display: true
-    required: true
     dependsOn:
       name: typeTO
       value: Regular
@@ -62,8 +58,6 @@ accelerator:
   - name: WavefrontInstance
     label: Wavefront Instance
     description: Wavefront Instance
-    display: true
-    required: true
     dependsOn:
       name: typeTO
       value: Regular
