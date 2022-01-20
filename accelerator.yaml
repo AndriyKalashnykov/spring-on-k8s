@@ -27,27 +27,6 @@ accelerator:
     display: true
     defaultValue: 2.5.5
 
-  - name: imageRegistryUser
-    label: Image Registry User
-    description: Image Registry User
-    display: true
-    required: true
-    defaultValue: andriykalashnykov
-
-  - name: imageRegistryPassword
-    label: Image Registry Password
-    description: Image Registry Password
-    display: true
-    required: true
-    defaultValue: YOUR-REGISTRY-PASSWORD    
-
-  - name: imageRegistryURL
-    label: Image Registry URL
-    description: Image Registry URL
-    display: true
-    required: true
-    defaultValue: docker.io    
-
   - name: includeTO
     label: Include Tanzu Oservability (Wavefront) Freemium
     description: Include Tanzu Oservability (Wavefront) Freemium
@@ -70,6 +49,26 @@ accelerator:
     defaultValue: SpringCloudSleuth
     dependsOn:
       name: includeTO
+  - name: imageRegistryUser
+    label: Image Registry User
+    description: Image Registry User
+    display: true
+    required: true
+    defaultValue: andriykalashnykov
+
+  - name: imageRegistryPassword
+    label: Image Registry Password
+    description: Image Registry Password
+    display: true
+    required: true
+    defaultValue: YOUR-REGISTRY-PASSWORD    
+
+  - name: imageRegistryURL
+    label: Image Registry URL
+    description: Image Registry URL
+    display: true
+    required: true
+    defaultValue: docker.io
 
 engine:
   merge:
