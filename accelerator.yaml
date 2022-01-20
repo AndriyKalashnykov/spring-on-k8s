@@ -166,9 +166,9 @@ engine:
       substitutions:
         - text: 'freemium-account-value'
           with: "'false'"
-        - text: "#TOtoken"
+        - text: '#TOtoken'
           with: "''"
-        - text: "API_Token"
+        - text: 'API_Token'
           with: "#apiToken"
-        - text: "wavefront_instance"
+        - text: 'wavefront_instance'
           with: "#WavefrontInstance"
