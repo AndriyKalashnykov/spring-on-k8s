@@ -47,9 +47,9 @@ accelerator:
         text:  API Token + Instance URI
     defaultValue: Regular
     required: true
-#    dependsOn:
-#      name: includeTO
-#      value: true
+    dependsOn:
+      name: includeTO
+      value: true
 
   - name: apiToken
     label: API Token
