@@ -168,7 +168,7 @@ engine:
         with: "'false'"
       - text: "#TOtoken"
         with: "''"
-#      - text: 'API_Token'
-#        with: "#apiToken"
+      - text: 'API_Token'
+        with: "#apiToken"
 #      - text: 'wavefront_instance'
 #        with: "#WavefrontInstance"
