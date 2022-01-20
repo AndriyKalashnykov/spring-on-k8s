@@ -131,22 +131,6 @@ engine:
         - text: 'include-to-->'
           with: "''"
     - type: ReplaceText
-      condition: "#typeTO == 'Freemium'"
-      substitutions:
-        - text: 'freemium-account-value'
-          with: "true"
-    - type: ReplaceText
-      condition: "#typeTO == 'Regular'"
-      substitutions:
-        - text: 'freemium-account-value'
-          with: "false"
-        - text: '#TOtoken'
-          with: "''"
-        - text: 'API_Token'
-          with: "#APIToken"
-        - text: 'wavefront_instance'
-          with: "#WavefrontInstance"
-    - type: ReplaceText
       condition: "#libraryTO == 'SpringCloudSleuth'"
       substitutions:
         - text: '<!--include-sleuth'
@@ -167,4 +151,19 @@ engine:
       substitutions:
       - text: "#includeTO "
         with:  "''"
-
+    - type: ReplaceText
+      condition: "#typeTO == 'Freemium'"
+      substitutions:
+        - text: 'freemium-account-value'
+          with: "true"
+    - type: ReplaceText
+      condition: "#typeTO == 'Regular'"
+      substitutions:
+        - text: 'freemium-account-value'
+          with: "false"
+        - text: '#TOtoken'
+          with: "''"
+        - text: 'API_Token'
+          with: "#APIToken"
+        - text: 'wavefront_instance'
+          with: "#WavefrontInstance"
