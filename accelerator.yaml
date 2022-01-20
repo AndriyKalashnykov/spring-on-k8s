@@ -108,50 +108,50 @@ engine:
       substitutions:
       - text: "spring-on-k8s"
         with: "#artifactId"
-#    - type: ReplaceText
-#      substitutions:
-#      - text: "2.5.5"
-#        with: "#springBootVersion"
-#    - type: ReplaceText
-#      substitutions:
-#      - text: "andriykalashnykov"
-#        with: "#imageRegistryUser"
-#    - type: ReplaceText
-#      substitutions:
-#      - text: "YOUR-REGISTRY-PASSWORD"
-#        with: "#imageRegistryPassword"
-#    - type: ReplaceText
-#      substitutions:
-#      - text: "docker.io"
-#        with: "#imageRegistryURL"
-#    - type: ReplaceText
-#      condition: "#includeTO == true"
-#      substitutions:
-#        - text: '<!--include-to'
-#          with: "''"
-#        - text: 'include-to-->'
-#          with: "''"
-#    - type: ReplaceText
-#      condition: "#libraryTO == 'SpringCloudSleuth'"
-#      substitutions:
-#        - text: '<!--include-sleuth'
-#          with: "''"
-#        - text: 'include-sleuth-->'
-#          with: "''"
-#    - type: ReplaceText
-#      condition: "#libraryTO == 'OpenTracing'"
-#      substitutions:
-#        - text: '<!--include-opentracing'
-#          with: "''"
-#        - text: 'include-opentracing-->'
-#          with: "''"
-#  - include: [ "src/main/resources/application.yml" ]
-#    chain:
-#    - type: ReplaceText
-#      condition: "#includeTO == true"
-#      substitutions:
-#      - text: "#includeTO "
-#        with:  "''"
+    - type: ReplaceText
+      substitutions:
+      - text: "2.5.5"
+        with: "#springBootVersion"
+    - type: ReplaceText
+      substitutions:
+      - text: "andriykalashnykov"
+        with: "#imageRegistryUser"
+    - type: ReplaceText
+      substitutions:
+      - text: "YOUR-REGISTRY-PASSWORD"
+        with: "#imageRegistryPassword"
+    - type: ReplaceText
+      substitutions:
+      - text: "docker.io"
+        with: "#imageRegistryURL"
+    - type: ReplaceText
+      condition: "#includeTO == true"
+      substitutions:
+        - text: '<!--include-to'
+          with: "''"
+        - text: 'include-to-->'
+          with: "''"
+    - type: ReplaceText
+      condition: "#libraryTO == 'SpringCloudSleuth'"
+      substitutions:
+        - text: '<!--include-sleuth'
+          with: "''"
+        - text: 'include-sleuth-->'
+          with: "''"
+    - type: ReplaceText
+      condition: "#libraryTO == 'OpenTracing'"
+      substitutions:
+        - text: '<!--include-opentracing'
+          with: "''"
+        - text: 'include-opentracing-->'
+          with: "''"
+  - include: [ "src/main/resources/application.yml" ]
+    chain:
+    - type: ReplaceText
+      condition: "#includeTO == true"
+      substitutions:
+      - text: "#includeTO "
+        with:  "''"
 #    - type: ReplaceText
 #      condition: "#typeTO == 'Freemium'"
 #      substitutions:
