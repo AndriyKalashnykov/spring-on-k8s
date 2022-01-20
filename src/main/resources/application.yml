@@ -7,15 +7,15 @@ management:
       exposure:
         include: health,info,prometheus,wavefront
 
-#token  metrics:
-#token    export:
-#token      wavefront:
-#token        api-token: "$API_Token"
-#token        uri: "$wavefront_instance"
+#TOtoken  metrics:
+#TOtoken    export:
+#TOtoken      wavefront:
+#TOtoken        api-token: "API_Token"
+#TOtoken        uri: "wavefront_instance"
 
 #includeTO wavefront:
 #includeTO   application:
-#includeTO   freemium-account: true
+#includeTO   freemium-account: freemium-account-value
 #includeTO     application:
 #includeTO     name: spring-on-k8s
 #includeTO     service: backend

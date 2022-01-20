@@ -35,6 +35,37 @@ accelerator:
     dataType: boolean
     defaultValue: false
 
+  - name: typeTO
+    label: Tanzu Oservability (Wavefront) implementation library
+    description: You can use either Spring Cloud Sleuth or OpenTracing to send trace data.
+    inputType: select
+    choices:
+      - value: Freemium
+        text: Freemium instance
+      - value: Regular
+        text: Specify Wavefront Instance (API Token + Wavefront Instance URI)
+    required: true
+    display: true
+    defaultValue: SpringCloudSleuth
+    dependsOn:
+      name: includeTO
+
+  - name: APIToken
+    label: APIToken
+    description: APIToken
+    display: true
+    required: true
+    dependsOn:
+      name: typeTO
+
+  - name: WavefrontInstance
+    label: Wavefront Instance
+    description: Wavefront Instance
+    display: true
+    required: true
+    dependsOn:
+      name: typeTO
+
   - name: libraryTO
     label: Tanzu Oservability (Wavefront) implementation library
     description: You can use either Spring Cloud Sleuth or OpenTracing to send trace data.
@@ -49,6 +80,7 @@ accelerator:
     defaultValue: SpringCloudSleuth
     dependsOn:
       name: includeTO
+
   - name: imageRegistryUser
     label: Image Registry User
     description: Image Registry User
@@ -102,6 +134,22 @@ engine:
           with: "''"
         - text: 'include-to-->'
           with: "''"
+    - type: ReplaceText
+      condition: "#typeTO == 'Freemium'"
+      substitutions:
+        - text: 'freemium-account-value'
+          with: "true"
+    - type: ReplaceText
+      condition: "#typeTO == 'Regular'"
+      substitutions:
+        - text: 'freemium-account-value'
+          with: "false"
+        - text: '#TOtoken'
+          with: "''"
+        - text: 'API_Token'
+          with: "#APIToken"
+        - text: 'wavefront_instance'
+          with: "#WavefrontInstance"
     - type: ReplaceText
       condition: "#libraryTO == 'SpringCloudSleuth'"
       substitutions:
