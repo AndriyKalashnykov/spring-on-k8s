@@ -170,5 +170,5 @@ engine:
         with: "''"
       - text: 'API_Token'
         with: "#apiToken"
-#      - text: 'wavefront_instance'
-#        with: "#WavefrontInstance"
+      - text: 'wavefront_instance'
+        with: "#WavefrontInstance"
