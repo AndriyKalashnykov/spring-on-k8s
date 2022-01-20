@@ -54,14 +54,13 @@ accelerator:
     description: API Token
     dependsOn:
       name: typeTO
-      value: Regular
 
   - name: wavefrontInstance
     label: Wavefront Instance
     description: Wavefront Instance
     dependsOn:
       name: typeTO
-      value: Regular
+
 #
 #  - name: libraryTO
 #    label: Tanzu Oservability (Wavefront) implementation library
