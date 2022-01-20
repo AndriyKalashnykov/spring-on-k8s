@@ -54,7 +54,7 @@ accelerator:
   - name: apiToken
     label: API Token
     description: API Token
-#    required: true
+    required: true
     dependsOn:
       name: typeTO
       value: Regular
@@ -62,7 +62,7 @@ accelerator:
   - name: wavefrontInstance
     label: Wavefront Instance
     description: Wavefront Instance
-#    required: true
+    required: true
     dependsOn:
       name: typeTO
       value: Regular
