@@ -101,21 +101,21 @@ engine:
       substitutions:
         - text: '<!--include-to'
           with: "''"
-        - text: '--include-to-->'
+        - text: 'include-to-->'
           with: "''"
     - type: ReplaceText
       condition: "#libraryTO == 'SpringCloudSleuth'"
       substitutions:
         - text: '<!--include-sleuth'
           with: "''"
-        - text: '--include-sleuth-->'
+        - text: 'include-sleuth-->'
           with: "''"
     - type: ReplaceText
       condition: "#libraryTO == 'OpenTracing'"
       substitutions:
         - text: '<!--include-opentracing'
           with: "''"
-        - text: '--include-opentracing-->'
+        - text: 'include-opentracing-->'
           with: "''"
   - include: [ "src/main/resources/application.yml" ]
     chain:
