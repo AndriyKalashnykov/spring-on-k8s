@@ -51,8 +51,8 @@ accelerator:
   - name: apiToken
     label: API Token
     description: API Token
-    dependsOn:
-      name: includeTO
+#    dependsOn:
+#      name: includeTO
 #
 #  - name: wavefrontInstance
 #    label: Wavefront Instance
