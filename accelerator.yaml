@@ -34,6 +34,7 @@ accelerator:
     display: true
     dataType: boolean
     defaultValue: true
+    required: true
 
   - name: typeTO
     label: Specify Tanzu Oservability (Wavefront) instance
@@ -45,6 +46,7 @@ accelerator:
       - value: Regular
         text:  API Token + Instance URI
     defaultValue: Freemium
+    required: true
 #    dependsOn:
 #      name: includeTO
 #      value: true
@@ -52,6 +54,7 @@ accelerator:
   - name: apiToken
     label: API Token
     description: API Token
+    required: true
     dependsOn:
       name: typeTO
       value: Regular
@@ -59,6 +62,7 @@ accelerator:
   - name: wavefrontInstance
     label: Wavefront Instance
     description: Wavefront Instance
+    required: true
     dependsOn:
       name: typeTO
       value: Regular
