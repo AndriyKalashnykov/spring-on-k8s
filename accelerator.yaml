@@ -35,18 +35,18 @@ accelerator:
     dataType: boolean
     defaultValue: false
 
-#  - name: typeTO
-#    label: Specify Tanzu Oservability (Wavefront) instance
-#    description: Specify Tanzu Oservability (Wavefront) instance
-#    inputType: select
-#    choices:
-#      - value: Freemium
-#        text: Freemium Instance
-#      - value: Regular
-#        text:  API Token + Instance URI
-#    defaultValue: Freemium
-#    dependsOn:
-#      name: includeTO
+  - name: typeTO
+    label: Specify Tanzu Oservability (Wavefront) instance
+    description: Specify Tanzu Oservability (Wavefront) instance
+    inputType: select
+    choices:
+      - value: Freemium
+        text: Freemium Instance
+      - value: Regular
+        text:  API Token + Instance URI
+    defaultValue: Freemium
+    dependsOn:
+      name: includeTO
 #
 #  - name: apiToken
 #    label: API Token
