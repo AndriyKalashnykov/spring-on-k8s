@@ -46,7 +46,7 @@ accelerator:
         text: Specify Wavefront Instance (API Token + Wavefront Instance URI)
     required: true
     display: true
-    defaultValue: SpringCloudSleuth
+    defaultValue: Freemium
     dependsOn:
       name: includeTO
 
@@ -57,6 +57,7 @@ accelerator:
     required: true
     dependsOn:
       name: typeTO
+      value: Regular
 
   - name: WavefrontInstance
     label: Wavefront Instance
@@ -65,6 +66,7 @@ accelerator:
     required: true
     dependsOn:
       name: typeTO
+      value: Regular
 
   - name: libraryTO
     label: Tanzu Oservability (Wavefront) implementation library
