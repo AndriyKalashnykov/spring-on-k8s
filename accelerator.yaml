@@ -53,7 +53,6 @@ accelerator:
     description: API Token
     dependsOn:
       name: includeTO
-      value: true
 #
 #  - name: wavefrontInstance
 #    label: Wavefront Instance
