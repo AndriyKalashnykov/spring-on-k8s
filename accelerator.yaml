@@ -47,10 +47,11 @@ accelerator:
     defaultValue: Freemium
     dependsOn:
       name: includeTO
+      value: true
 
-  - name: apiToken
-    label: API Token
-    description: API Token
+#  - name: apiToken
+#    label: API Token
+#    description: API Token
 #    dependsOn:
 #      name: includeTO
 #
