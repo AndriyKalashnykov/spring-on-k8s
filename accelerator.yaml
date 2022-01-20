@@ -165,7 +165,7 @@ engine:
       condition: "#typeTO == 'Regular'"
       substitutions:
         - text: 'freemium-account-value'
-          with: "false"
+          with: "'false'"
 #        - text: "#TOtoken"
 #          with: "''"
 #        - text: "API_Token"
