@@ -49,34 +49,34 @@ accelerator:
       name: includeTO
       value: true
 
-  - name: apiToken
-    label: API Token
-    description: API Token
-    dependsOn:
-      name: typeTO
-      value: Regular
-
-  - name: wavefrontInstance
-    label: Wavefront Instance
-    description: Wavefront Instance
-    dependsOn:
-      name: typeTO
-      value: Regular
-#
-#  - name: libraryTO
-#    label: Tanzu Oservability (Wavefront) implementation library
-#    description: You can use either Spring Cloud Sleuth or OpenTracing to send trace data.
-#    inputType: select
-#    choices:
-#      - value: SpringCloudSleuth
-#        text: Spring Cloud Sleuth
-#      - value: OpenTracing
-#        text: OpenTracing
-#    required: true
-#    display: true
-#    defaultValue: SpringCloudSleuth
+#  - name: apiToken
+#    label: API Token
+#    description: API Token
 #    dependsOn:
-#      name: includeTO
+#      name: typeTO
+#      value: Regular
+#
+#  - name: wavefrontInstance
+#    label: Wavefront Instance
+#    description: Wavefront Instance
+#    dependsOn:
+#      name: typeTO
+#      value: Regular
+
+  - name: libraryTO
+    label: Tanzu Oservability (Wavefront) implementation library
+    description: You can use either Spring Cloud Sleuth or OpenTracing to send trace data.
+    inputType: select
+    choices:
+      - value: SpringCloudSleuth
+        text: Spring Cloud Sleuth
+      - value: OpenTracing
+        text: OpenTracing
+    required: true
+    display: true
+    defaultValue: SpringCloudSleuth
+    dependsOn:
+      name: includeTO
 
   - name: imageRegistryUser
     label: Image Registry User
