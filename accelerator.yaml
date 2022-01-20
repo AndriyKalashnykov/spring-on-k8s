@@ -28,8 +28,8 @@ accelerator:
     defaultValue: 2.5.5
 
   - name: includeTO
-    label: Include Tanzu Oservability (Wavefront) Freemium
-    description: Include Tanzu Oservability (Wavefront) Freemium
+    label: Include Tanzu Oservability (Wavefront)
+    description: Include Tanzu Oservability (Wavefront)
     inputType: toggle
     display: true
     dataType: boolean
