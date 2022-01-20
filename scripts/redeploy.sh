@@ -2,7 +2,7 @@
 
 set -x
 
-git cmp "updated accelerator"
+git add -A && git commit -S -m "updated accelerator" && git push;
 
 KC=~/.kube/config
 
