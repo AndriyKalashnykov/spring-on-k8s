@@ -48,14 +48,14 @@ accelerator:
     dependsOn:
       name: includeTO
 
-  - name: APIToken
-    label: APIToken
-    description: APIToken
+  - name: apiToken
+    label: API Token
+    description: API Token
     dependsOn:
       name: typeTO
       value: Regular
 
-  - name: WavefrontInstance
+  - name: wavefrontInstance
     label: Wavefront Instance
     description: Wavefront Instance
     dependsOn:
@@ -154,16 +154,16 @@ engine:
     - type: ReplaceText
       condition: "#typeTO == 'Freemium'"
       substitutions:
-        - text: 'freemium-account-value'
+        - text: "freemium-account-value"
           with: "true"
     - type: ReplaceText
       condition: "#typeTO == 'Regular'"
       substitutions:
-        - text: 'freemium-account-value'
+        - text: "freemium-account-value"
           with: "false"
-        - text: '#TOtoken'
+        - text: "#TOtoken"
           with: "''"
-        - text: 'API_Token'
-          with: "#APIToken"
-        - text: 'wavefront_instance'
+        - text: "API_Token"
+          with: "#apiToken"
+        - text: "wavefront_instance"
           with: "#WavefrontInstance"
