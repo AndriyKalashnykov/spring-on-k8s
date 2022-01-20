@@ -16,7 +16,6 @@ export KUBECONFIG=$KC
 #fi
 #tanzu acc create spring-on-k8s --kubeconfig $KC  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
 
-
 kubectl delete -f  ~/projects/spring-on-k8s/k8s-resource.yaml --namespace accelerator-system
 kubectl apply -f  ~/projects/spring-on-k8s/k8s-resource.yaml --namespace accelerator-system
 
