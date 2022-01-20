@@ -47,13 +47,13 @@ accelerator:
     defaultValue: Freemium
     dependsOn:
       name: includeTO
-#
-#  - name: apiToken
-#    label: API Token
-#    description: API Token
-#    dependsOn:
-#      name: typeTO
-#      value: Regular
+
+  - name: apiToken
+    label: API Token
+    description: API Token
+    dependsOn:
+      name: typeTO
+      value: Regular
 #
 #  - name: wavefrontInstance
 #    label: Wavefront Instance
