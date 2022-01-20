@@ -39,7 +39,6 @@
                 <scope>import</scope>
             </dependency>
 include-to-->
-
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -85,6 +84,7 @@ include-sleuth-->
                     <version>0.5.9</version>
                 </dependency>
 include-opentracing-->
+
                 <dependency>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-devtools</artifactId>
