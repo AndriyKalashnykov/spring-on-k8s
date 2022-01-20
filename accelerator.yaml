@@ -33,7 +33,7 @@ accelerator:
     inputType: toggle
     display: true
     dataType: boolean
-    defaultValue: false
+    defaultValue: true
 
   - name: typeTO
     label: Specify Tanzu Oservability (Wavefront) instance
