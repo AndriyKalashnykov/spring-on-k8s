@@ -171,4 +171,4 @@ engine:
       - text: 'API_Token'
         with: "#apiToken"
       - text: 'wavefront_instance'
-        with: "#WavefrontInstance"
+        with: "#wavefrontInstance"
