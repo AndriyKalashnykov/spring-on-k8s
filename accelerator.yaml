@@ -45,7 +45,7 @@ accelerator:
         text: Freemium Instance
       - value: Regular
         text:  API Token + Instance URI
-    defaultValue: Freemium
+    defaultValue: Regular
     required: true
 #    dependsOn:
 #      name: includeTO
@@ -156,16 +156,16 @@ engine:
       substitutions:
       - text: "#includeTO "
         with:  "''"
-#    - type: ReplaceText
-#      condition: "#typeTO == 'Freemium'"
-#      substitutions:
-#        - text: "freemium-account-value"
-#          with: "true"
-#    - type: ReplaceText
-#      condition: "#typeTO == 'Regular'"
-#      substitutions:
-#        - text: "freemium-account-value"
-#          with: "false"
+    - type: ReplaceText
+      condition: "#typeTO == 'Freemium'"
+      substitutions:
+        - text: "freemium-account-value"
+          with: "true"
+    - type: ReplaceText
+      condition: "#typeTO == 'Regular'"
+      substitutions:
+        - text: "freemium-account-value"
+          with: "false"
 #        - text: "#TOtoken"
 #          with: "''"
 #        - text: "API_Token"
