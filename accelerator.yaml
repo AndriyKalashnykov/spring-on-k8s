@@ -36,7 +36,7 @@ accelerator:
     defaultValue: false
 
   - name: libraryTO
-    label: TO implementation library
+    label: Tanzu Oservability (Wavefront) implementation library
     description: You can use either Spring Cloud Sleuth or OpenTracing to send trace data.
     inputType: select
     choices:
