@@ -38,7 +38,7 @@ class HelloController {
 - [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [carvel](https://carvel.dev/)
-- [Taznu CLI and plugins](https://docs-staging.vmware.com/en/Tanzu-Application-Platform/1.0/tap/GUID-install-general.html#cli-and-plugin) Optional (to publish Application Accelerator)
+- [Taznu CLI and plugins](https://docs-staging.vmware.com/en/Tanzu-Application-Platform/1.0/tap/GUID-install-general.html#cli-and-plugin) - Optional
 
 ### Compiling application
 
@@ -169,8 +169,44 @@ environment, so Spring Boot components send metrics, histograms,
 and traces/spans to the Wavefront service, for more details see
 how to [examine Spring Boot data in Wavefront dashboards and charts](https://docs.wavefront.com/wavefront_springboot.html#prerequisites-for-wavefront-spring-boot-starter)
 
-Now you can run the project and observe `api-token` and `Wavefront console URL (one-time use link)`:
+### Sending Data From Spring Boot Into Wavefront
 
+You can send data from your Spring Boot applications into Wavefront using the Wavefront for Spring Boot Starter 
+(all users) or the Wavefront Spring Boot integration (Wavefront customers and trial users).
+
+* **Freemium** :  All users can run the Spring Boot Starter with the default settings to view their data in the Wavefront Freemium instance. Certain limitations apply, for example, alerts are not available, but you don’t have to sign up.
+* **Wavefront Customer or Trial User** : Wavefront customers or trial users can modify the default Wavefront Spring Boot Starter to send data to their cluster. [You can sign up for a free 30-day trial here](https://tanzu.vmware.com/observability)
+
+To configure `Freeminum` modify [application.yaml](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/2d109fbb2ea2a5c3c4a99a55c6daa9c8700e78f0/src/main/resources/application.yml)
+by specifying `freemium-account : true`, setting `name` of the overarching application and current `service` name in particular.
+
+```yaml
+wavefront:
+  freemium-account: true
+  application:
+    name: spring-on-k8s
+    service: backend
+```
+
+To configure `Wavefront Customer or Trial User` modify [application.yaml](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/2d109fbb2ea2a5c3c4a99a55c6daa9c8700e78f0/src/main/resources/application.yml)
+by specifying `freemium-account : false` and providing `uri` and `api-token` of the Wavefront instance.
+
+```yaml
+wavefront:
+  freemium-account: false
+  application:
+    name: spring-on-k8s
+    service: backend
+
+management:
+  metrics:
+    export:
+      wavefront:
+        api-token: "$API_Token"
+        uri: "$wavefront_instance"
+```
+
+Now you can run the project and observe link to the Wavefront dashboard:
 
 ```bash
 $ mvn clean package
@@ -218,7 +254,7 @@ https://wavefront.surf/us/8HggSpT5BD
 
 ```
 
-Click on generated link [https://wavefront.surf/us/8HggSpT5BD](https://wavefront.surf/us/8HggSpT5BD) and navigate to `Dashboards -> Spring Boot`
+Click on Wavefront dashboard link [https://wavefront.surf/us/8HggSpT5BD](https://wavefront.surf/us/8HggSpT5BD) and navigate to `Dashboards -> Spring Boot`
 
 
 ![Spring Boot Dashboard](./docs/spring-dash.png "Spring Boot Dashboard")

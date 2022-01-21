@@ -14,9 +14,8 @@ management:
 #TOtoken        uri: "wavefront_instance"
 
 #includeTO wavefront:
-#includeTO   application:
 #includeTO   freemium-account: freemium-account-value
-#includeTO     application:
+#includeTO   application:
 #includeTO     name: spring-on-k8s
 #includeTO     service: backend
 
