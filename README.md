@@ -213,7 +213,7 @@ management:
 We also need to configure Wavefront dependencies based on how you want to send data to Wavefront. Two options are available 
 `Spring Cloud Sleuth` and `OpenTracing`.
 
-#### Sending data to `Wavefrront` with `Spring Cloud Sleuth`
+#### Sending data to `Wavefront` with `Spring Cloud Sleuth`
 
 Modfy Maven project file [`pom.xml`](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/831fc8364ab39b8eacb854aa18b51ca8ba2ff704/pom.xml)
 
@@ -250,7 +250,7 @@ Modfy Maven project file [`pom.xml`](https://github.com/AndriyKalashnykov/spring
 </dependencies>
 ```
 
-#### Sending data to `Wavefrront` with `OpenTracing`
+#### Sending data to `Wavefront` with `OpenTracing`
 
 Modfy Maven project file [`pom.xml`](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/831fc8364ab39b8eacb854aa18b51ca8ba2ff704/pom.xml)
 
