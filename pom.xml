@@ -39,6 +39,7 @@
                 <scope>import</scope>
             </dependency>
 include-to-->
+<!--include-sleuth
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -46,6 +47,7 @@ include-to-->
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+include-sleuth-->
         </dependencies>
     </dependencyManagement>
 

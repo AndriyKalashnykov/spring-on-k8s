@@ -177,6 +177,8 @@ You can send data from your Spring Boot applications into Wavefront using the Wa
 * **Freemium** :  All users can run the Spring Boot Starter with the default settings to view their data in the Wavefront Freemium instance. Certain limitations apply, for example, alerts are not available, but you don’t have to sign up.
 * **Wavefront Customer or Trial User** : Wavefront customers or trial users can modify the default Wavefront Spring Boot Starter to send data to their cluster. [You can sign up for a free 30-day trial here](https://tanzu.vmware.com/observability)
 
+#### Sending Data From Spring Boot Into Wavefront - Freemium
+
 To configure `Freeminum` modify [application.yaml](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/2d109fbb2ea2a5c3c4a99a55c6daa9c8700e78f0/src/main/resources/application.yml)
 by specifying `freemium-account : true`, setting `name` of the overarching application and current `service` name in particular.
 
@@ -187,6 +189,8 @@ wavefront:
     name: spring-on-k8s
     service: backend
 ```
+
+#### Sending Data From Spring Boot Into Wavefront - Wavefront Customer or Trial User
 
 To configure `Wavefront Customer or Trial User` modify [application.yaml](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/2d109fbb2ea2a5c3c4a99a55c6daa9c8700e78f0/src/main/resources/application.yml)
 by specifying `freemium-account : false` and providing `uri` and `api-token` of the Wavefront instance.
@@ -204,6 +208,77 @@ management:
       wavefront:
         api-token: "$API_Token"
         uri: "$wavefront_instance"
+```
+
+We also need to configure Wavefront dependencies based on how you want to send data to Wavefront. Two options are available 
+`Spring Cloud Sleuth` and `OpenTracing`.
+
+#### Sending data to `Wavefrront` with `Spring Cloud Sleuth`
+
+Modfy Maven project file [`pom.xml`](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/831fc8364ab39b8eacb854aa18b51ca8ba2ff704/pom.xml)
+
+```xml
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>com.wavefront</groupId>
+      <artifactId>wavefront-spring-boot-bom</artifactId>
+      <version>2.2.0</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-dependencies</artifactId>
+      <version>2020.0.4</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependencies>
+  <dependency>
+    <groupId>com.wavefront</groupId>
+    <artifactId>wavefront-spring-boot-starter</artifactId>
+  </dependency>                   
+  <dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-sleuth</artifactId>
+  </dependency>
+</dependencies>
+```
+
+#### Sending data to `Wavefrront` with `OpenTracing`
+
+Modfy Maven project file [`pom.xml`](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/831fc8364ab39b8eacb854aa18b51ca8ba2ff704/pom.xml)
+
+```xml
+<dependencyManagement>
+  <dependencies>
+    <dependency>
+      <groupId>com.wavefront</groupId>
+      <artifactId>wavefront-spring-boot-bom</artifactId>
+      <version>2.2.0</version>
+      <type>pom</type>
+      <scope>import</scope>
+    </dependency>
+  </dependencies>
+</dependencyManagement>
+
+<dependencies>
+  <dependency>
+    <groupId>com.wavefront</groupId>
+    <artifactId>wavefront-spring-boot-starter</artifactId>
+  </dependency>
+  
+  <dependency>
+    <groupId>io.opentracing.contrib</groupId>
+    <artifactId>opentracing-spring-cloud-starter</artifactId>
+    <version>0.5.9</version>
+  </dependency>
+</dependencies>
 ```
 
 Now you can run the project and observe link to the Wavefront dashboard:
