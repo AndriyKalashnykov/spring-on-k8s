@@ -179,7 +179,7 @@ You can send data from your Spring Boot applications into Wavefront using the Wa
 
 #### Sending Data From Spring Boot Into Wavefront - Freemium
 
-To configure `Freeminum` modify [application.yaml](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/2d109fbb2ea2a5c3c4a99a55c6daa9c8700e78f0/src/main/resources/application.yml)
+To configure `Freeminum` modify [application.yml](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/2d109fbb2ea2a5c3c4a99a55c6daa9c8700e78f0/src/main/resources/application.yml)
 by specifying `freemium-account : true`, setting `name` of the overarching application and current `service` name in particular.
 
 ```yaml
@@ -192,7 +192,7 @@ wavefront:
 
 #### Sending Data From Spring Boot Into Wavefront - Wavefront Customer or Trial User
 
-To configure `Wavefront Customer or Trial User` modify [application.yaml](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/2d109fbb2ea2a5c3c4a99a55c6daa9c8700e78f0/src/main/resources/application.yml)
+To configure `Wavefront Customer or Trial User` modify [application.yml](https://github.com/AndriyKalashnykov/spring-on-k8s/blob/2d109fbb2ea2a5c3c4a99a55c6daa9c8700e78f0/src/main/resources/application.yml)
 by specifying `freemium-account : false` and providing `uri` and `api-token` of the Wavefront instance.
 
 ```yaml
