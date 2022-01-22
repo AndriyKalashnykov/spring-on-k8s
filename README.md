@@ -338,7 +338,7 @@ you may also want to check `Applications -> Traces`
 
 ![Application Traces Dashboard](./docs/traces-dash.png "Application Traces Dashboard")
 
-## Using Application Accelerator for VMware Tanzu
+## Application Accelerator for VMware Tanzu
 
 [Creating Application Accelerators](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-index.html)
 and [Creating an accelerator.yaml](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-accelerator-yaml.html)
