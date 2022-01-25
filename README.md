@@ -1,3 +1,4 @@
+[![test](https://github.com/AndriyKalashnykov/spring-on-k8s/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/AndriyKalashnykov/spring-on-k8s/actions/workflows/test.yml)
 # Running Spring Boot app on Kubernetes
 
 This project describes how to run Spring Boot app on Kubernetes.
