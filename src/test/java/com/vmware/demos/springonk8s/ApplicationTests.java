@@ -36,8 +36,13 @@ public class ApplicationTests {
     }
 
     @Test
-    public void testGreeting() {
-        assertThat(webClient.getForObject("/", String.class)).isEqualTo("Hello world!");
+    public void testHello() {
+        assertThat(webClient.getForObject("/v1/hello", String.class)).isEqualTo("Hello world!");
+    }
+
+    @Test
+    public void testBye() {
+        assertThat(webClient.getForObject("/v1/bye", String.class)).isEqualTo("Bye world!");
     }
 
     @Test

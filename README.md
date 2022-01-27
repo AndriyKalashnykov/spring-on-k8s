@@ -44,23 +44,30 @@ class HelloController {
 ### Compiling application
 
 ```bash
-$ mvn clean package -Djava.version=17
+mvn clean package -Djava.version=17
 ```
 
 ### Running application locally
 
 ```bash
-$ mvn clean spring-boot:run -Djava.version=17
+mvn clean spring-boot:run -Djava.version=17
 ```
 
 The app is available at [http://localhost:8080](http://localhost:8080)
 
 ```bash
-$ curl localhost:8080
+curl localhost:8080/v1/hello
 Hello world!
+
+curl localhost:8080/v1/bye
+Bye world!
 ```
+
+#### Application health, configurations etc.
+
 ```bash
-$ curl http://localhost:8080/actuator | jq .
+curl http://localhost:8080/actuator | jq .
+
 {
   "_links": {
     "self": {
@@ -83,6 +90,12 @@ $ curl http://localhost:8080/actuator | jq .
 }
 ```
 
+#### Application REST API documentation with Swagger UI
+
+Open Swagger UI page [http://localhost:8080/swagger-ui/](http://localhost:8080/swagger-ui/)
+
+![Swagger UI](./docs/swagger-ui.png "Swagger UI")
+
 ## Creating a Docker image
 
 Our goal is to run this app in a K8s cluster: you first need to package
@@ -93,9 +106,9 @@ this app in a Docker image.
 Use [Cloud Native Buildpacks](https://buildpacks.io) to build & push your Docker image:
 
 ```bash 
-$ export DOCKER_LOGIN=andriykalashnykov
-$ export DOCKER_PWD=YOUR-REGISTRY-PASSWORD
-$ mvn clean spring-boot:build-image -Djava.version=17 -Dimage.publish=true -Dimage.name=andriykalashnykov/spring-on-k8s:latest -Ddocker.publishRegistry.username=${DOCKER_LOGIN} -Ddocker.publishRegistry.password=${DOCKER_PWD}
+export DOCKER_LOGIN=andriykalashnykov
+export DOCKER_PWD=YOUR-REGISTRY-PASSWORD
+mvn clean spring-boot:build-image -Djava.version=17 -Dimage.publish=true -Dimage.name=andriykalashnykov/spring-on-k8s:latest -Ddocker.publishRegistry.username=${DOCKER_LOGIN} -Ddocker.publishRegistry.password=${DOCKER_PWD}
 ```
 
 ### Docker
@@ -103,33 +116,33 @@ If you <i>still</i> want to do it with Docker - here's a proper (multistage, non
 
 Run this command to build this image:
 ```bash
-$ docker build -t andriykalashnykov/spring-on-k8s --build-arg JDK_VENDOR=openjdk --build-arg JDK_VERSION=17 .
+docker build -t andriykalashnykov/spring-on-k8s --build-arg JDK_VENDOR=openjdk --build-arg JDK_VERSION=17 .
 ```
 
 You can now push this image to your favorite Docker registry:
 ```bash
-$ docker push andriykalashnykov/spring-on-k8s
+docker push andriykalashnykov/spring-on-k8s
 ```
 
 ## Scanning for [Log4j 2 CVE-2021-44228](https://www.docker.com/blog/apache-log4j-2-cve-2021-44228/) and other vulnerabilities 
 
 ```bash
 # scan for all CVEs
-$ docker scan andriykalashnykov/spring-on-k8s:latest 
+docker scan andriykalashnykov/spring-on-k8s:latest 
 # scan for CVE-2021-44228
-$ docker scan andriykalashnykov/spring-on-k8s:latest  | grep 'Arbitrary Code Execution'
+docker scan andriykalashnykov/spring-on-k8s:latest  | grep 'Arbitrary Code Execution'
 ```
 
 ### Using workaround to mitigate `Log4j 2 CVE-2021-44228` by creating Docker image with [custom buildpack](https://github.com/alexandreroman/cve-2021-44228-workaround-buildpack)
 
 ```bash
-$ pack build andriykalashnykov/spring-on-k8s:latest  -b ghcr.io/alexandreroman/cve-2021-44228-workaround-buildpack -b paketo-buildpacks/java --builder paketobuildpacks/builder:buildpackless-base
+pack build andriykalashnykov/spring-on-k8s:latest  -b ghcr.io/alexandreroman/cve-2021-44228-workaround-buildpack -b paketo-buildpacks/java --builder paketobuildpacks/builder:buildpackless-base
 ```
 
 ## Running Docker image
 
 ```bash
-$ docker run --rm -p 8080:8080 andriykalashnykov/spring-on-k8s:latest 
+docker run --rm -p 8080:8080 andriykalashnykov/spring-on-k8s:latest 
 ```
 
 ## Deploying application to Kubernetes
@@ -138,12 +151,13 @@ This project includes Kubernetes descriptors, so you can easily deploy
 this app to your favorite K8s cluster:
 
 ```bash
-$ ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
+ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
 ```
 
 Using this command, monitor the allocated IP address for this app:
 ```bash
-$ kubectl -n spring-on-k8s get svc
+kubectl -n spring-on-k8s get svc
+
 NAME     TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)        AGE
 app-lb   LoadBalancer   xx.100.200.204   xx.205.141.26   80:31633/TCP   90s
 ```
@@ -153,14 +167,15 @@ At some point, you should see an IP address under the column `EXTERNAL-IP`.
 If you hit this address, you will get a greeting message from the app:
 
 ```bash
-$ curl $(kubectl -n spring-on-k8s get svc app | sed -n '2 p' | awk '{print $4}')
+curl $(kubectl -n spring-on-k8s get svc app | sed -n '2 p' | awk '{print $4}')
+
 Hello Kubernetes!
 ```
 
 ## Undeploy application from Kubernetes
 
 ```bash
-$ kapp delete -a spring-on-k8s --yes
+kapp delete -a spring-on-k8s --yes
 ```
 
 ## Configure VMware Tanzu Observability (Wavefront)
@@ -285,7 +300,7 @@ Modfy Maven project file [`pom.xml`](https://github.com/AndriyKalashnykov/spring
 Now you can run the project and observe link to the Wavefront dashboard:
 
 ```bash
-$ mvn clean package
+mvn clean package
 
 [INFO] Scanning for projects...
   .   ____          _            __ _ _
