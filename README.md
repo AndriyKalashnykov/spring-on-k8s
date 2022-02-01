@@ -31,15 +31,15 @@ class HelloController {
     sdk install java 17.0.1.12.1-amzn
     sdk use java 17.0.1.12.1-amzn
     ```
-- [Apache Maven](https://maven.apache.org/install.html)
-- [Docker](https://docs.docker.com/engine/install/)
-- [Cloud Native Buildpacks](https://buildpacks.io/docs/tools/pack/)
-- [curl](https://help.ubidots.com/en/articles/2165289-learn-how-to-install-run-curl-on-windows-macosx-linux)
-- [jq](https://github.com/stedolan/jq/wiki/Installation)
-- [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
-- [carvel](https://carvel.dev/)
-- [Taznu CLI and plugins](https://docs-staging.vmware.com/en/Tanzu-Application-Platform/1.0/tap/GUID-install-general.html#cli-and-plugin) - Optional
+* [Apache Maven](https://maven.apache.org/install.html)
+* [Docker](https://docs.docker.com/engine/install/)
+* [Cloud Native Buildpacks](https://buildpacks.io/docs/tools/pack/)
+* [curl](https://help.ubidots.com/en/articles/2165289-learn-how-to-install-run-curl-on-windows-macosx-linux)
+* [jq](https://github.com/stedolan/jq/wiki/Installation)
+* [git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+* [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+* [carvel](https://carvel.dev/)
+* [Taznu CLI and plugins](https://docs-staging.vmware.com/en/Tanzu-Application-Platform/1.0/tap/GUID-install-general.html#cli-and-plugin) - Optional
 
 ### Compiling application
 
