@@ -27,7 +27,7 @@ jobs:
       - name: Cache Maven packages
         uses: actions/cache@v2.1.7
         env:
-          cache-name: cache-mvn
+          cache-name: cache-mvn-temurin-17
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/pom.xml') }}
