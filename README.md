@@ -34,6 +34,13 @@ class HelloController {
     sdk use java 17.0.2-tem
     ```
 * [Apache Maven](https://maven.apache.org/install.html)
+
+  Install Apache Maven 3.8.4
+
+    ```bash
+    sdk install maven 3.8.4
+    sdk use maven 3.8.4
+    ```
 * [Docker](https://docs.docker.com/engine/install/)
 * [Cloud Native Buildpacks](https://buildpacks.io/docs/tools/pack/)
 * [curl](https://help.ubidots.com/en/articles/2165289-learn-how-to-install-run-curl-on-windows-macosx-linux)
