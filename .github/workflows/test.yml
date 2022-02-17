@@ -38,3 +38,6 @@ jobs:
 
       - name: Test with Maven
         run: mvn -B test --file pom.xml
+
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
