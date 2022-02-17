@@ -37,7 +37,7 @@ jobs:
             ${{ runner.os }}-
 
       - name: Test with Maven
-        run: mvn -B test --file pom.xml
+        run: mvn -B test -Djava.version=17 --file pom.xml
 
       - name: Build the Docker image
         run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
