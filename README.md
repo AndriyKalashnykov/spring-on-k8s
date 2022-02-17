@@ -118,12 +118,12 @@ If you <i>still</i> want to do it with Docker - here's a proper (multistage, non
 
 Run this command to build this image:
 ```bash
-docker build -t andriykalashnykov/spring-on-k8s --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=17 .
+docker build -t andriykalashnykov/spring-on-k8s:latest --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=17 .
 ```
 
 You can now push this image to your favorite Docker registry:
 ```bash
-docker push andriykalashnykov/spring-on-k8s
+docker push andriykalashnykov/spring-on-k8s:latest
 ```
 
 ## Scanning for [Log4j 2 CVE-2021-44228](https://www.docker.com/blog/apache-log4j-2-cve-2021-44228/) and other vulnerabilities 
