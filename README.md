@@ -30,8 +30,8 @@ class HelloController {
     Install and use JDK 17
 
     ```bash
-    sdk install java 17.0.1.12.1-amzn
-    sdk use java 17.0.1.12.1-amzn
+    sdk install java 17.0.2-tem
+    sdk use java 17.0.2-tem
     ```
 * [Apache Maven](https://maven.apache.org/install.html)
 * [Docker](https://docs.docker.com/engine/install/)
