@@ -14,7 +14,7 @@ COPY ./pom.xml /tmp/
 COPY ./src /tmp/src/
 WORKDIR /tmp/
 # build the project
-RUN mvn clean package -Djava.version=${JDK_VERSION}
+RUN mvn clean package
 
 # extract JAR Layers
 WORKDIR /tmp/target

@@ -118,7 +118,7 @@ If you <i>still</i> want to do it with Docker - here's a proper (multistage, non
 
 Run this command to build this image:
 ```bash
-docker build -t andriykalashnykov/spring-on-k8s --build-arg JDK_VENDOR=openjdk --build-arg JDK_VERSION=17 .
+docker build -t andriykalashnykov/spring-on-k8s --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=17 .
 ```
 
 You can now push this image to your favorite Docker registry:
