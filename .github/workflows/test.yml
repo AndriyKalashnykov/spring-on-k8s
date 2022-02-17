@@ -54,7 +54,7 @@ jobs:
       - name: Build backend image
         uses: mamezou-tech/buildpacks-action@master
         with:
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/spring-on-k8s:latest
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/spring-on-k8s
           path: backend
           builder: gcr.io/paketo-buildpacks/builder:base
       - name: Push backend image
