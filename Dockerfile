@@ -1,8 +1,8 @@
-ARG MVN_VERSION=3.8.4
+ARG MVN_VERSION=3.8.5
 ARG JDK_VENDOR=eclipse-temurin
 ARG JDK_VERSION=17
 
-# https://hub.docker.com/_/maven?tab=tags&page=1&name=amazoncorretto
+# https://hub.docker.com/_/maven?tab=tags&page=1&name=eclipse-temurin
 FROM maven:${MVN_VERSION}-${JDK_VENDOR}-${JDK_VERSION} as build
 
 WORKDIR /build
@@ -21,6 +21,7 @@ WORKDIR /tmp/target
 RUN java -Djarmode=layertools -jar *.jar extract
 
 # runtime image
+# https://github.com/GoogleContainerTools/distroless
 # use gcr.io/distroless/java${JDK_VERSION}-debian11:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian11 for production
 FROM gcr.io/distroless/java${JDK_VERSION}-debian11:debug as runtime
 

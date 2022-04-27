@@ -27,19 +27,19 @@ class HelloController {
 
 - [sdkman](https://sdkman.io/install)
 
-    Install and use JDK 17
+    Install and use JDK 18
 
     ```bash
-    sdk install java 17.0.2-tem
-    sdk use java 17.0.2-tem
+    sdk install java 18.0.1-tem
+    sdk use java 18.0.1-tem
     ```
 * [Apache Maven](https://maven.apache.org/install.html)
 
-  Install Apache Maven 3.8.4
+  Install Apache Maven 3.8.5
 
     ```bash
-    sdk install maven 3.8.4
-    sdk use maven 3.8.4
+    sdk install maven 3.8.5
+    sdk use maven 3.8.5
     ```
 * [Docker](https://docs.docker.com/engine/install/)
 * [Cloud Native Buildpacks](https://buildpacks.io/docs/tools/pack/)
@@ -53,13 +53,13 @@ class HelloController {
 ### Compiling application
 
 ```bash
-mvn clean package -Djava.version=17
+mvn clean package -Djava.version=18
 ```
 
 ### Running application locally
 
 ```bash
-mvn clean spring-boot:run -Djava.version=17
+mvn clean spring-boot:run -Djava.version=18
 ```
 
 The app is available at [http://localhost:8080](http://localhost:8080)
@@ -117,7 +117,7 @@ Use [Cloud Native Buildpacks](https://buildpacks.io) to build & push your Docker
 ```bash 
 export DOCKER_LOGIN=andriykalashnykov
 export DOCKER_PWD=YOUR-REGISTRY-PASSWORD
-mvn clean spring-boot:build-image -Djava.version=17 -Dimage.publish=true -Dimage.name=andriykalashnykov/spring-on-k8s:latest -Ddocker.publishRegistry.username=${DOCKER_LOGIN} -Ddocker.publishRegistry.password=${DOCKER_PWD}
+mvn clean spring-boot:build-image -Djava.version=18 -Dimage.publish=true -Dimage.name=andriykalashnykov/spring-on-k8s:latest -Ddocker.publishRegistry.username=${DOCKER_LOGIN} -Ddocker.publishRegistry.password=${DOCKER_PWD}
 ```
 
 ### Docker
