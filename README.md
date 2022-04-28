@@ -25,7 +25,7 @@ class HelloController {
 
 ## Pre-requisites
 
-- [sdkman](https://sdkman.io/install)
+* [sdkman](https://sdkman.io/install)
 
     Install and use JDK 18
 
