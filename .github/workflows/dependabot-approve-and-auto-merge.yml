@@ -11,6 +11,7 @@ permissions:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
+    needs: [build]
     # Checking the actor will prevent your Action run failing on non-Dependabot
     # PRs but also ensures that it only does work for Dependabot PRs.
     if: ${{ github.actor == 'dependabot[bot]' }}
@@ -31,7 +32,8 @@ jobs:
       # Finally, this sets the PR to allow auto-merging for patch and minor
       # updates if all checks pass
       - name: Enable auto-merge for Dependabot PRs
-        if: ${{ !contains(steps.metadata.outputs.dependency-names, 'spring-boot-starter-parent') && steps.dependabot-metadata.outputs.update-type != 'version-update:semver-major' }}
+
+        if: ${{ github.event.workflow_run.conclusion == 'success' && !contains(steps.metadata.outputs.dependency-names, 'spring-boot-starter-parent') && steps.dependabot-metadata.outputs.update-type != 'version-update:semver-major' }}
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
