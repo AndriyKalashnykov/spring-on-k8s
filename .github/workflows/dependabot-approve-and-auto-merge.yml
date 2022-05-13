@@ -12,6 +12,11 @@ jobs:
 
   nope:
     name: nope
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo
+        run: |
+          echo ...
 
   dependabot:
     runs-on: ubuntu-latest
