@@ -9,6 +9,10 @@ permissions:
   contents: write
 
 jobs:
+
+  nope:
+    name: nope
+
   dependabot:
     runs-on: ubuntu-latest
     needs: [build]
