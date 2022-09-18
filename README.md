@@ -9,6 +9,7 @@ cluster: Spring Boot can run on many platforms, thanks to
 the abstraction level it provides.
 
 This app is made of a single REST controller:
+
 ```java
 @RestController
 class HelloController {
