@@ -52,7 +52,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build backend image
-        uses: mamezou-tech/buildpacks-action@v0.5.0
+        uses: mamezou-tech/buildpacks-action@v0.6.0
         with:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/spring-on-k8s
           path: .
