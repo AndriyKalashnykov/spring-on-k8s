@@ -57,6 +57,6 @@ jobs:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/spring-on-k8s
           path: .
           builder: gcr.io/paketo-buildpacks/builder:base
-          env: 'BP_JVM_VERSION=18.*'
+          env: 'BP_JVM_VERSION=19.*'
       - name: Push backend image
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/spring-on-k8s:latest
