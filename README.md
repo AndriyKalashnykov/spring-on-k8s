@@ -54,13 +54,13 @@ class HelloController {
 ### Compiling application
 
 ```bash
-mvn clean package -Djava.version=18
+mvn clean package -Djava.version=19
 ```
 
 ### Running application locally
 
 ```bash
-mvn clean spring-boot:run -Djava.version=18
+mvn clean spring-boot:run -Djava.version=19
 ```
 
 The app is available at [http://localhost:8080](http://localhost:8080)
