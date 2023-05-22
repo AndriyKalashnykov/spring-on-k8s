@@ -20,7 +20,7 @@ jobs:
 
   dependabot:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [test]
     # Checking the actor will prevent your Action run failing on non-Dependabot
     # PRs but also ensures that it only does work for Dependabot PRs.
     if: ${{ github.actor == 'dependabot[bot]' }}
