@@ -14,6 +14,10 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    permissions:
+      packages: write
+      contents: read
+
     steps:
       - name: Download repository
         uses: actions/checkout@v3.5.2
@@ -44,12 +48,15 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2.5.0
+        with:
+            version: latest
 
       - name: Login to DockerHub
         uses: docker/login-action@v2.1.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+          logout: false
 
       - name: Build backend image
         uses: mamezou-tech/buildpacks-action@v0.7.0
@@ -58,5 +65,6 @@ jobs:
           path: .
           builder: paketobuildpacks/builder:base
           env: 'BP_JVM_VERSION=17.*'
+
       - name: Push backend image
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/spring-on-k8s:latest

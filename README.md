@@ -12,6 +12,7 @@ This app is made of a single REST controller:
 
 ```java
 @RestController
+
 class HelloController {
     @Value("${app.message:Hello world!}")
     private String message;
