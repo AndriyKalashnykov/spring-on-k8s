@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.4</version>
+        <version>3.5.9</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -22,7 +22,7 @@
 
         <image.publish>false</image.publish>
         <image.name>andriykalashnykov/spring-on-k8s:latest</image.name>
-        <image.builder>paketobuildpacks/builder:base</image.builder>
+        <image.builder>paketobuildpacks/builder-jammy-base:0.4.286</image.builder>
         <docker.publishRegistry.username>andriykalashnykov</docker.publishRegistry.username>
         <docker.publishRegistry.password>YOUR-REGISTRY-PASSWORD</docker.publishRegistry.password>
         <docker.publishRegistry.url>docker.io</docker.publishRegistry.url>
@@ -65,7 +65,6 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <!--include-to
         <dependency>
@@ -87,18 +86,12 @@
         </dependency>
         include-opentracing-->
 
-        <!-- integration with Swagger API doc generation http://goo.gl/J5FQDM -->
+        <!-- integration with Swagger API doc generation using Springdoc OpenAPI -->
 
         <dependency>
-            <groupId>io.springfox</groupId>
-            <artifactId>springfox-boot-starter</artifactId>
-            <version>3.0.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>io.springfox</groupId>
-            <artifactId>springfox-swagger-ui</artifactId>
-            <version>3.0.0</version>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.7.0</version>
         </dependency>
 
         <dependency>
