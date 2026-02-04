@@ -20,7 +20,6 @@ jobs:
 
   dependabot:
     runs-on: ubuntu-latest
-    needs: [test]
     # Checking the actor will prevent your Action run failing on non-Dependabot
     # PRs but also ensures that it only does work for Dependabot PRs.
     if: ${{ github.actor == 'dependabot[bot]' }}
@@ -29,7 +28,7 @@ jobs:
       # will not occur.
       - name: Dependabot metadata
         id: dependabot-metadata
-        uses: dependabot/fetch-metadata@v2.0.0
+        uses: dependabot/fetch-metadata@v2.4.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       # Here the PR gets approved.

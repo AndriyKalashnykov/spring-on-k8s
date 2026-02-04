@@ -16,8 +16,8 @@
 
 package com.vmware.demos.springonk8s.api.rest.controller;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,13 +26,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping(value = "/v1")
-@Api(tags = {"HelloController"})
+@Tag(name = "HelloController")
 class HelloController {
     @Value("${app.message:Hello world!}")
     private String message;
 
     @GetMapping(value = "/hello", produces = MediaType.TEXT_PLAIN_VALUE)
-    @ApiOperation(value = "Say hello", response = String.class, tags = {"HelloController"})
+    @Operation(summary = "Say hello")
     String greeting() {
         // Just return a simple String.
         return message;

@@ -29,19 +29,19 @@ class HelloController {
 
 * [sdkman](https://sdkman.io/install)
 
-    Install and use JDK 19
+    Install and use JDK
 
     ```bash
-    sdk install java 19-tem
-    sdk use java 19-tem
+    sdk install java 21-tem
+    sdk use java 21-tem
     ```
 * [Apache Maven](https://maven.apache.org/install.html)
 
-  Install Apache Maven 3.8.6
+  Install Apache Maven
 
     ```bash
-    sdk install maven 3.8.6
-    sdk use maven 3.8.6
+    sdk install maven 3.9.9
+    sdk use maven 3.9.9
     ```
 * [Docker](https://docs.docker.com/engine/install/)
 * [Cloud Native Buildpacks](https://buildpacks.io/docs/tools/pack/)
@@ -55,29 +55,29 @@ class HelloController {
 ### Compiling application
 
 ```bash
-mvn clean package -Djava.version=19
+mvn clean package -Djava.version=21
 ```
 
 ### Running application locally
 
 ```bash
-mvn clean spring-boot:run -Djava.version=19
+mvn clean spring-boot:run -Djava.version=21
 ```
 
 The app is available at [http://localhost:8080](http://localhost:8080)
 
 ```bash
-curl localhost:8080/v1/hello
+curl -w '\n' localhost:8080/v1/hello
 Hello world!
 
-curl localhost:8080/v1/bye
+curl -w '\n' localhost:8080/v1/bye
 Bye world!
 ```
 
-#### Application health, configurations etc.
+#### Application health, configurations, etc.
 
 ```bash
-curl http://localhost:8080/actuator | jq .
+curl -s http://localhost:8080/actuator | jq .
 
 {
   "_links": {
@@ -103,7 +103,7 @@ curl http://localhost:8080/actuator | jq .
 
 #### Application REST API documentation with Swagger UI
 
-Open Swagger UI page [http://localhost:8080/swagger-ui/](http://localhost:8080/swagger-ui/)
+Open Swagger UI page [`http://localhost:8080/swagger-ui.html`](http://localhost:8080/swagger-ui.html)
 
 ![Swagger UI](./docs/swagger-ui.png "Swagger UI")
 
@@ -119,7 +119,7 @@ Use [Cloud Native Buildpacks](https://buildpacks.io) to build & push your Docker
 ```bash 
 export DOCKER_LOGIN=andriykalashnykov
 export DOCKER_PWD=YOUR-REGISTRY-PASSWORD
-mvn clean spring-boot:build-image -Djava.version=18 -Dimage.publish=true -Dimage.name=andriykalashnykov/spring-on-k8s:latest -Ddocker.publishRegistry.username=${DOCKER_LOGIN} -Ddocker.publishRegistry.password=${DOCKER_PWD}
+mvn clean spring-boot:build-image -Djava.version=21 -Dimage.publish=false -Dimage.name=andriykalashnykov/spring-on-k8s:latest -Ddocker.publishRegistry.username=${DOCKER_LOGIN} -Ddocker.publishRegistry.password=${DOCKER_PWD}
 ```
 
 ### Docker
@@ -127,7 +127,7 @@ If you <i>still</i> want to do it with Docker - here's a proper (multistage, non
 
 Run this command to build this image:
 ```bash
-docker build -t andriykalashnykov/spring-on-k8s:latest --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=17 .
+docker build -t andriykalashnykov/spring-on-k8s:latest --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=21 .
 ```
 
 You can now push this image to your favorite Docker registry:
