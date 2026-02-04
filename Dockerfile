@@ -1,9 +1,9 @@
-ARG MVN_VERSION=3.8.5
+ARG MVN_VERSION=3.9.9
 ARG JDK_VENDOR=eclipse-temurin
 ARG JDK_VERSION=17
 
 # https://hub.docker.com/_/maven?tab=tags&page=1&name=eclipse-temurin
-FROM maven:${MVN_VERSION}-${JDK_VENDOR}-${JDK_VERSION} as build
+FROM maven:${MVN_VERSION}-${JDK_VENDOR}-${JDK_VERSION} AS build
 
 WORKDIR /build
 COPY pom.xml .
@@ -22,8 +22,8 @@ RUN java -Djarmode=layertools -jar *.jar extract
 
 # runtime image
 # https://github.com/GoogleContainerTools/distroless
-# use gcr.io/distroless/java${JDK_VERSION}-debian11:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian11 for production
-FROM gcr.io/distroless/java${JDK_VERSION}-debian11:debug as runtime
+# use gcr.io/distroless/java${JDK_VERSION}-debian12:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian12 for production
+FROM gcr.io/distroless/java${JDK_VERSION}-debian12:debug AS runtime
 
 USER nonroot:nonroot
 WORKDIR /application
@@ -36,7 +36,7 @@ COPY --from=build --chown=nonroot:nonroot /tmp/target/application/ ./
 
 EXPOSE 8080
 
-ENV _JAVA_OPTIONS "-XX:MinRAMPercentage=80.0 -XX:MaxRAMPercentage=90.0 \
+ENV _JAVA_OPTIONS="-XX:MinRAMPercentage=80.0 -XX:MaxRAMPercentage=90.0 \
 -Djava.security.egd=file:/dev/./urandom \
 -Djava.awt.headless=true -Dfile.encoding=UTF-8 \
 -Dspring.output.ansi.enabled=ALWAYS \
