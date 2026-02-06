@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Download repository
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v6.0.2
 
       - name: Set up JDK
         uses: actions/setup-java@v5.0.0
