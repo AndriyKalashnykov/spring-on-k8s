@@ -5,7 +5,7 @@ SDKMAN := $(HOME)/.sdkman/bin/sdkman-init.sh
 CURRENT_USER_NAME := $(shell whoami)
 
 JAVA_VER  := 21-tem
-MAVEN_VER := 3.9.9
+MAVEN_VER := 25.0.2+10.0.LTS
 
 SDKMAN_EXISTS := @printf "sdkman"
 
