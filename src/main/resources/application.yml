@@ -41,7 +41,7 @@ spring:
         trace: false
         web-allow-others: false
         
-logging.pattern.console: "%clr(%d{YYYY-MM-dd E HH:mm:ss.SSS}){faint} %clr(%-5p) %clr(${PID}){faint} %clr([%8.15t]){faint} %clr(%c{1.}:%L){cyan} %clr(:){red} %clr(%m){faint}%n"
+logging.pattern.console: "%clr(%d{YYYY-MM-dd E HH:mm:ss.SSS}){faint} %clr(%-5p) %clr(${PID}){faint} %clr([%8.15t]){faint} %clr(%c{1}:%L){cyan} %clr(:){red} %clr(%m){faint}%n"
 logging.level.ROOT: "INFO"
 logging.level.org.springframework.: "INFO"
 logging.level.com.test.example: "DEBUG"
@@ -50,4 +50,4 @@ logging.level.liquibase: "INFO"
 logging.level.org.quartz: "INFO"
 #logging.file.path: "."
 #logging.file.name: "application.log"
-#logging.pattern.file: "%d{YYYY-MM-dd E HH:mm:ss.SSS} %-5p ${PID} [%8.15t] %c{1.}:%L : %m%n"
+#logging.pattern.file: "%d{YYYY-MM-dd E HH:mm:ss.SSS} %-5p ${PID} [%8.15t] %c{1}:%L : %m%n"
