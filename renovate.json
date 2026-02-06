@@ -16,12 +16,6 @@
   "labels": [
     "dependencies"
   ],
-  "assignees": [
-    "@AndriyKalashnykov"
-  ],
-  "reviewers": [
-    "@AndriyKalashnykov"
-  ],
   "separateMajorMinor": true,
   "separateMultipleMajor": true,
   "separateMinorPatch": false,
