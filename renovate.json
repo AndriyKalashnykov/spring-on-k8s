@@ -58,21 +58,21 @@
     },
     {
       "description": "Group Spring Boot dependencies",
-      "matchPackagePatterns": [
-        "^org\\.springframework\\.boot"
-      ],
       "groupName": "Spring Boot",
       "automerge": false,
-      "dependencyDashboardApproval": true
+      "dependencyDashboardApproval": true,
+      "matchPackageNames": [
+        "/^org\\.springframework\\.boot/"
+      ]
     },
     {
       "description": "Group Spring Framework dependencies",
-      "matchPackagePatterns": [
-        "^org\\.springframework:"
-      ],
       "groupName": "Spring Framework",
       "automerge": false,
-      "dependencyDashboardApproval": true
+      "dependencyDashboardApproval": true,
+      "matchPackageNames": [
+        "/^org\\.springframework:/"
+      ]
     },
     {
       "description": "Automerge Maven plugins (non-major)",
@@ -152,10 +152,11 @@
   "maven": {
     "enabled": true
   },
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": [
-        "^Makefile$"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^Makefile$/"
       ],
       "matchStrings": [
         "JAVA_VER\\s*:=\\s*(?<currentValue>.*?)\\n",
