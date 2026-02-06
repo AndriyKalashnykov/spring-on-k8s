@@ -1,7 +1,7 @@
 # This workflow will build a Java project with Maven
 # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
-name: test
+name: ci
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v5.0.0
         with:
-          java-version: 19
+          java-version: 21
           distribution: 'temurin'
       - name: Cache Maven packages
         uses: actions/cache@v4.3.0
@@ -40,7 +40,7 @@ jobs:
             ${{ runner.os }}-
 
       - name: Test with Maven
-        run: mvn -B test -Djava.version=17 --file pom.xml
+        run: mvn -B test -Djava.version=21 --file pom.xml
 
 #      - name: Build the Docker image
 #        run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)

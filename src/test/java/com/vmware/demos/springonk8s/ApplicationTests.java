@@ -17,17 +17,21 @@
 package com.vmware.demos.springonk8s;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class ApplicationTests {
-    @Autowired
-    private TestRestTemplate webClient;
+    @LocalServerPort
+    private int port;
+
+    private RestClient getRestClient() {
+        return RestClient.builder().baseUrl("http://localhost:" + port).build();
+    }
 
     @Test
     public void contextLoads() {
@@ -35,16 +39,22 @@ public class ApplicationTests {
 
     @Test
     public void testHello() {
-        assertThat(webClient.getForObject("/v1/hello", String.class)).isEqualTo("Hello world!");
+        RestClient client = getRestClient();
+        String response = client.get().uri("/v1/hello").retrieve().body(String.class);
+        assertThat(response).isEqualTo("Hello world!");
     }
 
     @Test
     public void testBye() {
-        assertThat(webClient.getForObject("/v1/bye", String.class)).isEqualTo("Bye world!");
+        RestClient client = getRestClient();
+        String response = client.get().uri("/v1/bye").retrieve().body(String.class);
+        assertThat(response).isEqualTo("Bye world!");
     }
 
     @Test
     public void testHealth() {
-        assertThat(webClient.getForEntity("/actuator/health", String.class).getStatusCode()).isEqualTo(HttpStatus.OK);
+        RestClient client = getRestClient();
+        var status = client.get().uri("/actuator/health").exchange((request, response) -> response.getStatusCode());
+        assertThat(status).isEqualTo(HttpStatus.OK);
     }
 }

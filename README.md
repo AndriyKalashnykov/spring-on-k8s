@@ -64,7 +64,7 @@ mvn clean package -Djava.version=21
 mvn clean spring-boot:run -Djava.version=21
 ```
 
-The app is available at [http://localhost:8080](http://localhost:8080)
+The app is available at [http://localhost:8080](http://localhost:8080) and SwaggerDocs at [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 
 ```bash
 curl -w '\n' localhost:8080/v1/hello

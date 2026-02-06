@@ -25,13 +25,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping(value = "/v1")
 @Tag(name = "HelloController")
 class HelloController {
     @Value("${app.message:Hello world!}")
     private String message;
 
-    @GetMapping(value = "/hello", produces = MediaType.TEXT_PLAIN_VALUE)
+    @GetMapping(value = "/", produces = MediaType.TEXT_PLAIN_VALUE)
+    @Operation(summary = "Root endpoint")
+    String root() {
+        return "Hello world";
+    }
+
+    @GetMapping(value = "/v1/hello", produces = MediaType.TEXT_PLAIN_VALUE)
     @Operation(summary = "Say hello")
     String greeting() {
         // Just return a simple String.
