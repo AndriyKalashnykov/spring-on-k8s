@@ -1,6 +1,174 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":enablePreCommit",
+    "group:monorepos",
+    "group:recommended",
+    "workarounds:all"
+  ],
+  "timezone": "America/New_York",
+  "schedule": [
+    "at any time"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "assignees": [
+    "@AndriyKalashnykov"
+  ],
+  "reviewers": [
+    "@AndriyKalashnykov"
+  ],
+  "separateMajorMinor": true,
+  "separateMultipleMajor": true,
+  "separateMinorPatch": false,
+  "prConcurrentLimit": 5,
+  "prCreation": "immediate",
+  "prHourlyLimit": 0,
+  "rebaseWhen": "behind-base-branch",
+  "automerge": true,
+  "automergeType": "pr",
+  "automergeStrategy": "squash",
+  "platformAutomerge": true,
+  "ignoreTests": false,
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": "Dependency Dashboard",
+  "packageRules": [
+    {
+      "description": "Automerge non-major updates if all checks pass",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Require manual approval for major updates",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "dependencyDashboardApproval": true,
+      "labels": [
+        "dependencies",
+        "major-update"
+      ]
+    },
+    {
+      "description": "Group Spring Boot dependencies",
+      "matchPackagePatterns": [
+        "^org\\.springframework\\.boot"
+      ],
+      "groupName": "Spring Boot",
+      "automerge": false,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Group Spring Framework dependencies",
+      "matchPackagePatterns": [
+        "^org\\.springframework:"
+      ],
+      "groupName": "Spring Framework",
+      "automerge": false,
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Automerge Maven plugins (non-major)",
+      "matchManagers": [
+        "maven"
+      ],
+      "matchDepTypes": [
+        "build"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Automerge GitHub Actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Pin GitHub Actions to SHA",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "pinDigests": true
+    },
+    {
+      "description": "Automerge Docker base images (non-major)",
+      "matchManagers": [
+        "dockerfile",
+        "docker-compose"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
+      "automerge": true,
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Fast-track security updates",
+      "matchDatasources": [
+        "maven"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "vulnerabilityAlerts": {
+        "enabled": true
+      },
+      "automerge": true,
+      "minimumReleaseAge": "0 days",
+      "labels": [
+        "dependencies",
+        "security"
+      ]
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "security"
+    ],
+    "automerge": true,
+    "minimumReleaseAge": "0 days"
+  },
+  "maven": {
+    "enabled": true
+  },
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "^Makefile$"
+      ],
+      "matchStrings": [
+        "JAVA_VER\\s*:=\\s*(?<currentValue>.*?)\\n",
+        "MAVEN_VER\\s*:=\\s*(?<currentValue>.*?)\\n"
+      ],
+      "depNameTemplate": "java",
+      "datasourceTemplate": "adoptium-java"
+    }
   ]
 }
