@@ -67,6 +67,8 @@ else
 	endif
 endif
 
+.PHONY: help deps deps-check check-env clean test build run upgrade image lint ci release
+
 #help: @ List available tasks
 help:
 	@clear
@@ -74,9 +76,17 @@ help:
 	@echo
 	@echo "Commands :"
 	@echo
-	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-9s\033[0m - %s\n", $$1, $$2}'
+	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-13s\033[0m - %s\n", $$1, $$2}'
 
-build-deps-check:
+#deps: @ Check that required tools are installed (java, mvn, docker)
+deps:
+	@command -v java >/dev/null 2>&1 || { echo "Error: java is not installed or not in PATH"; exit 1; }
+	@command -v mvn >/dev/null 2>&1 || { echo "Error: mvn is not installed or not in PATH"; exit 1; }
+	@command -v docker >/dev/null 2>&1 || { echo "Error: docker is not installed or not in PATH"; exit 1; }
+	@echo "All required tools are installed."
+
+#deps-check: @ Check SDKMAN and install Java/Maven
+deps-check:
 	@. $(SDKMAN)
 ifndef SDKMAN_DIR
 	@curl -s "https://get.sdkman.io?rcupdate=false" | bash
@@ -90,7 +100,7 @@ endif
 	@. $(SDKMAN) && echo N | sdk install gradle $(MAVEN_VER) && sdk use gradle $(MAVEN_VER)
 
 #check-env: @ Check installed tools
-check-env: build-deps-check
+check-env: deps-check
 
 	@printf "\xE2\x9C\x94 "
 	$(SDKMAN_EXISTS)
@@ -98,27 +108,45 @@ check-env: build-deps-check
 
 #clean: @ Cleanup
 clean:
-	@ mvn clean
+	@mvn clean
 
 #test: @ Run project tests
 test: build
-	@ mvn test
+	@mvn test
 
 #build: @ Build project
 build: clean
-	@ mvn package
+	@mvn package
 
 #run: @ Run project
 run: test
-	@ mvn clean spring-boot:run -Djava.version=21
+	@mvn clean spring-boot:run -Djava.version=21
 
 #upgrade: @ Upgrade Maven dependencies
 upgrade:
-	@ mvn versions:display-dependency-updates
-	@ mvn versions:use-latest-releases
-	@ mvn versions:commit
+	@mvn versions:display-dependency-updates
+	@mvn versions:use-latest-releases
+	@mvn versions:commit
 
 #image: @ Build and run Docker image for testing
 image:
-	docker build --load -t andriykalashnykov/spring-on-k8s:latest --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=21 .
+	@docker build --load -t andriykalashnykov/spring-on-k8s:latest --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=21 .
 
+#lint: @ Run code style checks
+lint:
+	@mvn checkstyle:check || echo "Note: checkstyle plugin may not be configured in pom.xml"
+
+#ci: @ Run full CI pipeline (deps, build, test, lint)
+ci: deps build test lint
+	@echo "CI pipeline completed successfully."
+
+#release: @ Create a release (usage: make release VERSION=1.2.3)
+release:
+	@if [ -z "$(VERSION)" ]; then echo "Error: VERSION is required (e.g., make release VERSION=1.2.3)"; exit 1; fi
+	@if ! echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then echo "Error: VERSION must be valid semver (e.g., 1.2.3)"; exit 1; fi
+	@echo "Releasing version $(VERSION)..."
+	@mvn versions:set -DnewVersion=$(VERSION) -DgenerateBackupPoms=false
+	@git add pom.xml
+	@git commit -m "release: v$(VERSION)"
+	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
+	@echo "Release v$(VERSION) created. Push with: git push origin main --tags"

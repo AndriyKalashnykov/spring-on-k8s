@@ -13,6 +13,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
 
@@ -43,8 +47,11 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
-      - name: Test with Maven
-        run: mvn -B test -Djava.version=21 --file pom.xml
+      - name: Build with Make
+        run: make build
+
+      - name: Test with Make
+        run: make test
 
 #      - name: Build the Docker image
 #        run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
