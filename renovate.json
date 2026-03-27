@@ -1,166 +1,78 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended",
-    ":dependencyDashboard",
-    ":semanticCommits",
-    ":enablePreCommit",
-    "group:monorepos",
-    "group:recommended",
-    "workarounds:all"
+    "config:best-practices",
+    ":semanticCommitType(chore)"
   ],
-  "timezone": "America/New_York",
-  "schedule": [
-    "at any time"
-  ],
-  "labels": [
-    "dependencies"
-  ],
-  "separateMajorMinor": true,
-  "separateMultipleMajor": true,
-  "separateMinorPatch": false,
-  "prConcurrentLimit": 5,
-  "prCreation": "immediate",
+  "commitMessagePrefix": "chore(all): ",
+  "commitMessageAction": "update",
+  "commitBody": "Signed-off-by: Renovate Bot <bot@renovateapp.com>",
+  "labels": ["dependencies"],
+  "prConcurrentLimit": 50,
   "prHourlyLimit": 0,
-  "rebaseWhen": "behind-base-branch",
+  "platformAutomerge": true,
   "automerge": true,
   "automergeType": "pr",
   "automergeStrategy": "squash",
-  "platformAutomerge": true,
   "ignoreTests": false,
-  "dependencyDashboard": true,
-  "dependencyDashboardTitle": "Dependency Dashboard",
+  "enabledManagers": ["maven", "github-actions", "dockerfile"],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "automerge": true,
+    "minimumReleaseAge": "0 days"
+  },
   "packageRules": [
     {
-      "description": "Automerge non-major updates if all checks pass",
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "pin",
-        "digest"
-      ],
-      "automerge": true,
-      "automergeType": "pr",
-      "platformAutomerge": true,
+      "description": "Wait 3 days before automerging major updates",
+      "matchUpdateTypes": ["major"],
       "minimumReleaseAge": "3 days"
     },
     {
-      "description": "Require manual approval for major updates",
-      "matchUpdateTypes": [
-        "major"
-      ],
-      "automerge": false,
-      "dependencyDashboardApproval": true,
-      "labels": [
-        "dependencies",
-        "major-update"
-      ]
+      "description": "Group GitHub Actions into one PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
     },
     {
       "description": "Group Spring Boot dependencies",
       "groupName": "Spring Boot",
-      "automerge": false,
-      "dependencyDashboardApproval": true,
-      "matchPackageNames": [
-        "/^org\\.springframework\\.boot/"
-      ]
+      "matchPackageNames": ["/^org\\.springframework\\.boot/"]
     },
     {
       "description": "Group Spring Framework dependencies",
       "groupName": "Spring Framework",
-      "automerge": false,
-      "dependencyDashboardApproval": true,
+      "matchPackageNames": ["/^org\\.springframework:/"]
+    },
+    {
+      "description": "Group Apache Commons dependencies",
+      "groupName": "Apache commons",
       "matchPackageNames": [
-        "/^org\\.springframework:/"
+        "commons-io:commons-io",
+        "org.apache.commons:*"
       ]
     },
     {
-      "description": "Automerge Maven plugins (non-major)",
-      "matchManagers": [
-        "maven"
-      ],
-      "matchDepTypes": [
-        "build"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch"
-      ],
-      "automerge": true
-    },
-    {
-      "description": "Automerge GitHub Actions",
-      "matchManagers": [
-        "github-actions"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "digest"
-      ],
-      "automerge": true,
-      "minimumReleaseAge": "3 days"
-    },
-    {
-      "description": "Pin GitHub Actions to SHA",
-      "matchManagers": [
-        "github-actions"
-      ],
-      "pinDigests": true
-    },
-    {
-      "description": "Automerge Docker base images (non-major)",
-      "matchManagers": [
-        "dockerfile",
-        "docker-compose"
-      ],
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "digest"
-      ],
-      "automerge": true,
-      "minimumReleaseAge": "3 days"
-    },
-    {
-      "description": "Fast-track security updates",
-      "matchDatasources": [
-        "maven"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
-      "vulnerabilityAlerts": {
-        "enabled": true
-      },
-      "automerge": true,
-      "minimumReleaseAge": "0 days",
-      "labels": [
-        "dependencies",
-        "security"
+      "description": "Group annotation libraries",
+      "groupName": "annotations",
+      "matchPackageNames": [
+        "com.google.errorprone:*",
+        "net.jcip:jcip-annotations",
+        "org.checkerframework:checker-qual",
+        "org.jetbrains:annotations",
+        "org.jspecify:jspecify"
       ]
+    },
+    {
+      "description": "Label Java packages",
+      "matchCategories": ["java"],
+      "addLabels": ["lang: java"]
     }
   ],
-  "vulnerabilityAlerts": {
-    "enabled": true,
-    "labels": [
-      "security"
-    ],
-    "automerge": true,
-    "minimumReleaseAge": "0 days"
-  },
-  "maven": {
-    "enabled": true
-  },
   "customManagers": [
     {
       "customType": "regex",
-      "managerFilePatterns": [
-        "/^Makefile$/"
-      ],
+      "managerFilePatterns": ["/^Makefile$/"],
       "matchStrings": [
-        "JAVA_VER\\s*:=\\s*(?<currentValue>.*?)\\n",
-        "MAVEN_VER\\s*:=\\s*(?<currentValue>.*?)\\n"
+        "JAVA_VER\\s*:=\\s*(?<currentValue>.*?)\\n"
       ],
       "depNameTemplate": "java",
       "datasourceTemplate": "adoptium-java"

@@ -2,10 +2,13 @@
 
 SHELL := /bin/bash
 SDKMAN := $(HOME)/.sdkman/bin/sdkman-init.sh
-CURRENT_USER_NAME := $(shell whoami)
 
-JAVA_VER  := 21-tem
-MAVEN_VER := 25.0.2+10.0.LTS
+# === Tool Versions (pinned) ===
+JAVA_VER    := 21-tem
+MAVEN_VER   := 3.9.9
+ACT_VERSION := 0.2.86
+JDK_VERSION := 21
+NVM_VERSION := 0.40.4
 
 SDKMAN_EXISTS := @printf "sdkman"
 
@@ -67,22 +70,20 @@ else
 	endif
 endif
 
-.PHONY: help deps deps-check check-env clean test build run upgrade image lint ci release
-
 #help: @ List available tasks
 help:
-	@clear
 	@echo "Usage: make COMMAND"
 	@echo
 	@echo "Commands :"
 	@echo
-	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-13s\033[0m - %s\n", $$1, $$2}'
+	@grep -E '[a-zA-Z\.\-]+:.*?@ .*$$' $(MAKEFILE_LIST)| tr -d '#' | awk 'BEGIN {FS = ":.*?@ "}; {printf "\033[32m%-20s\033[0m - %s\n", $$1, $$2}'
 
-#deps: @ Check that required tools are installed (java, mvn, docker)
+#deps: @ Check required tools (java, mvn, docker, git)
 deps:
-	@command -v java >/dev/null 2>&1 || { echo "Error: java is not installed or not in PATH"; exit 1; }
-	@command -v mvn >/dev/null 2>&1 || { echo "Error: mvn is not installed or not in PATH"; exit 1; }
+	@command -v java >/dev/null 2>&1 || { echo "Error: java is not installed. Run: make deps-check"; exit 1; }
+	@command -v mvn >/dev/null 2>&1 || { echo "Error: mvn is not installed. Run: make deps-check"; exit 1; }
 	@command -v docker >/dev/null 2>&1 || { echo "Error: docker is not installed or not in PATH"; exit 1; }
+	@command -v git >/dev/null 2>&1 || { echo "Error: git is not installed or not in PATH"; exit 1; }
 	@echo "All required tools are installed."
 
 #deps-check: @ Check SDKMAN and install Java/Maven
@@ -97,56 +98,95 @@ ifndef SDKMAN_DIR
 endif
 
 	@. $(SDKMAN) && echo N | sdk install java $(JAVA_VER) && sdk use java $(JAVA_VER)
-	@. $(SDKMAN) && echo N | sdk install gradle $(MAVEN_VER) && sdk use gradle $(MAVEN_VER)
+	@. $(SDKMAN) && echo N | sdk install maven $(MAVEN_VER) && sdk use maven $(MAVEN_VER)
 
-#check-env: @ Check installed tools
-check-env: deps-check
+#deps-act: @ Install act for local CI (GitHub Actions)
+deps-act: deps
+	@command -v act >/dev/null 2>&1 || { echo "Installing act $(ACT_VERSION)..."; \
+		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
+	}
 
+#env-check: @ Check installed tools
+env-check: deps-check
 	@printf "\xE2\x9C\x94 "
-	$(SDKMAN_EXISTS)
+	@$(SDKMAN_EXISTS)
 	@printf "\n"
 
 #clean: @ Cleanup
-clean:
+clean: deps
 	@mvn clean
 
+#build: @ Build project
+build: deps
+	@mvn clean package -DskipTests
+
 #test: @ Run project tests
-test: build
+test: deps
 	@mvn test
 
-#build: @ Build project
-build: clean
-	@mvn package
-
 #run: @ Run project
-run: test
-	@mvn clean spring-boot:run -Djava.version=21
+run: deps
+	@mvn clean spring-boot:run -Djava.version=$(JDK_VERSION)
 
 #upgrade: @ Upgrade Maven dependencies
-upgrade:
+upgrade: deps
 	@mvn versions:display-dependency-updates
 	@mvn versions:use-latest-releases
 	@mvn versions:commit
 
-#image: @ Build and run Docker image for testing
-image:
-	@docker build --load -t andriykalashnykov/spring-on-k8s:latest --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=21 .
+#image-build: @ Build Docker image
+image-build: deps
+	@docker build --load -t andriykalashnykov/spring-on-k8s:latest --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=$(JDK_VERSION) .
+
+#image-run: @ Run Docker container
+image-run: image-stop
+	@docker run --rm -p 8080:8080 --name spring-on-k8s andriykalashnykov/spring-on-k8s:latest
+
+#image-stop: @ Stop Docker container
+image-stop:
+	@docker stop spring-on-k8s 2>/dev/null || true
 
 #lint: @ Run code style checks
-lint:
-	@mvn checkstyle:check || echo "Note: checkstyle plugin may not be configured in pom.xml"
+lint: deps
+	@mvn checkstyle:check
 
 #ci: @ Run full CI pipeline (deps, build, test, lint)
-ci: deps build test lint
+ci: deps
+	@echo "=== Step 1/3: Build ===" && mvn clean package -DskipTests
+	@echo "=== Step 2/3: Test ===" && mvn test
+	@echo "=== Step 3/3: Lint ===" && mvn checkstyle:check
 	@echo "CI pipeline completed successfully."
 
+#ci-run: @ Run GitHub Actions workflow locally using act
+ci-run: deps-act
+	@act push --container-architecture linux/amd64 \
+		--artifact-server-path /tmp/act-artifacts
+
 #release: @ Create a release (usage: make release VERSION=1.2.3)
-release:
+release: deps
 	@if [ -z "$(VERSION)" ]; then echo "Error: VERSION is required (e.g., make release VERSION=1.2.3)"; exit 1; fi
 	@if ! echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then echo "Error: VERSION must be valid semver (e.g., 1.2.3)"; exit 1; fi
-	@echo "Releasing version $(VERSION)..."
+	@echo -n "Create release v$(VERSION)? [y/N] " && read ans && [ "$${ans:-N}" = y ] || { echo "Aborted."; exit 1; }
 	@mvn versions:set -DnewVersion=$(VERSION) -DgenerateBackupPoms=false
 	@git add pom.xml
 	@git commit -m "release: v$(VERSION)"
 	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
 	@echo "Release v$(VERSION) created. Push with: git push origin main --tags"
+
+#renovate-bootstrap: @ Install nvm and npm for Renovate
+renovate-bootstrap:
+	@command -v node >/dev/null 2>&1 || { \
+		echo "Installing nvm $(NVM_VERSION)..."; \
+		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash; \
+		export NVM_DIR="$$HOME/.nvm"; \
+		[ -s "$$NVM_DIR/nvm.sh" ] && . "$$NVM_DIR/nvm.sh"; \
+		nvm install --lts; \
+	}
+
+#renovate-validate: @ Validate Renovate configuration
+renovate-validate: renovate-bootstrap
+	@npx --yes renovate --platform=local
+
+.PHONY: help deps deps-check deps-act env-check clean build test run upgrade \
+	image-build image-run image-stop lint ci ci-run release \
+	renovate-bootstrap renovate-validate
