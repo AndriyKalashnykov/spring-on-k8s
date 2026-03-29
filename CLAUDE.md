@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Spring Boot 4.0.2 demo application designed for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`) with Swagger UI, Prometheus metrics via Actuator, and K8s health probes.
+Spring Boot 4.0.5 demo application designed for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`) with Swagger UI, Prometheus metrics via Actuator, and K8s health probes.
 
 ## Build & Run Commands
 
@@ -15,8 +15,8 @@ make run            # Run locally (mvn spring-boot:run), app at http://localhost
 make image-build    # Build Docker image with JDK 21
 make image-run      # Run Docker container (port 8080)
 make image-stop     # Stop Docker container
-make lint           # Checkstyle code style checks
-make ci             # Full pipeline: deps, build, test, lint
+make lint           # Checkstyle + hadolint Dockerfile checks
+make ci             # Full pipeline: deps, lint, test, build
 make ci-run         # Run GitHub Actions workflow locally via act
 make upgrade        # Update Maven dependencies
 make release VERSION=1.2.3  # Tag a release (with confirmation prompt)
@@ -88,5 +88,5 @@ When spawning subagents, always pass conventions from the respective skill into 
 - **pom.xml java.version:** 17 (compile target), but **SDKMAN/CI uses JDK 21** for runtime
 - **Docker image:** Multi-stage build with distroless base, layered JAR, non-root user
 - **Buildpacks alternative:** `mvn spring-boot:build-image` with Paketo builder
-- **CI:** GitHub Actions runs `make build` + `make test` + `make lint` on ubuntu-latest with JDK 21 Temurin
+- **CI:** GitHub Actions runs `make lint` + `make test` + `make build` on ubuntu-latest with JDK 21 Temurin
 - **All targets depend on `deps`** — tool availability is checked before execution

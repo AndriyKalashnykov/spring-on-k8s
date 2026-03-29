@@ -5,7 +5,7 @@
 
 # Running Spring Boot app on Kubernetes
 
-Spring Boot 4.0.2 application demonstrating how to run on Kubernetes. Exposes REST endpoints (`/v1/hello`, `/v1/bye`) with Swagger UI, Prometheus metrics via Actuator, and K8s health probes. Built with Java 21 and Maven.
+Spring Boot 4.0.5 application demonstrating how to run on Kubernetes. Exposes REST endpoints (`/v1/hello`, `/v1/bye`) with Swagger UI, Prometheus metrics via Actuator, and K8s health probes. Built with Java 21 and Maven.
 
 ## Quick Start
 
@@ -58,7 +58,7 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make lint` | Run code style checks |
+| `make lint` | Run code style and Dockerfile checks |
 | `make upgrade` | Upgrade Maven dependencies |
 
 ### Docker
@@ -73,7 +73,7 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make ci` | Run full CI pipeline (deps, build, test, lint) |
+| `make ci` | Run full CI pipeline (deps, lint, test, build) |
 | `make ci-run` | Run GitHub Actions workflow locally using [act](https://github.com/nektos/act) |
 
 ### Utilities
@@ -83,6 +83,7 @@ Run `make help` to see all available targets.
 | `make deps` | Check required tools (java, mvn, docker, git) |
 | `make deps-check` | Check SDKMAN and install Java/Maven |
 | `make deps-act` | Install act for local CI (GitHub Actions) |
+| `make deps-hadolint` | Install hadolint for Dockerfile linting |
 | `make env-check` | Check installed tools |
 | `make release VERSION=x.y.z` | Create a release |
 | `make renovate-bootstrap` | Install nvm and npm for Renovate |
@@ -418,7 +419,7 @@ GitHub Actions runs on every push to `main`, tags `v*`, and pull requests.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **ci** | push, PR, tags | Build, Test, Lint |
+| **ci** | push, PR, tags | Lint, Test, Build |
 | **cleanup** | weekly (Sunday) | Delete old workflow runs (retain 7 days, keep 5 minimum) |
 
 [Renovate](https://docs.renovatebot.com/) keeps dependencies up to date.

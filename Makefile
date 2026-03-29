@@ -9,6 +9,7 @@ MAVEN_VER   := 3.9.9
 ACT_VERSION := 0.2.86
 JDK_VERSION := 21
 NVM_VERSION := 0.40.4
+HADOLINT_VERSION := 2.12.0
 
 SDKMAN_EXISTS := @printf "sdkman"
 
@@ -106,6 +107,14 @@ deps-act: deps
 		curl -sSfL https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin v$(ACT_VERSION); \
 	}
 
+#deps-hadolint: @ Install hadolint for Dockerfile linting
+deps-hadolint:
+	@command -v hadolint >/dev/null 2>&1 || { echo "Installing hadolint $(HADOLINT_VERSION)..."; \
+		curl -sSfL -o /tmp/hadolint https://github.com/hadolint/hadolint/releases/download/v$(HADOLINT_VERSION)/hadolint-Linux-x86_64 && \
+		install -m 755 /tmp/hadolint /usr/local/bin/hadolint && \
+		rm -f /tmp/hadolint; \
+	}
+
 #env-check: @ Check installed tools
 env-check: deps-check
 	@printf "\xE2\x9C\x94 "
@@ -146,15 +155,16 @@ image-run: image-stop
 image-stop:
 	@docker stop spring-on-k8s 2>/dev/null || true
 
-#lint: @ Run code style checks
-lint: deps
+#lint: @ Run code style and Dockerfile checks
+lint: deps deps-hadolint
 	@mvn checkstyle:check
+	@hadolint Dockerfile
 
-#ci: @ Run full CI pipeline (deps, build, test, lint)
+#ci: @ Run full CI pipeline (deps, lint, test, build)
 ci: deps
-	@echo "=== Step 1/3: Build ===" && mvn clean package -DskipTests
+	@echo "=== Step 1/3: Lint ===" && mvn checkstyle:check
 	@echo "=== Step 2/3: Test ===" && mvn test
-	@echo "=== Step 3/3: Lint ===" && mvn checkstyle:check
+	@echo "=== Step 3/3: Build ===" && mvn clean package -DskipTests
 	@echo "CI pipeline completed successfully."
 
 #ci-run: @ Run GitHub Actions workflow locally using act
@@ -187,6 +197,6 @@ renovate-bootstrap:
 renovate-validate: renovate-bootstrap
 	@npx --yes renovate --platform=local
 
-.PHONY: help deps deps-check deps-act env-check clean build test run upgrade \
+.PHONY: help deps deps-check deps-act deps-hadolint env-check clean build test run upgrade \
 	image-build image-run image-stop lint ci ci-run release \
 	renovate-bootstrap renovate-validate

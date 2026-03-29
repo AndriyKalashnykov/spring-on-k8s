@@ -43,25 +43,6 @@
       "matchPackageNames": ["/^org\\.springframework:/"]
     },
     {
-      "description": "Group Apache Commons dependencies",
-      "groupName": "Apache commons",
-      "matchPackageNames": [
-        "commons-io:commons-io",
-        "org.apache.commons:*"
-      ]
-    },
-    {
-      "description": "Group annotation libraries",
-      "groupName": "annotations",
-      "matchPackageNames": [
-        "com.google.errorprone:*",
-        "net.jcip:jcip-annotations",
-        "org.checkerframework:checker-qual",
-        "org.jetbrains:annotations",
-        "org.jspecify:jspecify"
-      ]
-    },
-    {
       "description": "Label Java packages",
       "matchCategories": ["java"],
       "addLabels": ["lang: java"]
