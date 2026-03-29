@@ -3,5 +3,6 @@
 ignored:
   # DL3006: Always tag the version of an image explicitly (we use ARG-based FROM)
   - DL3006
-  # DL3008: Pin versions in apt get install (not applicable - no apt usage)
-  # DL3018: Pin versions in apk add (not applicable - no apk usage)
+  # SC2035: Use ./*glob* so names with dashes won't become options
+  # Intentional: *.jar in WORKDIR /tmp/target is safe, only one JAR exists
+  - SC2035
