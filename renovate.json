@@ -7,51 +7,80 @@
   "commitMessagePrefix": "chore(all): ",
   "commitMessageAction": "update",
   "commitBody": "Signed-off-by: Renovate Bot <bot@renovateapp.com>",
-  "labels": ["dependencies"],
+  "labels": [
+    "dependencies"
+  ],
   "prConcurrentLimit": 50,
   "prHourlyLimit": 0,
   "platformAutomerge": true,
   "automerge": true,
-  "automergeType": "pr",
+  "automergeType": "branch",
   "automergeStrategy": "squash",
   "ignoreTests": false,
-  "enabledManagers": ["maven", "github-actions", "dockerfile"],
+  "enabledManagers": [
+    "maven",
+    "github-actions",
+    "dockerfile"
+  ],
   "vulnerabilityAlerts": {
-    "labels": ["security"],
+    "labels": [
+      "security"
+    ],
     "automerge": true,
     "minimumReleaseAge": "0 days"
   },
   "packageRules": [
     {
       "description": "Wait 3 days before automerging major updates",
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "minimumReleaseAge": "3 days"
     },
     {
       "description": "Group GitHub Actions into one PR",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "GitHub Actions"
     },
     {
       "description": "Group Spring Boot dependencies",
       "groupName": "Spring Boot",
-      "matchPackageNames": ["/^org\\.springframework\\.boot/"]
+      "matchPackageNames": [
+        "/^org\\.springframework\\.boot/"
+      ]
     },
     {
       "description": "Group Spring Framework dependencies",
       "groupName": "Spring Framework",
-      "matchPackageNames": ["/^org\\.springframework:/"]
+      "matchPackageNames": [
+        "/^org\\.springframework:/"
+      ]
     },
     {
       "description": "Label Java packages",
-      "matchCategories": ["java"],
-      "addLabels": ["lang: java"]
+      "matchCategories": [
+        "java"
+      ],
+      "addLabels": [
+        "lang: java"
+      ]
+    },
+    {
+      "description": "Group Docker base images",
+      "matchDatasources": [
+        "docker"
+      ],
+      "groupName": "Docker dependencies"
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
-      "managerFilePatterns": ["/^Makefile$/"],
+      "managerFilePatterns": [
+        "/^Makefile$/"
+      ],
       "matchStrings": [
         "JAVA_VER\\s*:=\\s*(?<currentValue>.*?)\\n"
       ],
