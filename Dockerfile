@@ -1,13 +1,13 @@
 ARG MVN_VERSION=3.9.9
 ARG JDK_VENDOR=eclipse-temurin
-ARG JDK_VERSION=17
+ARG JDK_VERSION=21
 
 # https://hub.docker.com/_/maven?tab=tags&page=1&name=eclipse-temurin
 FROM maven:${MVN_VERSION}-${JDK_VENDOR}-${JDK_VERSION} AS build
 
 WORKDIR /build
 COPY pom.xml .
-# create a layer with all of the Manven dependencies, first time it takes a while consequent call are very fast
+# create a layer with all of the Maven dependencies, first time it takes a while consequent calls are very fast
 RUN mvn dependency:go-offline
 
 COPY ./pom.xml /tmp/
@@ -23,7 +23,7 @@ RUN java -Djarmode=layertools -jar *.jar extract
 # runtime image
 # https://github.com/GoogleContainerTools/distroless
 # use gcr.io/distroless/java${JDK_VERSION}-debian12:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian12 for production
-FROM gcr.io/distroless/java${JDK_VERSION}-debian12:debug@sha256:2cf8a51737c4916597c3e031ec12df2bfac8e5a54d132021473e867e425f3cb4 AS runtime
+FROM gcr.io/distroless/java${JDK_VERSION}-debian12:debug AS runtime
 
 USER nonroot:nonroot
 WORKDIR /application

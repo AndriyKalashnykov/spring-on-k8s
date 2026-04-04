@@ -161,8 +161,8 @@ lint: deps deps-hadolint
 	@hadolint Dockerfile
 
 #ci: @ Run full CI pipeline (deps, lint, test, build)
-ci: deps
-	@echo "=== Step 1/3: Lint ===" && mvn checkstyle:check
+ci: lint
+	@echo "=== Step 1/3: Lint === (done)"
 	@echo "=== Step 2/3: Test ===" && mvn test
 	@echo "=== Step 3/3: Build ===" && mvn clean package -DskipTests
 	@echo "CI pipeline completed successfully."
