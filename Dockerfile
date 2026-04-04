@@ -23,7 +23,7 @@ RUN java -Djarmode=layertools -jar *.jar extract
 # runtime image
 # https://github.com/GoogleContainerTools/distroless
 # use gcr.io/distroless/java${JDK_VERSION}-debian12:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian12 for production
-FROM gcr.io/distroless/java${JDK_VERSION}-debian12:debug AS runtime
+FROM gcr.io/distroless/java${JDK_VERSION}-debian12:debug@sha256:d100a8c571a3ed914a1a59dc076ca6d950347610385d7ca2e14cb6825a362fe3 AS runtime
 
 USER nonroot:nonroot
 WORKDIR /application
