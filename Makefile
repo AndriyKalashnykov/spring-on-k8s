@@ -337,23 +337,30 @@ lint: deps deps-hadolint
 	@mvn -B checkstyle:check
 	@hadolint Dockerfile
 
-#cve-check: @ OWASP dependency-check vulnerability scan (fast if NVD_API_KEY is set)
-# OSS Index analyzer disabled — it has aggressive anonymous rate limits
-# (429 → 401) that fail the build; authenticated access requires separate
-# Sonatype credentials. NVD is the primary data source.
+#cve-check: @ OWASP dependency-check vulnerability scan
+# Primary data source: NVD (requires NVD_API_KEY for fast path — free key
+# from https://nvd.nist.gov/developers/request-an-api-key).
+# Secondary data source: Sonatype OSS Index (requires OSS_INDEX_USER +
+# OSS_INDEX_TOKEN for authenticated access — anonymous hits HTTP 429; free
+# account at https://ossindex.sonatype.org/). If OSS Index creds are absent
+# the analyzer is disabled so the build still succeeds on NVD alone.
 cve-check: deps
 	@set -e; \
+	MVN_ARGS="-B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check"; \
 	if [ -n "$$NVD_API_KEY" ]; then \
-		echo "Running OWASP dependency-check with NVD API key (fast path)..."; \
-		mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
-			-DnvdApiKey="$$NVD_API_KEY" \
-			-DossIndexAnalyzerEnabled=false; \
+		echo "NVD: authenticated (fast path)"; \
+		MVN_ARGS="$$MVN_ARGS -DnvdApiKey=$$NVD_API_KEY"; \
 	else \
-		echo "WARN: NVD_API_KEY not set — using slow path (may take 10+ min on first run)."; \
-		echo "      Request a free key at https://nvd.nist.gov/developers/request-an-api-key"; \
-		mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
-			-DossIndexAnalyzerEnabled=false; \
-	fi
+		echo "WARN: NVD_API_KEY not set — NVD slow path may take 10+ min."; \
+	fi; \
+	if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
+		echo "OSS Index: authenticated"; \
+		MVN_ARGS="$$MVN_ARGS -DossIndex.username=$$OSS_INDEX_USER -DossIndex.password=$$OSS_INDEX_TOKEN"; \
+	else \
+		echo "WARN: OSS_INDEX_USER / OSS_INDEX_TOKEN not set — disabling OSS Index analyzer (anonymous is rate-limited)."; \
+		MVN_ARGS="$$MVN_ARGS -DossIndexAnalyzerEnabled=false"; \
+	fi; \
+	mvn $$MVN_ARGS
 
 #secrets: @ Scan working tree for secrets via gitleaks (CI-oriented; use secrets-history for full git audit)
 secrets: deps-gitleaks

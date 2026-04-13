@@ -158,6 +158,8 @@ jobs:
       - name: CVE check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          OSS_INDEX_USER: ${{ secrets.OSS_INDEX_USER }}
+          OSS_INDEX_TOKEN: ${{ secrets.OSS_INDEX_TOKEN }}
         run: make cve-check
 
   docker:
