@@ -300,9 +300,13 @@ clean: deps
 build: deps
 	@mvn clean package -DskipTests
 
-#test: @ Run project tests
+#test: @ Run unit tests (fast, Surefire-discovered)
 test: deps
 	@mvn test
+
+#integration-test: @ Run integration tests (*IT.java via Failsafe profile; in-process Spring Boot)
+integration-test: deps
+	@mvn -B verify -P integration-test -Dsurefire.skip=true
 
 #run: @ Run project
 run: deps
@@ -407,8 +411,8 @@ image-push: image-build
 	fi
 	@docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
 
-#ci: @ Run full CI pipeline (deps, format-check, static-check, test, build)
-ci: deps format-check static-check test build
+#ci: @ Run full CI pipeline (deps, format-check, static-check, test, integration-test, build)
+ci: deps format-check static-check test integration-test build
 	@echo "CI pipeline completed successfully."
 
 #ci-run: @ Run GitHub Actions workflow locally using act
@@ -514,7 +518,8 @@ renovate-validate: renovate-bootstrap
 
 .PHONY: help deps deps-install deps-check deps-maven deps-act deps-hadolint deps-gitleaks \
 	deps-trivy deps-actionlint deps-shellcheck deps-gjf deps-kind deps-kubectl clean build \
-	test run format format-check lint cve-check secrets secrets-history trivy-fs trivy-config \
-	lint-ci deps-prune deps-prune-check static-check upgrade upgrade-apply image-build \
-	image-run image-stop image-push kind-create kind-setup kind-load kind-deploy kind-undeploy \
-	kind-destroy kind-up kind-down e2e ci ci-run release renovate-bootstrap renovate-validate
+	test integration-test run format format-check lint cve-check secrets secrets-history \
+	trivy-fs trivy-config lint-ci deps-prune deps-prune-check static-check upgrade \
+	upgrade-apply image-build image-run image-stop image-push kind-create kind-setup kind-load \
+	kind-deploy kind-undeploy kind-destroy kind-up kind-down e2e ci ci-run release \
+	renovate-bootstrap renovate-validate

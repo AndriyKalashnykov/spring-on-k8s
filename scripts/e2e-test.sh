@@ -42,11 +42,24 @@ assert_contains() {
   fi
 }
 
+assert_status() {
+  local path="$1" expected="$2"
+  local status
+  status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${BASE_URL}${path}")
+  if [ "${status}" = "${expected}" ]; then
+    echo "  PASS  GET ${path}  (status ${status})"
+  else
+    echo "  FAIL  GET ${path}  (status ${status}, expected ${expected})"
+    exit 1
+  fi
+}
+
 echo "Running e2e checks..."
 assert_contains /v1/hello "${EXPECTED_MESSAGE}"
 assert_contains /v1/bye   "${EXPECTED_MESSAGE}"
 assert_contains /actuator/health/liveness  '"status":"UP"'
 assert_contains /actuator/health/readiness '"status":"UP"'
 assert_contains /actuator/prometheus       'jvm_memory_used_bytes'
+assert_status   /does-not-exist-abc 404
 
 echo "All e2e checks passed."

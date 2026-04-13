@@ -25,7 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClient;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class ApplicationTests {
+public class ApplicationIT {
   @LocalServerPort private int port;
 
   private RestClient getRestClient() {
@@ -34,6 +34,13 @@ public class ApplicationTests {
 
   @Test
   public void contextLoads() {}
+
+  @Test
+  public void testRoot() {
+    RestClient client = getRestClient();
+    String response = client.get().uri("/").retrieve().body(String.class);
+    assertThat(response).isEqualTo("Hello world");
+  }
 
   @Test
   public void testHello() {
@@ -52,11 +59,36 @@ public class ApplicationTests {
   @Test
   public void testHealth() {
     RestClient client = getRestClient();
-    var status =
-        client
-            .get()
-            .uri("/actuator/health")
-            .exchange((request, response) -> response.getStatusCode());
-    assertThat(status).isEqualTo(HttpStatus.OK);
+    String body = client.get().uri("/actuator/health").retrieve().body(String.class);
+    assertThat(body).contains("\"status\":\"UP\"");
+  }
+
+  @Test
+  public void testLiveness() {
+    RestClient client = getRestClient();
+    String body = client.get().uri("/actuator/health/liveness").retrieve().body(String.class);
+    assertThat(body).contains("\"status\":\"UP\"");
+  }
+
+  @Test
+  public void testReadiness() {
+    RestClient client = getRestClient();
+    String body = client.get().uri("/actuator/health/readiness").retrieve().body(String.class);
+    assertThat(body).contains("\"status\":\"UP\"");
+  }
+
+  @Test
+  public void testPrometheus() {
+    RestClient client = getRestClient();
+    var response = client.get().uri("/actuator/prometheus").retrieve().toEntity(String.class);
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getBody()).contains("jvm_memory_used_bytes");
+  }
+
+  @Test
+  public void testOpenApiDocs() {
+    RestClient client = getRestClient();
+    String body = client.get().uri("/v3/api-docs").retrieve().body(String.class);
+    assertThat(body).contains("/v1/hello").contains("/v1/bye");
   }
 }

@@ -10,7 +10,9 @@ Spring Boot 4.0.5 reference service for Kubernetes deployment. Exposes REST endp
 
 ```bash
 make build                 # Package JAR (mvn clean package -DskipTests)
-make test                  # Run tests (mvn test)
+make test                  # Run unit tests (Surefire, excludes *IT.java)
+make integration-test      # Run integration tests (Failsafe, *IT.java via integration-test profile)
+make e2e                   # Full e2e: kind-up → curl LB assertions → kind-down
 make run                   # Run locally (mvn spring-boot:run) at http://localhost:8080
 make static-check          # Composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, deps-prune-check)
 make ci                    # Full pipeline: deps → format-check → static-check → test → build
@@ -54,7 +56,10 @@ src/main/java/.../springonk8s/
 
 Controllers use `@Value("${app.message:...}")` for configurable messages. On K8s, the ConfigMap at `k8s/cm.yml` overrides this via config tree mount at `/etc/config/` (env `SPRING_CONFIG_IMPORT=configtree:/etc/config/`).
 
-**Test file:** Single integration test class `ApplicationTests.java` using `@SpringBootTest(RANDOM_PORT)` with `RestClient`. Tests: contextLoads, testHello, testBye, testHealth. Runs under Surefire via `make test`.
+**Test pyramid (three layers):**
+- `make test` — Surefire-discovered unit tests (`*Test.java` / `*Tests.java`; excludes `*IT.java`). Fast, no Spring context.
+- `make integration-test` — Failsafe-discovered `*IT.java` under the `integration-test` Maven profile. The canonical integration test is `ApplicationIT.java` — `@SpringBootTest(RANDOM_PORT)` + `RestClient` covering `/`, `/v1/hello`, `/v1/bye`, `/actuator/health{,/liveness,/readiness}`, `/actuator/prometheus`, `/v3/api-docs`.
+- `make e2e` — `scripts/e2e-test.sh` runs against a KinD cluster with MetalLB. Asserts the ConfigMap override reaches the app, probes report UP, Prometheus endpoint exposes metrics, and an unknown path returns 404.
 
 ## Key Endpoints
 
@@ -99,7 +104,7 @@ When spawning subagents, always pass conventions from the respective skill into 
 - **Docker image:** Multi-stage Dockerfile with distroless runtime (`gcr.io/distroless/java21-debian12:debug`), layered JAR via `spring-boot-maven-plugin`, non-root user
 - **Buildpacks alternative:** `mvn spring-boot:build-image` with Paketo builder
 - **CI workflows** (`.github/workflows/`):
-  - `ci.yml` — split into 4 jobs: `static-check` → `build` + `test` (parallel) → `ci-pass` (branch-protection gate)
+  - `ci.yml` — 6 jobs: `static-check` → { `build`, `test`, `integration-test` } (parallel) → `e2e` (needs build + test) → `ci-pass` (branch-protection gate, `if: always()`)
   - `cleanup-runs.yml` — weekly (Sunday) run pruning via `gh run delete` (retain 7 days, keep 5 minimum)
 - **Renovate:** `renovate.json` drives automated dependency updates. Makefile `_VERSION` constants carry `# renovate:` inline comments; a single generic `customManagers` regex in `renovate.json` tracks them all
 - **Trivy suppressions:** `.trivyignore` documents demo-scope K8s hardening exceptions and upstream CVEs tracked by Renovate

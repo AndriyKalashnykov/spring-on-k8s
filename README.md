@@ -59,9 +59,16 @@ Run `make help` to see all available targets.
 | Target | Description |
 |--------|-------------|
 | `make build` | Build project (skips tests) |
-| `make test` | Run project tests |
 | `make run` | Run locally at `http://localhost:8080` |
 | `make clean` | Clean Maven build artifacts |
+
+### Testing (three layers)
+
+| Target | Description | Runtime | Discovery |
+|--------|-------------|---------|-----------|
+| `make test` | Unit tests (Surefire, excludes `*IT.java`) | seconds | `**/*Test.java`, `**/*Tests.java` |
+| `make integration-test` | In-process integration tests via `@SpringBootTest(RANDOM_PORT)` + real Actuator/Springdoc | ~5s | `**/*IT.java` (Failsafe, `integration-test` Maven profile) |
+| `make e2e` | Full-stack end-to-end against KinD + MetalLB; asserts ConfigMap override + LB wiring + negative case | ~3–5 min | `scripts/e2e-test.sh` |
 
 ### Code Quality & Security
 
@@ -233,7 +240,9 @@ GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Non-s
 |-----|----------|-------|
 | **static-check** | push, PR, tags | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, deps-prune-check) |
 | **build** | push, PR, tags (needs: static-check) | `make build` |
-| **test** | push, PR, tags (needs: static-check) | `make test` |
+| **test** | push, PR, tags (needs: static-check) | `make test` — unit layer (Surefire) |
+| **integration-test** | push, PR, tags (needs: static-check) | `make integration-test` — in-process integration via Failsafe profile |
+| **e2e** | push, PR, tags (needs: build, test) | `make e2e` — KinD + MetalLB, asserts ConfigMap override + LB wiring |
 | **ci-pass** | always (needs: all of the above) | Single stable branch-protection gate — fails if any upstream job failed |
 | **cleanup** | weekly (Sunday) | Prune old workflow runs (retain 7 days, keep 5 minimum) |
 
