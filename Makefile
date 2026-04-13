@@ -355,7 +355,7 @@ cve-check: deps
 	fi; \
 	if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
 		echo "OSS Index: authenticated"; \
-		MVN_ARGS="$$MVN_ARGS -DossIndex.username=$$OSS_INDEX_USER -DossIndex.password=$$OSS_INDEX_TOKEN"; \
+		MVN_ARGS="$$MVN_ARGS -DossIndexAnalyzerUsername=$$OSS_INDEX_USER -DossIndexAnalyzerPassword=$$OSS_INDEX_TOKEN"; \
 	else \
 		echo "WARN: OSS_INDEX_USER / OSS_INDEX_TOKEN not set — disabling OSS Index analyzer (anonymous is rate-limited)."; \
 		MVN_ARGS="$$MVN_ARGS -DossIndexAnalyzerEnabled=false"; \
