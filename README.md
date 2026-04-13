@@ -5,12 +5,26 @@
 
 # Running Spring Boot app on Kubernetes
 
-Spring Boot 4.0.5 application demonstrating how to run on Kubernetes. Exposes REST endpoints (`/v1/hello`, `/v1/bye`) with Swagger UI, Prometheus metrics via Actuator, and K8s health probes. Built with Java 21 and Maven.
+Spring Boot 4 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Spring Boot Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted `ConfigMap` via Spring's `configtree:` property source.
+
+| Component | Technology |
+|-----------|-----------|
+| Language | Java 21 (source + target + runtime) |
+| Framework | Spring Boot 4.0.5 |
+| API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 |
+| Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry |
+| Build | Maven 3.9 |
+| Container | Multi-stage Dockerfile, distroless runtime, non-root user |
+| Orchestration | Kubernetes 1.30+, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) |
+| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [MetalLB](https://metallb.io/) for `make e2e` |
+| CI/CD | GitHub Actions (split `static-check` / `build` / `test` / `ci-pass`) |
+| Code quality | Checkstyle, hadolint, [google-java-format](https://github.com/google/google-java-format), gitleaks, Trivy, actionlint, OWASP dependency-check |
+| Dep management | Renovate (automerge minor/patch, 3-day buffer on majors) |
 
 ## Quick Start
 
 ```bash
-make deps          # verify required tools
+make deps          # verify tools; installs Maven locally if missing
 make build         # build the project
 make test          # run tests
 make run           # start at http://localhost:8080
@@ -22,23 +36,18 @@ make run           # start at http://localhost:8080
 |------|---------|---------|
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
 | [JDK](https://adoptium.net/) | 21+ | Java runtime and compiler |
-| [Maven](https://maven.apache.org/) | 3.9+ | Build and dependency management |
-| [Docker](https://www.docker.com/) | latest | Container image builds |
+| [Maven](https://maven.apache.org/) | 3.9+ | Build and dependency management (`make deps-maven` auto-installs if missing) |
+| [Docker](https://www.docker.com/) | latest | Container image builds, KinD, Trivy filesystem scans |
 | [Git](https://git-scm.com/) | 2.0+ | Version control |
-| [SDKMAN](https://sdkman.io/) | latest | Java/Maven version management (optional) |
-| [kubectl](https://kubernetes.io/docs/tasks/tools/) | latest | Kubernetes deployment (optional) |
-| [Carvel](https://carvel.dev/) | latest | K8s templating and deployment (optional) |
+| [SDKMAN](https://sdkman.io/) | latest | Java/Maven version management (optional — `make deps-install` uses it) |
+| [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.30+ | Kubernetes deployment (`make deps-kubectl` auto-installs) |
+| [KinD](https://kind.sigs.k8s.io/) | 0.32+ | Local K8s cluster for `make e2e` (`make deps-kind` auto-installs) |
+| [Carvel](https://carvel.dev/) | latest | `ytt` + `kapp` for production K8s deploy (optional) |
 
 Install all required dependencies:
 
 ```bash
 make deps
-```
-
-Install SDKMAN-managed Java/Maven versions:
-
-```bash
-make deps-check
 ```
 
 ## Available Make Targets
@@ -49,383 +58,191 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make build` | Build project |
+| `make build` | Build project (skips tests) |
 | `make test` | Run project tests |
-| `make run` | Run project |
-| `make clean` | Cleanup |
+| `make run` | Run locally at `http://localhost:8080` |
+| `make clean` | Clean Maven build artifacts |
 
-### Code Quality
+### Code Quality & Security
 
 | Target | Description |
 |--------|-------------|
-| `make lint` | Run code style and Dockerfile checks |
-| `make upgrade` | Upgrade Maven dependencies |
+| `make format` | Format Java sources with google-java-format (writes changes) |
+| `make format-check` | Verify Java sources are formatted (no changes) |
+| `make lint` | Checkstyle + hadolint + compiler warnings-as-errors |
+| `make secrets` | gitleaks scan of working tree |
+| `make secrets-history` | gitleaks full git history audit (slow) |
+| `make trivy-fs` | Trivy filesystem scan (vulns, secrets, misconfigs) |
+| `make trivy-config` | Trivy scan of K8s manifests |
+| `make lint-ci` | actionlint on `.github/workflows/` |
+| `make cve-check` | OWASP dependency-check (fast with `NVD_API_KEY`) |
+| `make deps-prune` | Report unused/undeclared Maven dependencies |
+| `make deps-prune-check` | Fail if unused/undeclared Maven dependencies found |
+| `make static-check` | Composite gate: format-check + lint + secrets + trivy-fs + trivy-config + lint-ci + deps-prune-check |
 
 ### Docker
 
 | Target | Description |
 |--------|-------------|
-| `make image-build` | Build Docker image |
+| `make image-build` | Build Docker image (`$(DOCKER_IMAGE):$(DOCKER_TAG)`) |
 | `make image-run` | Run Docker container |
 | `make image-stop` | Stop Docker container |
+| `make image-push` | Push Docker image to registry |
+
+### Kubernetes (KinD)
+
+| Target | Description |
+|--------|-------------|
+| `make kind-up` | Bring the full stack up: create cluster → install MetalLB → load image → deploy |
+| `make kind-down` | Tear the cluster down |
+| `make kind-create` | Create KinD cluster (granular) |
+| `make kind-setup` | Install MetalLB in KinD for `LoadBalancer` services (granular) |
+| `make kind-load` | Load local Docker image into KinD (granular) |
+| `make kind-deploy` | Apply K8s manifests to the KinD cluster (granular) |
+| `make kind-undeploy` | Remove the app from the cluster (granular) |
+| `make kind-destroy` | Delete the KinD cluster (granular) |
+| `make e2e` | Full end-to-end: `kind-up` → curl LB IP assertions → `kind-down` |
 
 ### CI
 
 | Target | Description |
 |--------|-------------|
-| `make ci` | Run full CI pipeline (deps, lint, test, build) |
-| `make ci-run` | Run GitHub Actions workflow locally using [act](https://github.com/nektos/act) |
+| `make ci` | Full local CI: deps → format-check → static-check → test → build |
+| `make ci-run` | Run the GitHub Actions workflow locally via [act](https://github.com/nektos/act) |
 
 ### Utilities
 
 | Target | Description |
 |--------|-------------|
-| `make deps` | Check required tools (java, mvn, docker, git) |
-| `make deps-check` | Check SDKMAN and install Java/Maven |
-| `make deps-act` | Install act for local CI (GitHub Actions) |
-| `make deps-hadolint` | Install hadolint for Dockerfile linting |
-| `make env-check` | Check installed tools |
-| `make release VERSION=x.y.z` | Create a release |
-| `make renovate-bootstrap` | Install nvm and npm for Renovate |
-| `make renovate-validate` | Validate Renovate configuration |
+| `make help` | List all available targets |
+| `make deps` | Verify required tools; auto-installs Maven if missing |
+| `make deps-install` | Install Java + Maven via SDKMAN (one-time bootstrap) |
+| `make deps-check` | Show installed tool versions |
+| `make upgrade` | Show available Maven dependency updates (dry-run) |
+| `make upgrade-apply` | Apply latest Maven releases (prompts, mutates `pom.xml`) |
+| `make release VERSION=x.y.z` | Create a semver release tag |
+| `make renovate-validate` | Validate Renovate configuration locally |
 
-## REST API
+## Endpoints
 
-The app has two REST controllers:
-
-```java
-@RestController
-@RequestMapping("/v1")
-class HelloController {
-    @Value("${app.message:Hello world!}")
-    private String message;
-
-    @GetMapping(value = "/hello", produces = MediaType.TEXT_PLAIN_VALUE)
-    String hello() {
-        return message;
-    }
-}
-```
-
-```java
-@RestController
-@RequestMapping("/v1")
-class ByeController {
-    @Value("${app.message:Bye world!}")
-    private String message;
-
-    @GetMapping(value = "/bye", produces = MediaType.TEXT_PLAIN_VALUE)
-    String bye() {
-        return message;
-    }
-}
-```
-
-### Endpoints
-
-```bash
-curl -w '\n' localhost:8080/v1/hello
-Hello world!
-
-curl -w '\n' localhost:8080/v1/bye
-Bye world!
-```
-
-### Health & Metrics
-
-```bash
-curl -s http://localhost:8080/actuator | jq .
-
-{
-  "_links": {
-    "self": {
-      "href": "http://localhost:8080/actuator",
-      "templated": false
-    },
-    "health": {
-      "href": "http://localhost:8080/actuator/health",
-      "templated": false
-    },
-    "health-path": {
-      "href": "http://localhost:8080/actuator/health/{*path}",
-      "templated": true
-    },
-    "prometheus": {
-      "href": "http://localhost:8080/actuator/prometheus",
-      "templated": false
-    }
-  }
-}
-```
+| Path | Description |
+|------|-------------|
+| `GET /` | Hardcoded greeting (`Hello world`) |
+| `GET /v1/hello` | Returns `${app.message}` (default: `Hello world!`; overridden by ConfigMap to `Hello Kubernetes!`) |
+| `GET /v1/bye` | Returns `${app.message}` |
+| `GET /actuator/health` | Aggregate health |
+| `GET /actuator/health/liveness` | K8s liveness probe endpoint |
+| `GET /actuator/health/readiness` | K8s readiness probe endpoint |
+| `GET /actuator/prometheus` | Prometheus scrape target |
+| `GET /swagger-ui.html` | OpenAPI / Swagger UI |
+| `GET /v3/api-docs` | OpenAPI JSON |
 
 ### Swagger UI
 
-Open [`http://localhost:8080/swagger-ui.html`](http://localhost:8080/swagger-ui.html)
-
 ![Swagger UI](./docs/swagger-ui.png "Swagger UI")
 
-## Creating a Docker image
+## Docker image
 
-### Buildpacks
-
-Use [Cloud Native Buildpacks](https://buildpacks.io) to build & push your Docker image:
+A multi-stage [Dockerfile](./Dockerfile) builds a distroless runtime image with a non-root user and Spring Boot JAR layering.
 
 ```bash
-export DOCKER_LOGIN=andriykalashnykov
-export DOCKER_PWD=YOUR-REGISTRY-PASSWORD
-mvn clean spring-boot:build-image -Djava.version=21 -Dimage.publish=false -Dimage.name=andriykalashnykov/spring-on-k8s:latest -Ddocker.publishRegistry.username=${DOCKER_LOGIN} -Ddocker.publishRegistry.password=${DOCKER_PWD}
+make image-build                                         # build
+make image-run                                           # run at http://localhost:8080
+make image-push                                          # push to registry
 ```
 
-### Docker
-
-A multi-stage [Dockerfile](./Dockerfile) is included (non-root, JAR layers, distroless runtime image).
+Buildpacks alternative (Paketo):
 
 ```bash
-make image-build
+export DOCKER_LOGIN=<your-dockerhub-username>
+export DOCKER_PWD=<your-dockerhub-token>
+mvn clean spring-boot:build-image \
+  -Djava.version=21 \
+  -Dimage.publish=false \
+  -Dimage.name=${DOCKER_LOGIN}/spring-on-k8s:latest \
+  -Ddocker.publishRegistry.username=${DOCKER_LOGIN} \
+  -Ddocker.publishRegistry.password=${DOCKER_PWD}
 ```
 
-Or directly with Docker:
-
-```bash
-docker build -t andriykalashnykov/spring-on-k8s:latest --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=21 .
-```
-
-Push to your Docker registry:
-
-```bash
-docker push andriykalashnykov/spring-on-k8s:latest
-```
-
-## Scanning for vulnerabilities
+Scan with Docker Scout:
 
 ```bash
 docker scout cves andriykalashnykov/spring-on-k8s:latest
 ```
 
-### Using workaround to mitigate `Log4j 2 CVE-2021-44228` by creating Docker image with [custom buildpack](https://github.com/alexandreroman/cve-2021-44228-workaround-buildpack)
+## Deploying to Kubernetes
 
-```bash
-pack build andriykalashnykov/spring-on-k8s:latest  -b ghcr.io/alexandreroman/cve-2021-44228-workaround-buildpack -b paketo-buildpacks/java --builder paketobuildpacks/builder:buildpackless-base
-```
-
-## Running Docker image
-
-```bash
-make image-run
-```
-
-Or directly:
-
-```bash
-docker run --rm -p 8080:8080 andriykalashnykov/spring-on-k8s:latest
-```
-
-## Deploying application to Kubernetes
-
-This project includes Kubernetes descriptors, so you can easily deploy
-this app to your favorite K8s cluster:
+### Production path (Carvel)
 
 ```bash
 ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
 ```
 
-Using this command, monitor the allocated IP address for this app:
-```bash
-kubectl -n spring-on-k8s get svc
+Wait for the `LoadBalancer` Service to receive an external IP:
 
-NAME     TYPE           CLUSTER-IP       EXTERNAL-IP     PORT(S)        AGE
-app-lb   LoadBalancer   xx.100.200.204   xx.205.141.26   80:31633/TCP   90s
+```bash
+kubectl -n spring-on-k8s get svc app
+
+NAME   TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)        AGE
+app    LoadBalancer   10.96.10.42    192.0.2.10     80:31633/TCP   90s
 ```
 
-At some point, you should see an IP address under the column `EXTERNAL-IP`.
-
-If you hit this address, you will get a greeting message from the app:
+Verify the ConfigMap override is applied:
 
 ```bash
-curl $(kubectl -n spring-on-k8s get svc app | sed -n '2 p' | awk '{print $4}')
-
+curl "http://$(kubectl -n spring-on-k8s get svc app -o jsonpath='{.status.loadBalancer.ingress[0].ip}')/v1/hello"
 Hello Kubernetes!
 ```
 
-## Undeploy application from Kubernetes
+Undeploy:
 
 ```bash
 kapp delete -a spring-on-k8s --yes
 ```
 
-## Configure VMware Tanzu Observability (Wavefront)
-
-> **Note:** The Wavefront integration below references Spring Cloud Sleuth and older dependency versions. For Spring Boot 3+, use [Micrometer Tracing](https://micrometer.io/docs/tracing) instead of Sleuth.
-
-Wavefront for Spring Boot allows you to quickly configure your
-environment, so Spring Boot components send metrics, histograms,
-and traces/spans to the Wavefront service, for more details see
-how to [examine Spring Boot data in Wavefront dashboards and charts](https://docs.wavefront.com/wavefront_springboot.html#prerequisites-for-wavefront-spring-boot-starter)
-
-### Sending Data From Spring Boot Into Wavefront
-
-You can send data from your Spring Boot applications into Wavefront using the Wavefront for Spring Boot Starter
-(all users) or the Wavefront Spring Boot integration (Wavefront customers and trial users).
-
-* **Freemium** :  All users can run the Spring Boot Starter with the default settings to view their data in the Wavefront Freemium instance. Certain limitations apply, for example, alerts are not available, but you don't have to sign up.
-* **Wavefront Customer or Trial User** : Wavefront customers or trial users can modify the default Wavefront Spring Boot Starter to send data to their cluster. [You can sign up for a free 30-day trial here](https://tanzu.vmware.com/observability)
-
-#### Sending Data From Spring Boot Into Wavefront - Freemium
-
-To configure `Freemium` modify [application.yml](./src/main/resources/application.yml)
-by specifying `freemium-account : true`, setting `name` of the overarching application and current `service` name in particular.
-
-```yaml
-wavefront:
-  freemium-account: true
-  application:
-    name: spring-on-k8s
-    service: backend
-```
-
-#### Sending Data From Spring Boot Into Wavefront - Wavefront Customer or Trial User
-
-To configure `Wavefront Customer or Trial User` modify [application.yml](./src/main/resources/application.yml)
-by specifying `freemium-account : false` and providing `uri` and `api-token` of the Wavefront instance.
-
-```yaml
-wavefront:
-  freemium-account: false
-  application:
-    name: spring-on-k8s
-    service: backend
-
-management:
-  metrics:
-    export:
-      wavefront:
-        api-token: "$API_Token"
-        uri: "$wavefront_instance"
-```
-
-We also need to configure Wavefront dependencies based on how you want to send data to Wavefront. Two options are available
-`Spring Cloud Sleuth` and `OpenTracing`.
-
-#### Sending data to `Wavefront` with `Spring Cloud Sleuth`
-
-Modify Maven project file [`pom.xml`](./pom.xml)
-
-```xml
-<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>com.wavefront</groupId>
-      <artifactId>wavefront-spring-boot-bom</artifactId>
-      <version>2.2.0</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>org.springframework.cloud</groupId>
-      <artifactId>spring-cloud-dependencies</artifactId>
-      <version>2020.0.4</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
-</dependencyManagement>
-
-<dependencies>
-  <dependency>
-    <groupId>com.wavefront</groupId>
-    <artifactId>wavefront-spring-boot-starter</artifactId>
-  </dependency>
-  <dependency>
-    <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-sleuth</artifactId>
-  </dependency>
-</dependencies>
-```
-
-#### Sending data to `Wavefront` with `OpenTracing`
-
-Modify Maven project file [`pom.xml`](./pom.xml)
-
-```xml
-<dependencyManagement>
-  <dependencies>
-    <dependency>
-      <groupId>com.wavefront</groupId>
-      <artifactId>wavefront-spring-boot-bom</artifactId>
-      <version>2.2.0</version>
-      <type>pom</type>
-      <scope>import</scope>
-    </dependency>
-  </dependencies>
-</dependencyManagement>
-
-<dependencies>
-  <dependency>
-    <groupId>com.wavefront</groupId>
-    <artifactId>wavefront-spring-boot-starter</artifactId>
-  </dependency>
-
-  <dependency>
-    <groupId>io.opentracing.contrib</groupId>
-    <artifactId>opentracing-spring-cloud-starter</artifactId>
-    <version>0.5.9</version>
-  </dependency>
-</dependencies>
-```
-
-![Spring Boot Dashboard](./docs/spring-dash.png "Spring Boot Dashboard")
-
-![Application Traces Dashboard](./docs/traces-dash.png "Application Traces Dashboard")
-
-## Application Accelerator for VMware Tanzu
-
-[Creating Application Accelerators](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-index.html)
-and [Creating an accelerator.yaml](https://docs.vmware.com/en/Application-Accelerator-for-VMware-Tanzu/1.0/acc-docs/GUID-creating-accelerators-accelerator-yaml.html)
-
-### Publishing the accelerator
-
-#### With kubectl
+### Local E2E path (KinD + MetalLB)
 
 ```bash
-mkdir -p ~/projects/; cd ~/projects/
-git clone git@github.com:AndriyKalashnykov/spring-on-k8s.git
-
-kubectl apply -f  ~/projects/spring-on-k8s/k8s-resource.yaml --namespace accelerator-system
+make e2e                 # spins up cluster, deploys, runs assertions, tears down
 ```
 
-#### With Tanzu CLI
+Or step by step for debugging:
 
 ```bash
-tanzu acc create spring-on-k8s --kubeconfig $HOME/.kube/config  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git --git-branch main
+make kind-up             # create cluster + MetalLB + deploy
+kubectl -n spring-on-k8s get svc app
+# run manual curls against the assigned LoadBalancer IP
+make kind-down           # tear down
 ```
 
-### Deleting the accelerator
+## Tanzu Application Accelerator
 
-#### With kubectl
-```bash
-kubectl delete -f  ~/projects/spring-on-k8s/k8s-resource.yaml --namespace accelerator-system
-```
-
-#### With Tanzu CLI
+The repo ships an [`accelerator.yaml`](./accelerator.yaml) and [`k8s-resource.yaml`](./k8s-resource.yaml) so the project can be registered as a [Tanzu Application Accelerator](https://tanzu.vmware.com/accelerator). Publishing command (requires a TAP cluster):
 
 ```bash
-tanzu acc delete spring-on-k8s --kubeconfig $HOME/.kube/config
+tanzu acc create spring-on-k8s --kubeconfig $HOME/.kube/config \
+  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git \
+  --git-branch main
 ```
 
 ## CI/CD
 
-GitHub Actions runs on every push to `main`, tags `v*`, and pull requests.
+GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Non-source paths (`*.md`, `docs/`, images, `LICENSE`) are skipped via `paths-ignore`.
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **ci** | push, PR, tags | Lint, Test, Build |
-| **cleanup** | weekly (Sunday) | Delete old workflow runs (retain 7 days, keep 5 minimum) |
+| **static-check** | push, PR, tags | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, deps-prune-check) |
+| **build** | push, PR, tags (needs: static-check) | `make build` |
+| **test** | push, PR, tags (needs: static-check) | `make test` |
+| **ci-pass** | always (needs: all of the above) | Single stable branch-protection gate — fails if any upstream job failed |
+| **cleanup** | weekly (Sunday) | Prune old workflow runs (retain 7 days, keep 5 minimum) |
 
-[Renovate](https://docs.renovatebot.com/) keeps dependencies up to date.
+### Required Secrets and Variables
 
-## Contribute
+No additional secrets or variables are required beyond the default `GITHUB_TOKEN`. OWASP dependency-check runs via `make cve-check` locally only; setting an `NVD_API_KEY` environment variable in the developer's shell switches it to the fast path (minutes instead of 10+ min).
 
-Contributions are always welcome!
+[Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled for minor/patch (3-day release-age buffer on majors).
 
-Feel free to open issues & send PR.
+## Contributing
+
+Contributions welcome — open a PR.

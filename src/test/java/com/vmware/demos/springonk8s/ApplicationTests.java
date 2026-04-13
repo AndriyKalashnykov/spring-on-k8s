@@ -16,45 +16,47 @@
 
 package com.vmware.demos.springonk8s;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClient;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class ApplicationTests {
-    @LocalServerPort
-    private int port;
+  @LocalServerPort private int port;
 
-    private RestClient getRestClient() {
-        return RestClient.builder().baseUrl("http://localhost:" + port).build();
-    }
+  private RestClient getRestClient() {
+    return RestClient.builder().baseUrl("http://localhost:" + port).build();
+  }
 
-    @Test
-    public void contextLoads() {
-    }
+  @Test
+  public void contextLoads() {}
 
-    @Test
-    public void testHello() {
-        RestClient client = getRestClient();
-        String response = client.get().uri("/v1/hello").retrieve().body(String.class);
-        assertThat(response).isEqualTo("Hello world!");
-    }
+  @Test
+  public void testHello() {
+    RestClient client = getRestClient();
+    String response = client.get().uri("/v1/hello").retrieve().body(String.class);
+    assertThat(response).isEqualTo("Hello world!");
+  }
 
-    @Test
-    public void testBye() {
-        RestClient client = getRestClient();
-        String response = client.get().uri("/v1/bye").retrieve().body(String.class);
-        assertThat(response).isEqualTo("Bye world!");
-    }
+  @Test
+  public void testBye() {
+    RestClient client = getRestClient();
+    String response = client.get().uri("/v1/bye").retrieve().body(String.class);
+    assertThat(response).isEqualTo("Bye world!");
+  }
 
-    @Test
-    public void testHealth() {
-        RestClient client = getRestClient();
-        var status = client.get().uri("/actuator/health").exchange((request, response) -> response.getStatusCode());
-        assertThat(status).isEqualTo(HttpStatus.OK);
-    }
+  @Test
+  public void testHealth() {
+    RestClient client = getRestClient();
+    var status =
+        client
+            .get()
+            .uri("/actuator/health")
+            .exchange((request, response) -> response.getStatusCode());
+    assertThat(status).isEqualTo(HttpStatus.OK);
+  }
 }

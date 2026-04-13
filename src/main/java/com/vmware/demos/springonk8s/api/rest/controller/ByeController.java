@@ -28,13 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(value = "/v1")
 @Tag(name = "ByeController")
 class ByeController {
-    @Value("${app.message:Bye world!}")
-    private String message;
+  @Value("${app.message:Bye world!}")
+  private String message;
 
-    @GetMapping(value = "/bye", produces = MediaType.TEXT_PLAIN_VALUE)
-    @Operation(summary = "Say bye")
-    String bye() {
-        // Just return a simple String.
-        return message;
-    }
+  @GetMapping(value = "/bye", produces = MediaType.TEXT_PLAIN_VALUE)
+  @Operation(summary = "Say bye")
+  String bye() {
+    // Just return a simple String.
+    return message;
+  }
 }

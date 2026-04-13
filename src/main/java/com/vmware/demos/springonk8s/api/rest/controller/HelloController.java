@@ -26,19 +26,19 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @Tag(name = "HelloController")
 class HelloController {
-    @Value("${app.message:Hello world!}")
-    private String message;
+  @Value("${app.message:Hello world!}")
+  private String message;
 
-    @GetMapping(value = "/", produces = MediaType.TEXT_PLAIN_VALUE)
-    @Operation(summary = "Root endpoint")
-    String root() {
-        return "Hello world";
-    }
+  @GetMapping(value = "/", produces = MediaType.TEXT_PLAIN_VALUE)
+  @Operation(summary = "Root endpoint")
+  String root() {
+    return "Hello world";
+  }
 
-    @GetMapping(value = "/v1/hello", produces = MediaType.TEXT_PLAIN_VALUE)
-    @Operation(summary = "Say hello")
-    String greeting() {
-        // Just return a simple String.
-        return message;
-    }
+  @GetMapping(value = "/v1/hello", produces = MediaType.TEXT_PLAIN_VALUE)
+  @Operation(summary = "Say hello")
+  String greeting() {
+    // Just return a simple String.
+    return message;
+  }
 }

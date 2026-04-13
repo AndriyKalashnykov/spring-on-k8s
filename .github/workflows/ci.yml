@@ -1,10 +1,40 @@
-name: ci
+name: CI
 
 on:
   push:
     branches: [main]
     tags: ['v*']
+    paths-ignore:
+      - '*.md'
+      - '!CLAUDE.md'
+      - 'docs/**'
+      - 'specs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.claudeignore'
+      - '.claude/**'
+      - 'benchmarks/**'
+      - '**.png'
+      - '**.jpg'
+      - '**.gif'
+      - '**.svg'
   pull_request:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - '!CLAUDE.md'
+      - 'docs/**'
+      - 'specs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.claudeignore'
+      - '.claude/**'
+      - 'benchmarks/**'
+      - '**.png'
+      - '**.jpg'
+      - '**.gif'
+      - '**.svg'
+  workflow_call:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,47 +44,69 @@ permissions:
   contents: read
 
 jobs:
-  build:
-
+  static-check:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - name: Download repository
+      - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up JDK
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
-          java-version: 21
-          distribution: 'temurin'
+          distribution: temurin
+          java-version-file: .java-version
+          cache: maven
 
-      # Bootstrap: Maven must exist before Makefile targets can run.
-      # GitHub runners have it pre-installed; this only executes in act containers.
-      - name: Install Maven
-        run: |
-          if ! command -v mvn &>/dev/null; then
-            MVN_VER=3.9.9
-            curl -sSfL "https://archive.apache.org/dist/maven/maven-3/${MVN_VER}/binaries/apache-maven-${MVN_VER}-bin.tar.gz" | sudo tar xz -C /opt
-            echo "/opt/apache-maven-${MVN_VER}/bin" >> "$GITHUB_PATH"
-          fi
+      - name: Static check
+        run: make static-check
 
-      - name: Cache Maven packages
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
-        env:
-          cache-name: cache-mvn-temu
+  build:
+    needs: [static-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
+          distribution: temurin
+          java-version-file: .java-version
+          cache: maven
 
-      - name: Lint with Make
-        run: make lint
+      - name: Build
+        run: make build
 
-      - name: Test with Make
+  test:
+    needs: [static-check]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version-file: .java-version
+          cache: maven
+
+      - name: Test
         run: make test
 
-      - name: Build with Make
-        run: make build
+  ci-pass:
+    if: always()
+    needs: [static-check, build, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - name: Check upstream jobs
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more upstream jobs failed"
+            exit 1
+          fi
+          echo "All upstream jobs succeeded or were skipped."

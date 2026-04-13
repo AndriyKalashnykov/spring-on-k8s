@@ -16,7 +16,7 @@
     <description>Spring Boot app on Kubernetes</description>
 
     <properties>
-        <java.version>17</java.version>
+        <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
@@ -118,6 +118,33 @@
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
+                    <showWarnings>true</showWarnings>
+                    <failOnWarning>true</failOnWarning>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.9.0</version>
+                <configuration>
+                    <!-- Spring Boot starters aggregate transitive deps; dependency:analyze cannot see that auto-configuration uses them. Declared-but-"unused" entries are intentional. -->
+                    <ignoredUnusedDeclaredDependencies>
+                        <dep>org.springframework.boot:spring-boot-starter-web</dep>
+                        <dep>org.springframework.boot:spring-boot-starter-actuator</dep>
+                        <dep>org.springframework.boot:spring-boot-devtools</dep>
+                        <dep>org.springframework.boot:spring-boot-starter-test</dep>
+                        <dep>org.springdoc:springdoc-openapi-starter-webmvc-ui</dep>
+                        <dep>io.micrometer:micrometer-registry-prometheus</dep>
+                    </ignoredUnusedDeclaredDependencies>
+                    <!-- Imports from Spring Boot / Spring Framework / test harness / swagger come via starters; analyzer flags them as "used undeclared" but adding them directly would duplicate starter BOM coverage. -->
+                    <ignoredUsedUndeclaredDependencies>
+                        <dep>org.springframework.boot:*</dep>
+                        <dep>org.springframework:*</dep>
+                        <dep>org.junit.jupiter:*</dep>
+                        <dep>org.assertj:*</dep>
+                        <dep>io.swagger.core.v3:*</dep>
+                    </ignoredUsedUndeclaredDependencies>
                 </configuration>
             </plugin>
 
@@ -136,7 +163,7 @@
                                     <version>[3.0,)</version>
                                 </requireMavenVersion>
                                 <requireJavaVersion>
-                                    <version>[17,)</version>
+                                    <version>[21,)</version>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>

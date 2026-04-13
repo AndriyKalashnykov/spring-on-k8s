@@ -1,0 +1,54 @@
+# Trivy suppressions for spring-on-k8s
+#
+# This is a learning/demo project for Spring Boot on Kubernetes. Production-grade
+# Pod Security hardening (securityContext, read-only rootfs, seccomp, non-default
+# namespace, pinned image digests, resource requests, capability drop) is
+# intentionally out of scope — the demo focuses on Spring Boot + K8s probes +
+# ConfigMap mount + Carvel (ytt/kapp) deployment mechanics.
+#
+# The findings below are valid production concerns; they are suppressed only for
+# this specific demo. Do NOT copy these suppressions into production manifests.
+
+# Pod Security — securityContext / capabilities / seccomp
+KSV001    # allowPrivilegeEscalation should be false
+KSV003    # capabilities.drop should include ALL
+KSV004    # capabilities.drop should be set
+KSV012    # runAsNonRoot should be true
+KSV014    # readOnlyRootFilesystem should be true (Spring Boot needs /tmp writeable)
+KSV020    # runAsUser > 10000
+KSV021    # runAsGroup > 10000
+KSV030    # seccompProfile.type should be RuntimeDefault
+KSV104    # container should specify seccomp profile
+KSV106    # container should drop ALL capabilities
+KSV118    # container using default security context
+
+# Resource management — demo uses memory limit only
+KSV011    # resources.limits.cpu
+KSV015    # resources.requests.cpu
+KSV016    # resources.requests.memory
+
+# Image / registry — demo uses Docker Hub :latest
+KSV013    # should specify image tag (not :latest)
+KSV125    # image from untrusted registry (3-digit form)
+KSV0125   # image from untrusted registry (4-digit form — newer trivy versions)
+AVD-KSV-0125  # image from untrusted registry (AVD-prefixed form)
+
+# Namespace — demo uses default namespace (kapp deploys into --into-ns at apply-time)
+KSV110    # should set metadata.namespace to non-default
+
+# Dockerfile — HEALTHCHECK is redundant on distroless base; K8s liveness/readiness
+# probes on /actuator/health/liveness + /actuator/health/readiness are the
+# authoritative health source for this service (see k8s/deployment.yml).
+DS-0026
+DS0026
+
+# Upstream Tomcat CVEs bundled via Spring Boot 4.0.5 (tomcat-embed-core 11.0.20).
+# Fixed in Tomcat 11.0.21; Renovate tracks spring-boot-starter-parent and will
+# PR the bump. Suppressing here to keep the signal on NEW findings.
+CVE-2026-34483
+CVE-2026-34486
+CVE-2026-34487
+CVE-2026-34500
+
+# Upstream Jackson Core via Spring Boot — fixed in 3.1.1; Renovate will PR the bump.
+GHSA-2m67-wjpj-xhg9

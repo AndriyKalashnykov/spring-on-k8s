@@ -19,8 +19,9 @@ jobs:
     steps:
       - name: Delete old workflow runs
         run: |
-          CUTOFF=$(date -u -d "$RETAIN_DAYS days ago" +%Y-%m-%dT%H:%M:%SZ)
+          CUTOFF=$(date -u -d "${RETAIN_DAYS} days ago" +%Y-%m-%dT%H:%M:%SZ)
+          JQ_FILTER='sort_by(.createdAt) | reverse | .['"${KEEP_MINIMUM}"':] | .[] | select(.createdAt < "'"${CUTOFF}"'") | .databaseId'
           gh run list --repo "${{ github.repository }}" \
             --json databaseId,createdAt --limit 200 \
-            --jq "sort_by(.createdAt) | reverse | .[$KEEP_MINIMUM:] | .[] | select(.createdAt < \\"$CUTOFF\\") | .databaseId" \
+            --jq "${JQ_FILTER}" \
           | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"

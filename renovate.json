@@ -20,7 +20,8 @@
   "enabledManagers": [
     "maven",
     "github-actions",
-    "dockerfile"
+    "dockerfile",
+    "custom.regex"
   ],
   "vulnerabilityAlerts": {
     "labels": [
@@ -78,14 +79,13 @@
   "customManagers": [
     {
       "customType": "regex",
+      "description": "Update Makefile tool versions via inline renovate comments",
       "managerFilePatterns": [
         "/^Makefile$/"
       ],
       "matchStrings": [
-        "JAVA_VER\\s*:=\\s*(?<currentValue>.*?)\\n"
-      ],
-      "depNameTemplate": "java",
-      "datasourceTemplate": "adoptium-java"
+        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( versioning=(?<versioning>[^\\s]+))?\\n[A-Z_]+\\s*:=\\s*(?<currentValue>[^\\s]+)"
+      ]
     }
   ]
 }
