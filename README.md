@@ -7,6 +7,22 @@
 
 Spring Boot 4 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Spring Boot Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted `ConfigMap` via Spring's `configtree:` property source.
 
+```mermaid
+C4Context
+  title System Context — spring-on-k8s
+
+  Person(user, "End User", "Consumes the REST API over HTTPS")
+  System(sys, "spring-on-k8s", "Spring Boot 4 service: REST + Actuator + Swagger")
+  System_Ext(prom, "Prometheus", "Scrapes /actuator/prometheus")
+  System_Ext(k8s, "Kubernetes", "Runs the pod; probes health endpoints")
+
+  Rel(user, sys, "Uses", "HTTPS / JSON")
+  Rel(prom, sys, "Scrapes metrics", "HTTP")
+  Rel(k8s, sys, "Probes liveness + readiness", "HTTP")
+
+  UpdateLayoutConfig($c4ShapeInRow="2")
+```
+
 | Component | Technology |
 |-----------|-----------|
 | Language | Java 21 (source + target + runtime) |
@@ -147,6 +163,57 @@ Run `make help` to see all available targets.
 ### Swagger UI
 
 ![Swagger UI](./docs/swagger-ui.png "Swagger UI")
+
+## Architecture
+
+### Container view
+
+```mermaid
+C4Container
+  title Container View — spring-on-k8s
+
+  Person(user, "End User")
+  System_Ext(prom, "Prometheus")
+
+  System_Boundary(sys, "spring-on-k8s") {
+    Container(api, "API Service", "Spring Boot 4.0.5, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
+    ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
+  }
+
+  Rel(user, api, "GET /v1/hello, /v1/bye, /swagger-ui.html", "HTTPS")
+  Rel(api, cm, "Reads app.message", "configtree (file mount)")
+  Rel(prom, api, "Scrapes /actuator/prometheus", "HTTP")
+```
+
+- **API Service** — single Spring Boot process, Micrometer exports Prometheus metrics, Actuator backs the K8s probes (`/actuator/health/liveness`, `/actuator/health/readiness`)
+- **ConfigMap** — cluster-side K8s resource, mounted as a volume at `/etc/config/`; the env `SPRING_CONFIG_IMPORT=configtree:/etc/config/` tells Spring to read each file as a property (default `Hello world!` → ConfigMap overrides to `Hello Kubernetes!`)
+- **Prometheus** — external scrape target, no code changes required; the endpoint is enabled via `management.endpoints.web.exposure.include`
+
+### Deployment
+
+```mermaid
+C4Deployment
+  title Deployment — Kubernetes (via Carvel ytt + kapp)
+
+  Deployment_Node(cluster, "Kubernetes Cluster", "v1.30+") {
+    Deployment_Node(ns, "Namespace: spring-on-k8s") {
+      Deployment_Node(pod, "Pod (Deployment replicas=1)") {
+        Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, distroless Java 21, non-root")
+      }
+      Container(svc, "Service: app", "LoadBalancer 80 → 8080")
+      ContainerDb(cmres, "ConfigMap: config", "app.message = Hello Kubernetes!")
+    }
+  }
+
+  Rel(svc, api, "Routes to :8080", "TCP")
+  Rel(cmres, api, "Mounted at /etc/config/", "volume")
+```
+
+- **Deployment** — 1 replica, 1 Gi memory limit, liveness+readiness probes point at Actuator
+- **Service** — LoadBalancer; locally served by MetalLB in the `make e2e` KinD stack, cloud-provided in production
+- **ConfigMap** — deployed alongside the Deployment; edits to `k8s/cm.yml` propagate via `kapp deploy` and trigger a pod rollout (config source-of-truth lives in git, not in `kubectl edit`)
+
+Sources: diagrams are inline Mermaid in this README — no build step; GitHub renders them natively. Lint with `make mermaid-lint` (uses the same `minlag/mermaid-cli` engine GitHub uses, so what parses locally renders on the homepage).
 
 ## Docker image
 

@@ -14,7 +14,8 @@ make test                  # Run unit tests (Surefire, excludes *IT.java)
 make integration-test      # Run integration tests (Failsafe, *IT.java via integration-test profile)
 make e2e                   # Full e2e: kind-up → curl LB assertions → kind-down
 make run                   # Run locally (mvn spring-boot:run) at http://localhost:8080
-make static-check          # Composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, deps-prune-check)
+make static-check          # Composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check)
+make mermaid-lint          # Validate Mermaid diagrams in README.md / CLAUDE.md against minlag/mermaid-cli
 make ci                    # Full pipeline: deps → format-check → static-check → test → build
 make ci-run                # Run GitHub Actions workflow locally via act
 make image-build           # Build Docker image ($(DOCKER_IMAGE):$(DOCKER_TAG))
@@ -108,4 +109,5 @@ When spawning subagents, always pass conventions from the respective skill into 
   - `cleanup-runs.yml` — weekly (Sunday) run pruning via `gh run delete` (retain 7 days, keep 5 minimum)
 - **Renovate:** `renovate.json` drives automated dependency updates. Makefile `_VERSION` constants carry `# renovate:` inline comments; a single generic `customManagers` regex in `renovate.json` tracks them all
 - **Trivy suppressions:** `.trivyignore` documents demo-scope K8s hardening exceptions and upstream CVEs tracked by Renovate
+- **Architecture diagrams:** three inline Mermaid diagrams in README.md (C4 Context under the description, C4 Container + C4 Deployment in the `## Architecture` section). Lint target: `make mermaid-lint` uses the `minlag/mermaid-cli` Docker image (same engine GitHub uses to render). Wired into `make static-check`. No separate PlantUML toolchain — single-service + modest K8s topology fits inside Mermaid C4 cleanly
 - **All `make` targets depend on `deps`** — tool availability is checked / auto-installed before execution

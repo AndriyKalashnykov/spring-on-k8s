@@ -30,6 +30,8 @@ ACTIONLINT_VERSION := 1.7.12
 SHELLCHECK_VERSION := 0.11.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
 DEPCHECK_VERSION := 12.1.0
+# renovate: datasource=docker depName=minlag/mermaid-cli
+MERMAID_CLI_VERSION := 11.4.2
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
 KIND_VERSION := 0.32.0
 # KIND_NODE_IMAGE is tied to KIND_VERSION; each KinD release ships a matching node image tag
@@ -354,8 +356,8 @@ cve-check: deps
 		echo "WARN: NVD_API_KEY not set — NVD slow path may take 10+ min."; \
 	fi; \
 	if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
-		echo "OSS Index: authenticated"; \
-		MVN_ARGS="$$MVN_ARGS -DossIndexAnalyzerUsername=$$OSS_INDEX_USER -DossIndexAnalyzerPassword=$$OSS_INDEX_TOKEN"; \
+		echo "OSS Index: authenticated (remote errors downgraded to warnings)"; \
+		MVN_ARGS="$$MVN_ARGS -DossIndexAnalyzerUsername=$$OSS_INDEX_USER -DossIndexAnalyzerPassword=$$OSS_INDEX_TOKEN -DossIndexAnalyzerWarnOnlyOnRemoteErrors=true"; \
 	else \
 		echo "WARN: OSS_INDEX_USER / OSS_INDEX_TOKEN not set — disabling OSS Index analyzer (anonymous is rate-limited)."; \
 		MVN_ARGS="$$MVN_ARGS -DossIndexAnalyzerEnabled=false"; \
@@ -383,6 +385,35 @@ lint-ci: deps-actionlint deps-shellcheck
 	@actionlint
 	@echo "Workflow lint complete."
 
+#mermaid-lint: @ Validate Mermaid diagrams in markdown files
+mermaid-lint:
+	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is required for mermaid-lint"; exit 1; }
+	@set -euo pipefail; \
+	MD_FILES=$$(grep -lF '```mermaid' README.md CLAUDE.md 2>/dev/null || true); \
+	if [ -z "$$MD_FILES" ]; then \
+		echo "No Mermaid blocks found — skipping."; \
+		exit 0; \
+	fi; \
+	FAILED=0; \
+	for md in $$MD_FILES; do \
+		echo "Validating Mermaid blocks in $$md..."; \
+		LOG=$$(mktemp); \
+		if docker run --rm -v "$$PWD:/data" \
+			minlag/mermaid-cli:$(MERMAID_CLI_VERSION) \
+			-i "/data/$$md" -o "/tmp/$$(basename $$md .md).svg" >"$$LOG" 2>&1; then \
+			echo "  ✓ All blocks rendered cleanly."; \
+		else \
+			echo "  ✗ Parse error in $$md:"; \
+			sed 's/^/    /' "$$LOG"; \
+			FAILED=$$((FAILED + 1)); \
+		fi; \
+		rm -f "$$LOG"; \
+	done; \
+	if [ "$$FAILED" -gt 0 ]; then \
+		echo "Mermaid lint: $$FAILED file(s) had parse errors."; \
+		exit 1; \
+	fi
+
 #deps-prune: @ Report unused/undeclared Maven dependencies (informational)
 deps-prune: deps
 	@mvn -B dependency:analyze -DignoreNonCompile=true
@@ -391,8 +422,8 @@ deps-prune: deps
 deps-prune-check: deps
 	@mvn -B dependency:analyze -DignoreNonCompile=true -DfailOnWarning=true
 
-#static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, deps-prune-check)
-static-check: format-check lint secrets trivy-fs trivy-config lint-ci deps-prune-check
+#static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check)
+static-check: format-check lint secrets trivy-fs trivy-config lint-ci mermaid-lint deps-prune-check
 	@echo "All static checks passed. Run 'make cve-check' separately for vulnerability scan (slow)."
 
 #upgrade: @ Show available Maven dependency updates (dry-run)
@@ -532,7 +563,7 @@ renovate-validate: renovate-bootstrap
 .PHONY: help deps deps-install deps-check deps-maven deps-act deps-hadolint deps-gitleaks \
 	deps-trivy deps-actionlint deps-shellcheck deps-gjf deps-kind deps-kubectl clean build \
 	test integration-test run format format-check lint cve-check secrets secrets-history \
-	trivy-fs trivy-config lint-ci deps-prune deps-prune-check static-check upgrade \
+	trivy-fs trivy-config lint-ci mermaid-lint deps-prune deps-prune-check static-check upgrade \
 	upgrade-apply image-build image-run image-stop image-push kind-create kind-setup kind-load \
 	kind-deploy kind-undeploy kind-destroy kind-up kind-down e2e ci ci-run release \
 	renovate-bootstrap renovate-validate
