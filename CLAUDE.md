@@ -104,7 +104,7 @@ When spawning subagents, always pass conventions from the respective skill into 
 - **Docker image:** Multi-stage Dockerfile with distroless runtime (`gcr.io/distroless/java21-debian12:debug`), layered JAR via `spring-boot-maven-plugin`, non-root user
 - **Buildpacks alternative:** `mvn spring-boot:build-image` with Paketo builder
 - **CI workflows** (`.github/workflows/`):
-  - `ci.yml` — 6 jobs: `static-check` → { `build`, `test`, `integration-test` } (parallel) → `e2e` (needs build + test) → `ci-pass` (branch-protection gate, `if: always()`)
+  - `ci.yml` — 8 jobs: `static-check` → { `build`, `test`, `integration-test` } (parallel) → { `e2e` (needs build + test), `docker` (needs all three), `cve-check` (tag/weekly/manual only) } → `ci-pass` (branch-protection gate, `if: always()`). The `docker` job runs Trivy image scan + smoke test on every push; multi-arch build + push to GHCR + cosign keyless signing happens only on `v*` tags
   - `cleanup-runs.yml` — weekly (Sunday) run pruning via `gh run delete` (retain 7 days, keep 5 minimum)
 - **Renovate:** `renovate.json` drives automated dependency updates. Makefile `_VERSION` constants carry `# renovate:` inline comments; a single generic `customManagers` regex in `renovate.json` tracks them all
 - **Trivy suppressions:** `.trivyignore` documents demo-scope K8s hardening exceptions and upstream CVEs tracked by Renovate

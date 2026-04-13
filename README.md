@@ -243,12 +243,29 @@ GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Non-s
 | **test** | push, PR, tags (needs: static-check) | `make test` — unit layer (Surefire) |
 | **integration-test** | push, PR, tags (needs: static-check) | `make integration-test` — in-process integration via Failsafe profile |
 | **e2e** | push, PR, tags (needs: build, test) | `make e2e` — KinD + MetalLB, asserts ConfigMap override + LB wiring |
-| **ci-pass** | always (needs: all of the above) | Single stable branch-protection gate — fails if any upstream job failed |
+| **cve-check** | tags, weekly Monday 04:00 UTC, manual dispatch (needs: static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned) |
+| **docker** | push, PR, tags (needs: static-check, build, test) | Every push: build single-arch + Trivy image scan + smoke test. On tag: rebuild multi-arch (amd64, arm64), push to `ghcr.io`, cosign keyless OIDC sign |
+| **ci-pass** | always (needs: all of the above) | Single stable branch-protection gate — fails if any upstream job failed; skipped jobs (cve-check on normal push, tag-gated docker push steps) don't block |
 | **cleanup** | weekly (Sunday) | Prune old workflow runs (retain 7 days, keep 5 minimum) |
 
 ### Required Secrets and Variables
 
-No additional secrets or variables are required beyond the default `GITHUB_TOKEN`. OWASP dependency-check runs via `make cve-check` locally only; setting an `NVD_API_KEY` environment variable in the developer's shell switches it to the fast path (minutes instead of 10+ min).
+| Name | Type | Used by | How to obtain |
+|------|------|---------|---------------|
+| `GITHUB_TOKEN` | Secret (default) | `docker` job (GHCR push), `cleanup` job (run delete) | Provided automatically by GitHub Actions |
+| `NVD_API_KEY` | Secret (optional) | `cve-check` job | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, `cve-check` falls back to a slow path (~15 min); with it, ~1 min |
+
+Set `NVD_API_KEY` via **Settings → Secrets and variables → Actions → New repository secret**. Same env var works locally (`export NVD_API_KEY=...`) for fast `make cve-check` runs.
+
+### Image signing
+
+On tag push (`v*`), the `docker` job signs the published image with [cosign](https://docs.sigstore.dev/) using keyless OIDC — no signing key to manage. Verify a published image with:
+
+```bash
+cosign verify ghcr.io/andriykalashnykov/spring-on-k8s:<tag> \
+  --certificate-identity-regexp 'https://github\.com/AndriyKalashnykov/spring-on-k8s/.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
 
 [Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled for minor/patch (3-day release-age buffer on majors).
 
