@@ -338,15 +338,21 @@ lint: deps deps-hadolint
 	@hadolint Dockerfile
 
 #cve-check: @ OWASP dependency-check vulnerability scan (fast if NVD_API_KEY is set)
+# OSS Index analyzer disabled — it has aggressive anonymous rate limits
+# (429 → 401) that fail the build; authenticated access requires separate
+# Sonatype credentials. NVD is the primary data source.
 cve-check: deps
 	@set -e; \
 	if [ -n "$$NVD_API_KEY" ]; then \
 		echo "Running OWASP dependency-check with NVD API key (fast path)..."; \
-		mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check -DnvdApiKey="$$NVD_API_KEY"; \
+		mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
+			-DnvdApiKey="$$NVD_API_KEY" \
+			-DossIndexAnalyzerEnabled=false; \
 	else \
 		echo "WARN: NVD_API_KEY not set — using slow path (may take 10+ min on first run)."; \
 		echo "      Request a free key at https://nvd.nist.gov/developers/request-an-api-key"; \
-		mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check; \
+		mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
+			-DossIndexAnalyzerEnabled=false; \
 	fi
 
 #secrets: @ Scan working tree for secrets via gitleaks (CI-oriented; use secrets-history for full git audit)
