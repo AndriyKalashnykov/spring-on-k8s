@@ -346,7 +346,7 @@ lint: deps deps-hadolint
 # the analyzer is disabled so the build still succeeds on NVD alone.
 cve-check: deps
 	@set -e; \
-	MVN_ARGS="-B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check"; \
+	MVN_ARGS="-B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check -DsuppressionFiles=dependency-check-suppressions.xml"; \
 	if [ -n "$$NVD_API_KEY" ]; then \
 		echo "NVD: authenticated (fast path)"; \
 		MVN_ARGS="$$MVN_ARGS -DnvdApiKey=$$NVD_API_KEY"; \

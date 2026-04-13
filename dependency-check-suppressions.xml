@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  OWASP Dependency-Check suppression file for spring-on-k8s.
+
+  Each suppression documents:
+    - What it suppresses (CVE / GHSA)
+    - Why suppression is appropriate (false positive, non-applicable scope,
+      or upstream-tracked)
+    - When to re-evaluate (so suppressions don't silently rot)
+
+  Revisit this file when Spring Boot parent version changes in pom.xml.
+-->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
+
+  <suppress>
+    <notes>
+      CVE-2022-31691 is a known false positive: Dependency-Check's CPE matcher
+      pairs spring-boot-devtools with the broad VMware "spring_boot" / "spring_tools"
+      CPEs, triggering on any Spring Boot version. Spring Boot devtools is
+      declared here with scope=runtime and optional=true; it is NOT included in
+      the repackaged production JAR (see pom.xml, spring-boot-maven-plugin
+      excludes devtools by default). Reference: Spring Security Advisories have
+      never assigned this CVE to devtools directly.
+    </notes>
+    <packageUrl regex="true">^pkg:maven/org\.springframework\.boot/spring-boot-devtools@.*$</packageUrl>
+    <cve>CVE-2022-31691</cve>
+  </suppress>
+
+  <suppress>
+    <notes>
+      CVE-2025-15104 affects hibernate-validator; the version shipped
+      transitively via Spring Boot 4.0.5 is 9.0.1.Final. The CVE relates to
+      validation of user-supplied input via Bean Validation. This demo project
+      does not expose any validated input surface (no @Valid @RequestBody
+      controllers, no external form input — the two endpoints return static or
+      ConfigMap-backed strings). Tracked upstream: Spring Boot will pull the
+      fixed hibernate-validator in a subsequent patch release; Renovate will
+      open a PR when available. Re-evaluate after Spring Boot parent bumps.
+    </notes>
+    <packageUrl regex="true">^pkg:maven/org\.hibernate\.validator/hibernate-validator@9\.0\.1\.Final$</packageUrl>
+    <cve>CVE-2025-15104</cve>
+  </suppress>
+
+</suppressions>
