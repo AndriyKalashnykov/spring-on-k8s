@@ -16,9 +16,9 @@ WORKDIR /tmp/
 # build the project
 RUN mvn clean package
 
-# extract JAR Layers
+# extract JAR Layers (Spring Boot 3.2+ jarmode; destination flattens layer dirs into /tmp/target/extracted/)
 WORKDIR /tmp/target
-RUN java -Djarmode=layertools -jar *.jar extract
+RUN java -Djarmode=tools -jar *.jar extract --layers --launcher --destination extracted
 
 # runtime image
 # https://github.com/GoogleContainerTools/distroless
@@ -29,10 +29,10 @@ USER nonroot:nonroot
 WORKDIR /application
 
 # copy layers from build image to runtime image as nonroot user
-COPY --from=build --chown=nonroot:nonroot /tmp/target/dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/snapshot-dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/spring-boot-loader/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/application/ ./
+COPY --from=build --chown=nonroot:nonroot /tmp/target/extracted/dependencies/ ./
+COPY --from=build --chown=nonroot:nonroot /tmp/target/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=nonroot:nonroot /tmp/target/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=nonroot:nonroot /tmp/target/extracted/application/ ./
 
 EXPOSE 8080
 

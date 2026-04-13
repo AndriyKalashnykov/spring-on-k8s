@@ -222,16 +222,6 @@ kubectl -n spring-on-k8s get svc app
 make kind-down           # tear down
 ```
 
-## Tanzu Application Accelerator
-
-The repo ships an [`accelerator.yaml`](./accelerator.yaml) and [`k8s-resource.yaml`](./k8s-resource.yaml) so the project can be registered as a [Tanzu Application Accelerator](https://tanzu.vmware.com/accelerator). Publishing command (requires a TAP cluster):
-
-```bash
-tanzu acc create spring-on-k8s --kubeconfig $HOME/.kube/config \
-  --git-repository https://github.com/AndriyKalashnykov/spring-on-k8s.git \
-  --git-branch main
-```
-
 ## CI/CD
 
 GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Non-source paths (`*.md`, `docs/`, images, `LICENSE`) are skipped via `paths-ignore`.

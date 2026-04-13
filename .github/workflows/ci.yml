@@ -216,7 +216,7 @@ jobs:
           exit-code: '0'
           vuln-type: os,library
           severity: HIGH,CRITICAL
-          ignorefile: .trivyignore
+          trivyignores: .trivyignore
 
       - name: Smoke test
         run: |
