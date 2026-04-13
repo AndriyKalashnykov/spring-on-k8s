@@ -11,18 +11,6 @@ management:
       prometheus:
         enabled: true
 
-#TOtoken  metrics:
-#TOtoken    export:
-#TOtoken      wavefront:
-#TOtoken        api-token: "API_Token"
-#TOtoken        uri: "wavefront_instance"
-
-#includeTO wavefront:
-#includeTO   freemium-account: freemium-account-value
-#includeTO   application:
-#includeTO     name: spring-on-k8s
-#includeTO     service: backend
-
 server:
   port: 8080
   http2:
