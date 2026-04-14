@@ -311,12 +311,10 @@ GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Non-s
 |------|------|---------|---------------|
 | `GITHUB_TOKEN` | Secret (default) | `docker` job (GHCR push), `cleanup` job (run delete) | Provided automatically by GitHub Actions |
 | `NVD_API_KEY` | Secret (recommended) | `cve-check` job (NVD data source) | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, NVD uses an anonymous slow path (~15 min); with it, ~1 min |
-| `OSS_INDEX_USER` | Secret (recommended) | `cve-check` job (Sonatype OSS Index data source) | Free account at [ossindex.sonatype.org](https://ossindex.sonatype.org/) — email used as username |
-| `OSS_INDEX_TOKEN` | Secret (recommended) | `cve-check` job | API token from the OSS Index account (Settings → API Token) |
 
-Set via **Settings → Secrets and variables → Actions → New repository secret**. The same env vars work locally (`export NVD_API_KEY=...`, `export OSS_INDEX_USER=...`, `export OSS_INDEX_TOKEN=...`) for `make cve-check` runs.
+Set via **Settings → Secrets and variables → Actions → New repository secret**. The same env var works locally (`export NVD_API_KEY=...`) for `make cve-check` runs.
 
-If OSS Index credentials are absent, the analyzer is auto-disabled (anonymous access is rate-limited to HTTP 429); NVD remains the primary data source and the build still passes.
+OSS Index (Sonatype) is disabled for this project — Spring Boot's ~173-batch dependency tree exceeds free-tier rate limits even with authentication (server returns HTTP 401, which OWASP dep-check classifies as permanent and does not soft-fail). NVD is the sole CVE data source. If you want OSS Index back, upgrade to a paid Sonatype account and remove the `-DossIndexAnalyzerEnabled=false` flag from `make cve-check`.
 
 ### Image signing
 

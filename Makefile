@@ -339,28 +339,25 @@ lint: deps deps-hadolint
 	@mvn -B checkstyle:check
 	@hadolint Dockerfile
 
-#cve-check: @ OWASP dependency-check vulnerability scan
-# Primary data source: NVD (requires NVD_API_KEY for fast path — free key
-# from https://nvd.nist.gov/developers/request-an-api-key).
-# Secondary data source: Sonatype OSS Index (requires OSS_INDEX_USER +
-# OSS_INDEX_TOKEN for authenticated access — anonymous hits HTTP 429; free
-# account at https://ossindex.sonatype.org/). If OSS Index creds are absent
-# the analyzer is disabled so the build still succeeds on NVD alone.
+#cve-check: @ OWASP dependency-check vulnerability scan (NVD only)
+# Data source: NVD (requires NVD_API_KEY for fast path — free key from
+# https://nvd.nist.gov/developers/request-an-api-key).
+#
+# OSS Index is intentionally disabled. Spring Boot's dependency tree
+# submits ~173 component-report batches per scan, which exceeds even the
+# authenticated free-tier Sonatype rate limit. The analyzer fails midway
+# with HTTP 401 (bad-auth classification on rate-limit), and the
+# `ossIndexAnalyzerWarnOnlyOnRemoteErrors=true` flag does not catch 401s.
+# OSS_INDEX_USER / OSS_INDEX_TOKEN repo secrets are kept for local dev use
+# and for potential future re-enablement (paid tier or reduced dep tree).
 cve-check: deps
 	@set -e; \
-	MVN_ARGS="-B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check -DsuppressionFiles=dependency-check-suppressions.xml"; \
+	MVN_ARGS="-B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check -DsuppressionFiles=dependency-check-suppressions.xml -DossIndexAnalyzerEnabled=false"; \
 	if [ -n "$$NVD_API_KEY" ]; then \
 		echo "NVD: authenticated (fast path)"; \
 		MVN_ARGS="$$MVN_ARGS -DnvdApiKey=$$NVD_API_KEY"; \
 	else \
 		echo "WARN: NVD_API_KEY not set — NVD slow path may take 10+ min."; \
-	fi; \
-	if [ -n "$$OSS_INDEX_USER" ] && [ -n "$$OSS_INDEX_TOKEN" ]; then \
-		echo "OSS Index: authenticated (remote errors downgraded to warnings)"; \
-		MVN_ARGS="$$MVN_ARGS -DossIndexAnalyzerUsername=$$OSS_INDEX_USER -DossIndexAnalyzerPassword=$$OSS_INDEX_TOKEN -DossIndexAnalyzerWarnOnlyOnRemoteErrors=true"; \
-	else \
-		echo "WARN: OSS_INDEX_USER / OSS_INDEX_TOKEN not set — disabling OSS Index analyzer (anonymous is rate-limited)."; \
-		MVN_ARGS="$$MVN_ARGS -DossIndexAnalyzerEnabled=false"; \
 	fi; \
 	mvn $$MVN_ARGS
 
