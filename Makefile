@@ -31,7 +31,7 @@ SHELLCHECK_VERSION := 0.11.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
 DEPCHECK_VERSION := 12.1.0
 # renovate: datasource=docker depName=minlag/mermaid-cli
-MERMAID_CLI_VERSION := 11.4.2
+MERMAID_CLI_VERSION := 11.12.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
 KIND_VERSION := 0.32.0
 # KIND_NODE_IMAGE is tied to KIND_VERSION; each KinD release ships a matching node image tag
