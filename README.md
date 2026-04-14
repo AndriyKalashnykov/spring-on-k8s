@@ -302,7 +302,7 @@ GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Non-s
 | **e2e** | push, PR, tags (needs: build, test) | `make e2e` — KinD + MetalLB, asserts ConfigMap override + LB wiring |
 | **cve-check** | tags, weekly Monday 04:00 UTC, manual dispatch (needs: static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned) |
 | **docker** | push, PR, tags (needs: static-check, build, test) | Every push: build single-arch + Trivy image scan + smoke test. On tag: rebuild multi-arch (amd64, arm64), push to `ghcr.io`, cosign keyless OIDC sign |
-| **ci-pass** | always (needs: all of the above) | Single stable branch-protection gate — fails if any upstream job failed; skipped jobs (cve-check on normal push, tag-gated docker push steps) don't block |
+| **ci-pass** | always (needs: static-check, build, test, integration-test, e2e, docker) | Single stable branch-protection gate. `cve-check` is intentionally excluded from the gate — transient external-dep issues (Sonatype rate limits, NVD slowness) shouldn't block releases; failures still show in the run UI |
 | **cleanup** | weekly (Sunday) | Prune old workflow runs (retain 7 days, keep 5 minimum) |
 
 ### Required Secrets and Variables

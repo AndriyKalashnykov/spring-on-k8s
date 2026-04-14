@@ -352,7 +352,7 @@ lint: deps deps-hadolint
 # and for potential future re-enablement (paid tier or reduced dep tree).
 cve-check: deps
 	@set -e; \
-	MVN_ARGS="-B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check -DsuppressionFiles=dependency-check-suppressions.xml -DossIndexAnalyzerEnabled=false"; \
+	MVN_ARGS="-B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check -DsuppressionFiles=dependency-check-suppressions.xml -DossindexAnalyzerEnabled=false"; \
 	if [ -n "$$NVD_API_KEY" ]; then \
 		echo "NVD: authenticated (fast path)"; \
 		MVN_ARGS="$$MVN_ARGS -DnvdApiKey=$$NVD_API_KEY"; \

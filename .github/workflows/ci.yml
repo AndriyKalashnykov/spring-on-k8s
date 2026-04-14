@@ -271,8 +271,13 @@ jobs:
           echo "${TAGS}" | xargs -I {} cosign sign --yes "{}@${DIGEST}"
 
   ci-pass:
+    # Note: cve-check is intentionally NOT in `needs:`. Transient external-dep
+    # issues (NVD slow responses, Sonatype OSS Index rate limits returning
+    # HTTP 401) should not block a release. cve-check still runs and produces
+    # security signal; failure is visible in the run UI but doesn't gate
+    # ci-pass / branch protection.
     if: always()
-    needs: [static-check, build, test, integration-test, e2e, cve-check, docker]
+    needs: [static-check, build, test, integration-test, e2e, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
