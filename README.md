@@ -57,13 +57,156 @@ make run           # start at http://localhost:8080
 | [Git](https://git-scm.com/) | 2.0+ | Version control |
 | [mise](https://mise.jdx.dev/) | latest | Java/Maven/Node version management (optional — `make deps-install` auto-installs mise and reads `.mise.toml`) |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.30+ | Kubernetes deployment (`make deps-kubectl` auto-installs) |
-| [KinD](https://kind.sigs.k8s.io/) | 0.32+ | Local K8s cluster for `make e2e` (`make deps-kind` auto-installs) |
+| [KinD](https://kind.sigs.k8s.io/) | 0.31+ | Local K8s cluster for `make e2e` (`make deps-kind` auto-installs) |
 | [Carvel](https://carvel.dev/) | latest | `ytt` + `kapp` for production K8s deploy (optional) |
 
 Install all required dependencies:
 
 ```bash
 make deps
+```
+
+## Architecture
+
+### Container view
+
+```mermaid
+C4Container
+  title Container View — spring-on-k8s
+
+  Person(user, "End User")
+  System_Ext(prom, "Prometheus")
+
+  System_Boundary(sys, "spring-on-k8s") {
+    Container(api, "API Service", "Spring Boot 4.0.5, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
+    ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
+  }
+
+  Rel(user, api, "GET /v1/hello, /v1/bye, /swagger-ui.html", "HTTPS")
+  Rel(api, cm, "Reads app.message", "configtree (file mount)")
+  Rel(prom, api, "Scrapes /actuator/prometheus", "HTTP")
+```
+
+- **API Service** — single Spring Boot process, Micrometer exports Prometheus metrics, Actuator backs the K8s probes (`/actuator/health/liveness`, `/actuator/health/readiness`)
+- **ConfigMap** — cluster-side K8s resource, mounted as a volume at `/etc/config/`; the env `SPRING_CONFIG_IMPORT=configtree:/etc/config/` tells Spring to read each file as a property (default `Hello world!` → ConfigMap overrides to `Hello Kubernetes!`)
+- **Prometheus** — external scrape target, no code changes required; the endpoint is enabled via `management.endpoints.web.exposure.include`
+
+### Deployment
+
+```mermaid
+C4Deployment
+  title Deployment — Kubernetes (via Carvel ytt + kapp)
+
+  Deployment_Node(cluster, "Kubernetes Cluster", "v1.30+") {
+    Deployment_Node(ns, "Namespace: spring-on-k8s") {
+      Deployment_Node(pod, "Pod (Deployment replicas=1)") {
+        Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, distroless Java 21, non-root")
+      }
+      Container(svc, "Service: app", "LoadBalancer 80 → 8080")
+      ContainerDb(cmres, "ConfigMap: config", "app.message = Hello Kubernetes!")
+    }
+  }
+
+  Rel(svc, api, "Routes to :8080", "TCP")
+  Rel(cmres, api, "Mounted at /etc/config/", "volume")
+```
+
+- **Deployment** — 1 replica, 1 Gi memory limit, liveness+readiness probes point at Actuator
+- **Service** — LoadBalancer; locally served by MetalLB in the `make e2e` KinD stack, cloud-provided in production
+- **ConfigMap** — deployed alongside the Deployment; edits to `k8s/cm.yml` propagate via `kapp deploy` and trigger a pod rollout (config source-of-truth lives in git, not in `kubectl edit`)
+
+Sources: diagrams are inline Mermaid in this README — no build step; GitHub renders them natively. Lint with `make mermaid-lint` (uses the same `minlag/mermaid-cli` engine GitHub uses, so what parses locally renders on the homepage).
+
+## API
+
+| Path | Description |
+|------|-------------|
+| `GET /` | Hardcoded greeting (`Hello world`) |
+| `GET /v1/hello` | Returns `${app.message}` (default: `Hello world!`; overridden by ConfigMap to `Hello Kubernetes!`) |
+| `GET /v1/bye` | Returns `${app.message}` |
+| `GET /actuator/health` | Aggregate health |
+| `GET /actuator/health/liveness` | K8s liveness probe endpoint |
+| `GET /actuator/health/readiness` | K8s readiness probe endpoint |
+| `GET /actuator/prometheus` | Prometheus scrape target |
+| `GET /swagger-ui.html` | OpenAPI / Swagger UI |
+| `GET /v3/api-docs` | OpenAPI JSON |
+
+### Swagger UI
+
+![Swagger UI](./docs/swagger-ui.png "Swagger UI")
+
+## Build & Package
+
+A multi-stage [Dockerfile](./Dockerfile) builds a distroless runtime image with a non-root user and Spring Boot JAR layering.
+
+```bash
+make image-build                                         # build
+make image-run                                           # run at http://localhost:8080
+make image-push                                          # push to registry
+```
+
+Buildpacks alternative (Paketo):
+
+```bash
+export DOCKER_LOGIN=<your-dockerhub-username>
+export DOCKER_PWD=<your-dockerhub-token>
+mvn clean spring-boot:build-image \
+  -Djava.version=21 \
+  -Dimage.publish=false \
+  -Dimage.name=${DOCKER_LOGIN}/spring-on-k8s:latest \
+  -Ddocker.publishRegistry.username=${DOCKER_LOGIN} \
+  -Ddocker.publishRegistry.password=${DOCKER_PWD}
+```
+
+Scan with Docker Scout:
+
+```bash
+docker scout cves andriykalashnykov/spring-on-k8s:latest
+```
+
+## Deployment
+
+### Production path (Carvel)
+
+```bash
+ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
+```
+
+Wait for the `LoadBalancer` Service to receive an external IP:
+
+```bash
+kubectl -n spring-on-k8s get svc app
+
+NAME   TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)        AGE
+app    LoadBalancer   10.96.10.42    192.0.2.10     80:31633/TCP   90s
+```
+
+Verify the ConfigMap override is applied:
+
+```bash
+curl "http://$(kubectl -n spring-on-k8s get svc app -o jsonpath='{.status.loadBalancer.ingress[0].ip}')/v1/hello"
+Hello Kubernetes!
+```
+
+Undeploy:
+
+```bash
+kapp delete -a spring-on-k8s --yes
+```
+
+### Local E2E path (KinD + MetalLB)
+
+```bash
+make e2e                 # spins up cluster, deploys, runs assertions, tears down
+```
+
+Or step by step for debugging:
+
+```bash
+make kind-up             # create cluster + MetalLB + deploy
+kubectl -n spring-on-k8s get svc app
+# run manual curls against the assigned LoadBalancer IP
+make kind-down           # tear down
 ```
 
 ## Available Make Targets
@@ -145,149 +288,6 @@ Run `make help` to see all available targets.
 | `make upgrade-apply` | Apply latest Maven releases (prompts, mutates `pom.xml`) |
 | `make release VERSION=x.y.z` | Create a semver release tag |
 | `make renovate-validate` | Validate Renovate configuration locally |
-
-## Endpoints
-
-| Path | Description |
-|------|-------------|
-| `GET /` | Hardcoded greeting (`Hello world`) |
-| `GET /v1/hello` | Returns `${app.message}` (default: `Hello world!`; overridden by ConfigMap to `Hello Kubernetes!`) |
-| `GET /v1/bye` | Returns `${app.message}` |
-| `GET /actuator/health` | Aggregate health |
-| `GET /actuator/health/liveness` | K8s liveness probe endpoint |
-| `GET /actuator/health/readiness` | K8s readiness probe endpoint |
-| `GET /actuator/prometheus` | Prometheus scrape target |
-| `GET /swagger-ui.html` | OpenAPI / Swagger UI |
-| `GET /v3/api-docs` | OpenAPI JSON |
-
-### Swagger UI
-
-![Swagger UI](./docs/swagger-ui.png "Swagger UI")
-
-## Architecture
-
-### Container view
-
-```mermaid
-C4Container
-  title Container View — spring-on-k8s
-
-  Person(user, "End User")
-  System_Ext(prom, "Prometheus")
-
-  System_Boundary(sys, "spring-on-k8s") {
-    Container(api, "API Service", "Spring Boot 4.0.5, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
-    ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
-  }
-
-  Rel(user, api, "GET /v1/hello, /v1/bye, /swagger-ui.html", "HTTPS")
-  Rel(api, cm, "Reads app.message", "configtree (file mount)")
-  Rel(prom, api, "Scrapes /actuator/prometheus", "HTTP")
-```
-
-- **API Service** — single Spring Boot process, Micrometer exports Prometheus metrics, Actuator backs the K8s probes (`/actuator/health/liveness`, `/actuator/health/readiness`)
-- **ConfigMap** — cluster-side K8s resource, mounted as a volume at `/etc/config/`; the env `SPRING_CONFIG_IMPORT=configtree:/etc/config/` tells Spring to read each file as a property (default `Hello world!` → ConfigMap overrides to `Hello Kubernetes!`)
-- **Prometheus** — external scrape target, no code changes required; the endpoint is enabled via `management.endpoints.web.exposure.include`
-
-### Deployment
-
-```mermaid
-C4Deployment
-  title Deployment — Kubernetes (via Carvel ytt + kapp)
-
-  Deployment_Node(cluster, "Kubernetes Cluster", "v1.30+") {
-    Deployment_Node(ns, "Namespace: spring-on-k8s") {
-      Deployment_Node(pod, "Pod (Deployment replicas=1)") {
-        Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, distroless Java 21, non-root")
-      }
-      Container(svc, "Service: app", "LoadBalancer 80 → 8080")
-      ContainerDb(cmres, "ConfigMap: config", "app.message = Hello Kubernetes!")
-    }
-  }
-
-  Rel(svc, api, "Routes to :8080", "TCP")
-  Rel(cmres, api, "Mounted at /etc/config/", "volume")
-```
-
-- **Deployment** — 1 replica, 1 Gi memory limit, liveness+readiness probes point at Actuator
-- **Service** — LoadBalancer; locally served by MetalLB in the `make e2e` KinD stack, cloud-provided in production
-- **ConfigMap** — deployed alongside the Deployment; edits to `k8s/cm.yml` propagate via `kapp deploy` and trigger a pod rollout (config source-of-truth lives in git, not in `kubectl edit`)
-
-Sources: diagrams are inline Mermaid in this README — no build step; GitHub renders them natively. Lint with `make mermaid-lint` (uses the same `minlag/mermaid-cli` engine GitHub uses, so what parses locally renders on the homepage).
-
-## Docker image
-
-A multi-stage [Dockerfile](./Dockerfile) builds a distroless runtime image with a non-root user and Spring Boot JAR layering.
-
-```bash
-make image-build                                         # build
-make image-run                                           # run at http://localhost:8080
-make image-push                                          # push to registry
-```
-
-Buildpacks alternative (Paketo):
-
-```bash
-export DOCKER_LOGIN=<your-dockerhub-username>
-export DOCKER_PWD=<your-dockerhub-token>
-mvn clean spring-boot:build-image \
-  -Djava.version=21 \
-  -Dimage.publish=false \
-  -Dimage.name=${DOCKER_LOGIN}/spring-on-k8s:latest \
-  -Ddocker.publishRegistry.username=${DOCKER_LOGIN} \
-  -Ddocker.publishRegistry.password=${DOCKER_PWD}
-```
-
-Scan with Docker Scout:
-
-```bash
-docker scout cves andriykalashnykov/spring-on-k8s:latest
-```
-
-## Deploying to Kubernetes
-
-### Production path (Carvel)
-
-```bash
-ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
-```
-
-Wait for the `LoadBalancer` Service to receive an external IP:
-
-```bash
-kubectl -n spring-on-k8s get svc app
-
-NAME   TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)        AGE
-app    LoadBalancer   10.96.10.42    192.0.2.10     80:31633/TCP   90s
-```
-
-Verify the ConfigMap override is applied:
-
-```bash
-curl "http://$(kubectl -n spring-on-k8s get svc app -o jsonpath='{.status.loadBalancer.ingress[0].ip}')/v1/hello"
-Hello Kubernetes!
-```
-
-Undeploy:
-
-```bash
-kapp delete -a spring-on-k8s --yes
-```
-
-### Local E2E path (KinD + MetalLB)
-
-```bash
-make e2e                 # spins up cluster, deploys, runs assertions, tears down
-```
-
-Or step by step for debugging:
-
-```bash
-make kind-up             # create cluster + MetalLB + deploy
-kubectl -n spring-on-k8s get svc app
-# run manual curls against the assigned LoadBalancer IP
-make kind-down           # tear down
-```
 
 ## CI/CD
 
