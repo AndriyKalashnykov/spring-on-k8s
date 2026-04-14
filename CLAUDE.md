@@ -85,6 +85,18 @@ K8s manifests in `k8s/`: namespace, deployment (1 replica, 1Gi memory, liveness/
 
 Local e2e path uses KinD + MetalLB: `make e2e` spins up a cluster, deploys, curls the LoadBalancer IP for `/v1/hello` expecting the ConfigMap override message "Hello Kubernetes!", and tears down. Implementation lives in `scripts/kind-metallb-setup.sh` and `scripts/e2e-test.sh`.
 
+## Upgrade Backlog
+
+Items surfaced by `/upgrade-analysis` 2026-04-13. Most resolved in the same session; remaining items deferred:
+
+- [x] ~~`KIND_VERSION` pinned at non-existent 0.32.0~~ → downgraded to 0.31.0 + `kindest/node:v1.35.0@sha256:452d707d...`
+- [x] ~~google-java-format 1.24.0 → 1.35.0~~ → bumped, GJF jar re-downloaded
+- [x] ~~Maven 3.9.9 → 3.9.14~~ → bumped in Makefile + Dockerfile ARG default
+- [x] ~~metallb → 0.15.3, kubectl → 1.35.3, mermaid-cli → 11.12.0, hadolint → 2.14.0, maven-dependency-plugin → 3.10.0~~ → all bumped
+- [ ] **Dockerfile ARG-substituted `FROM` is potentially a Renovate blind spot.** `FROM maven:${MVN_VERSION}-${JDK_VENDOR}-${JDK_VERSION}` and `FROM gcr.io/distroless/java${JDK_VERSION}-debian12:debug@sha256:...` rely on ARG interpolation. Monitor: if Renovate doesn't open PRs against the maven or distroless base image tags after a week, replace ARG interpolation with literals + `# renovate:` custom-regex comments.
+- [ ] **Maven 4.0.0** is at RC-5 (GA imminent); plan for the ecosystem transition when plugins announce stable 4.x support.
+- [ ] **Spring Boot 4.0.6+** will likely bump hibernate-validator past CVE-2025-15104 — when the PR lands, remove the corresponding entry from `dependency-check-suppressions.xml`.
+
 ## Skills
 
 Use the following skills when working on related files:

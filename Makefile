@@ -9,7 +9,7 @@ SDKMAN := $(HOME)/.sdkman/bin/sdkman-init.sh
 # renovate: datasource=adoptium-java depName=java
 JAVA_VER    := 21-tem
 # renovate: datasource=maven depName=org.apache.maven:apache-maven
-MAVEN_VER   := 3.9.9
+MAVEN_VER   := 3.9.14
 # renovate: datasource=github-releases depName=nektos/act
 ACT_VERSION := 0.2.87
 JDK_VERSION := 21
@@ -17,9 +17,9 @@ NODE_VERSION := 24
 # renovate: datasource=github-releases depName=nvm-sh/nvm
 NVM_VERSION := 0.40.4
 # renovate: datasource=github-releases depName=hadolint/hadolint
-HADOLINT_VERSION := 2.12.0
+HADOLINT_VERSION := 2.14.0
 # renovate: datasource=maven depName=com.google.googlejavaformat:google-java-format
-GJF_VERSION := 1.24.0
+GJF_VERSION := 1.35.0
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
 GITLEAKS_VERSION := 8.30.1
 # renovate: datasource=github-releases depName=aquasecurity/trivy
@@ -31,15 +31,15 @@ SHELLCHECK_VERSION := 0.11.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
 DEPCHECK_VERSION := 12.1.0
 # renovate: datasource=docker depName=minlag/mermaid-cli
-MERMAID_CLI_VERSION := 11.4.2
+MERMAID_CLI_VERSION := 11.12.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
-KIND_VERSION := 0.32.0
-# KIND_NODE_IMAGE is tied to KIND_VERSION; each KinD release ships a matching node image tag
-KIND_NODE_IMAGE := kindest/node:v1.34.0
+KIND_VERSION := 0.31.0
+# KIND_NODE_IMAGE is tied to KIND_VERSION; each KinD release ships a matching node image tag (digest from kind 0.31.0 release notes)
+KIND_NODE_IMAGE := kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
 # renovate: datasource=github-releases depName=metallb/metallb
-METALLB_VERSION := 0.14.8
+METALLB_VERSION := 0.15.3
 # renovate: datasource=github-releases depName=kubernetes/kubectl extractVersion=^kubernetes-(?<version>.+)$$
-KUBECTL_VERSION := 1.34.4
+KUBECTL_VERSION := 1.35.3
 
 # === Docker image coordinates ===
 APP_NAME        := spring-on-k8s
