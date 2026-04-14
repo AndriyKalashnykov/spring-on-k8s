@@ -1,21 +1,20 @@
 .DEFAULT_GOAL := help
 
 SHELL := /bin/bash
-export PATH := $(HOME)/.local/bin:$(PATH)
-
-SDKMAN := $(HOME)/.sdkman/bin/sdkman-init.sh
+# mise shims come first, then ~/.local/bin tool installs, then system PATH.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 
 # === Tool Versions (pinned, Renovate-tracked) ===
-# renovate: datasource=adoptium-java depName=java
-JAVA_VER    := 21-tem
+# Note: Java + Maven + Node are pinned in .mise.toml (source of truth for
+# `make deps-install`). Keep MAVEN_VER here only because deps-maven uses it
+# to download Maven directly when mise isn't the install path (e.g., act
+# containers in CI).
 # renovate: datasource=maven depName=org.apache.maven:apache-maven
 MAVEN_VER   := 3.9.14
 # renovate: datasource=github-releases depName=nektos/act
 ACT_VERSION := 0.2.87
 JDK_VERSION := 21
-NODE_VERSION := 24
-# renovate: datasource=github-releases depName=nvm-sh/nvm
-NVM_VERSION := 0.40.4
+NODE_VERSION := $(shell cat .nvmrc 2>/dev/null || echo 24)
 # renovate: datasource=github-releases depName=hadolint/hadolint
 HADOLINT_VERSION := 2.14.0
 # renovate: datasource=maven depName=com.google.googlejavaformat:google-java-format
@@ -195,19 +194,15 @@ deps-maven:
 		rm -rf $$TMP; \
 	}
 
-#deps-install: @ Install Java/Maven via SDKMAN (one-time bootstrap)
+#deps-install: @ Install Java/Maven via mise (reads .mise.toml)
 deps-install:
-	@bash -c 'set -e; \
-		if [ ! -s "$(SDKMAN)" ]; then \
-			echo "Installing SDKMAN..."; \
-			curl -s "https://get.sdkman.io?rcupdate=false" | bash; \
-		fi; \
-		source "$(SDKMAN)"; \
-		echo N | sdk install java $(JAVA_VER) || true; \
-		sdk default java $(JAVA_VER); \
-		echo N | sdk install maven $(MAVEN_VER) || true; \
-		sdk default maven $(MAVEN_VER); \
-		echo "Installed: java=$(JAVA_VER), maven=$(MAVEN_VER)"'
+	@command -v mise >/dev/null 2>&1 || { \
+		echo "Installing mise (no root required, to ~/.local/bin)..."; \
+		curl -fsSL https://mise.run | sh; \
+	}
+	@mise install
+	@echo "Installed via mise: $$(mise ls --current 2>/dev/null | awk 'NR>1 {printf \"%s=%s \", $$1, $$2} END {print \"\"}')"
+	@echo "Activate in your shell: add 'eval \"\$$(mise activate bash)\"' (or zsh/fish) to your rc file."
 
 #deps-check: @ Show installed tool versions
 deps-check:
@@ -316,15 +311,12 @@ run: deps
 
 #format: @ Format Java sources with google-java-format (writes changes)
 format: deps-gjf
-	@set -e; \
-	if [ -s "$(SDKMAN)" ]; then source "$(SDKMAN)"; sdk use java $(JAVA_VER) >/dev/null; fi; \
-	find src/main/java src/test/java -name "*.java" -print0 | xargs -0 java $(GJF_JAVA_OPTS) -jar $(GJF_JAR) --replace; \
-	echo "Formatting complete."
+	@find src/main/java src/test/java -name "*.java" -print0 | xargs -0 java $(GJF_JAVA_OPTS) -jar $(GJF_JAR) --replace
+	@echo "Formatting complete."
 
 #format-check: @ Verify Java sources are google-java-format compliant (no changes)
 format-check: deps-gjf
 	@set -e; \
-	if [ -s "$(SDKMAN)" ]; then source "$(SDKMAN)"; sdk use java $(JAVA_VER) >/dev/null; fi; \
 	CHANGED=$$(find src/main/java src/test/java -name "*.java" -print0 | xargs -0 java $(GJF_JAVA_OPTS) -jar $(GJF_JAR) --dry-run); \
 	if [ -n "$$CHANGED" ]; then \
 		echo "ERROR: The following files are not formatted. Run 'make format' to fix:"; \
@@ -538,14 +530,15 @@ release: deps
 	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
 	@echo "Release v$(VERSION) created. Push with: git push origin main --tags"
 
-#renovate-bootstrap: @ Install nvm and pinned Node for Renovate
+#renovate-bootstrap: @ Install mise + Node for Renovate
 renovate-bootstrap:
+	@command -v mise >/dev/null 2>&1 || { \
+		echo "Installing mise..."; \
+		curl -fsSL https://mise.run | sh; \
+	}
 	@command -v node >/dev/null 2>&1 || { \
-		echo "Installing nvm $(NVM_VERSION)..."; \
-		curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v$(NVM_VERSION)/install.sh | bash; \
-		export NVM_DIR="$$HOME/.nvm"; \
-		[ -s "$$NVM_DIR/nvm.sh" ] && . "$$NVM_DIR/nvm.sh"; \
-		nvm install $(NODE_VERSION); \
+		echo "Installing Node $(NODE_VERSION) via mise..."; \
+		mise install node@$(NODE_VERSION); \
 	}
 
 #renovate-validate: @ Validate Renovate configuration

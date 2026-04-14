@@ -29,7 +29,7 @@ make upgrade               # Show available Maven dependency updates (dry-run)
 make upgrade-apply         # Apply latest Maven releases (prompts, mutates pom.xml)
 make release VERSION=1.2.3 # Tag a release (with confirmation prompt)
 make renovate-validate     # Validate Renovate configuration
-make deps-install          # Install Java/Maven via SDKMAN (one-time bootstrap)
+make deps-install          # Install Java/Maven via mise (one-time bootstrap)
 make deps-check            # Show installed tool versions
 ```
 

@@ -55,7 +55,7 @@ make run           # start at http://localhost:8080
 | [Maven](https://maven.apache.org/) | 3.9+ | Build and dependency management (`make deps-maven` auto-installs if missing) |
 | [Docker](https://www.docker.com/) | latest | Container image builds, KinD, Trivy filesystem scans |
 | [Git](https://git-scm.com/) | 2.0+ | Version control |
-| [SDKMAN](https://sdkman.io/) | latest | Java/Maven version management (optional — `make deps-install` uses it) |
+| [mise](https://mise.jdx.dev/) | latest | Java/Maven/Node version management (optional — `make deps-install` auto-installs mise and reads `.mise.toml`) |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.30+ | Kubernetes deployment (`make deps-kubectl` auto-installs) |
 | [KinD](https://kind.sigs.k8s.io/) | 0.32+ | Local K8s cluster for `make e2e` (`make deps-kind` auto-installs) |
 | [Carvel](https://carvel.dev/) | latest | `ytt` + `kapp` for production K8s deploy (optional) |
@@ -139,7 +139,7 @@ Run `make help` to see all available targets.
 |--------|-------------|
 | `make help` | List all available targets |
 | `make deps` | Verify required tools; auto-installs Maven if missing |
-| `make deps-install` | Install Java + Maven via SDKMAN (one-time bootstrap) |
+| `make deps-install` | Install Java + Maven via mise (reads `.mise.toml`; one-time bootstrap) |
 | `make deps-check` | Show installed tool versions |
 | `make upgrade` | Show available Maven dependency updates (dry-run) |
 | `make upgrade-apply` | Apply latest Maven releases (prompts, mutates `pom.xml`) |
