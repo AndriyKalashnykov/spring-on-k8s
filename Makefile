@@ -28,7 +28,7 @@ ACTIONLINT_VERSION := 1.7.12
 # renovate: datasource=github-releases depName=koalaman/shellcheck
 SHELLCHECK_VERSION := 0.11.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
-DEPCHECK_VERSION := 12.1.0
+DEPCHECK_VERSION := 12.2.1
 # renovate: datasource=docker depName=minlag/mermaid-cli
 MERMAID_CLI_VERSION := 11.12.0
 # renovate: datasource=github-releases depName=kubernetes-sigs/kind
