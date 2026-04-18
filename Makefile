@@ -22,7 +22,7 @@ GJF_VERSION := 1.35.0
 # renovate: datasource=github-releases depName=gitleaks/gitleaks
 GITLEAKS_VERSION := 8.30.1
 # renovate: datasource=github-releases depName=aquasecurity/trivy
-TRIVY_VERSION := 0.69.3
+TRIVY_VERSION := 0.70.0
 # renovate: datasource=github-releases depName=rhysd/actionlint
 ACTIONLINT_VERSION := 1.7.12
 # renovate: datasource=github-releases depName=koalaman/shellcheck
