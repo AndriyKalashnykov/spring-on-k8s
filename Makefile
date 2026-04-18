@@ -21,8 +21,12 @@ MERMAID_CLI_VERSION := 11.12.0
 # release ships a matching node image tag (digest from kind release notes).
 # renovate: datasource=docker depName=kindest/node
 KIND_NODE_IMAGE := kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
-# renovate: datasource=github-releases depName=metallb/metallb
-METALLB_VERSION := 0.15.3
+# cloud-provider-kind runs as a host-side Docker container on the `kind`
+# network; watches Services of type LoadBalancer and allocates IPs from the
+# KinD Docker subnet. Kind-team maintained (kubernetes-sigs/cloud-provider-kind),
+# works on every supported kindest/node version.
+# renovate: datasource=github-releases depName=kubernetes-sigs/cloud-provider-kind
+CLOUD_PROVIDER_KIND_VERSION := 0.10.0
 
 # === Docker image coordinates ===
 APP_NAME        := spring-on-k8s
@@ -252,9 +256,19 @@ kind-create: deps
 	}
 	@kubectl cluster-info --context kind-$(KIND_CLUSTER)
 
-#kind-setup: @ Install MetalLB in KinD for LoadBalancer services
+#kind-setup: @ Start cloud-provider-kind for LoadBalancer services
 kind-setup: kind-create
-	@METALLB_VERSION=$(METALLB_VERSION) bash scripts/kind-metallb-setup.sh
+	@# cloud-provider-kind runs on the host (not in the cluster), watches
+	@# Services of type LoadBalancer on the `kind` Docker network, and
+	@# allocates IPs from the KinD subnet. No in-cluster install, no IP
+	@# pool to configure. Idempotent: replace any existing container.
+	@docker rm -f cloud-provider-kind >/dev/null 2>&1 || true
+	@echo "Starting cloud-provider-kind v$(CLOUD_PROVIDER_KIND_VERSION)..."
+	@docker run --rm -d \
+		--name cloud-provider-kind \
+		--network kind \
+		-v /var/run/docker.sock:/var/run/docker.sock \
+		registry.k8s.io/cloud-provider-kind/cloud-controller-manager:v$(CLOUD_PROVIDER_KIND_VERSION) >/dev/null
 
 #kind-load: @ Load the local Docker image into KinD
 kind-load: kind-create image-build
@@ -274,8 +288,9 @@ kind-undeploy:
 	@kubectl -n spring-on-k8s delete -f k8s/service.yml -f k8s/deployment.yml -f k8s/cm.yml --ignore-not-found
 	@kubectl delete -f k8s/namespace.yml --ignore-not-found
 
-#kind-destroy: @ Delete the KinD cluster
+#kind-destroy: @ Delete the KinD cluster and stop cloud-provider-kind
 kind-destroy:
+	@docker rm -f cloud-provider-kind >/dev/null 2>&1 || true
 	@kind delete cluster --name $(KIND_CLUSTER) 2>/dev/null || true
 
 #kind-up: @ Bring the full stack up (create + setup + load + deploy)

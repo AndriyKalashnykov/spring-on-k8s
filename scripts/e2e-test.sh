@@ -2,8 +2,9 @@
 # End-to-end smoke test against a running KinD deployment of spring-on-k8s.
 #
 # Assumes: `make kind-up` has succeeded — namespace `spring-on-k8s` exists,
-# Deployment `app` is ready, Service `app` is type LoadBalancer, MetalLB has
-# assigned it an external IP.
+# Deployment `app` is ready, Service `app` is type LoadBalancer, and the
+# cloud-provider-kind controller has assigned it an external IP from the
+# KinD Docker network subnet.
 
 set -euo pipefail
 

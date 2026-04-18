@@ -22,7 +22,7 @@ make image-build           # Build Docker image ($(DOCKER_IMAGE):$(DOCKER_TAG))
 make image-run             # Run Docker container (port 8080)
 make image-stop            # Stop Docker container
 make image-push            # Push Docker image to registry
-make kind-up               # Local K8s: create KinD + MetalLB + deploy
+make kind-up               # Local K8s: create KinD + cloud-provider-kind + deploy
 make kind-down             # Tear down local K8s
 make e2e                   # Full e2e: kind-up → curl assertions → kind-down
 make upgrade               # Show available Maven dependency updates (dry-run)
@@ -60,7 +60,7 @@ Controllers use `@Value("${app.message:...}")` for configurable messages. On K8s
 **Test pyramid (three layers):**
 - `make test` — Surefire-discovered unit tests (`*Test.java` / `*Tests.java`; excludes `*IT.java`). Fast, no Spring context.
 - `make integration-test` — Failsafe-discovered `*IT.java` under the `integration-test` Maven profile. The canonical integration test is `ApplicationIT.java` — `@SpringBootTest(RANDOM_PORT)` + `RestClient` covering `/`, `/v1/hello`, `/v1/bye`, `/actuator/health{,/liveness,/readiness}`, `/actuator/prometheus`, `/v3/api-docs`.
-- `make e2e` — `scripts/e2e-test.sh` runs against a KinD cluster with MetalLB. Asserts the ConfigMap override reaches the app, probes report UP, Prometheus endpoint exposes metrics, and an unknown path returns 404.
+- `make e2e` — `scripts/e2e-test.sh` runs against a KinD cluster with cloud-provider-kind (host-side LoadBalancer controller). Asserts the ConfigMap override reaches the app, probes report UP, Prometheus endpoint exposes metrics, and an unknown path returns 404.
 
 ## Key Endpoints
 
@@ -83,7 +83,7 @@ ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
 
 K8s manifests in `k8s/`: namespace, deployment (1 replica, 1Gi memory, liveness/readiness probes), LoadBalancer service (80→8080), ConfigMap with `app.message`.
 
-Local e2e path uses KinD + MetalLB: `make e2e` spins up a cluster, deploys, curls the LoadBalancer IP for `/v1/hello` expecting the ConfigMap override message "Hello Kubernetes!", and tears down. Implementation lives in `scripts/kind-metallb-setup.sh` and `scripts/e2e-test.sh`.
+Local e2e path uses KinD + cloud-provider-kind: `make e2e` creates the KinD cluster, runs `cloud-provider-kind` as a host-side Docker container on the `kind` network (it watches `Service: LoadBalancer` resources and assigns IPs from the KinD subnet), deploys, curls the LoadBalancer IP for `/v1/hello` expecting the ConfigMap override message "Hello Kubernetes!", and tears down. Implementation lives in the `kind-setup` Makefile target (one `docker run`) and `scripts/e2e-test.sh`. No separate installer script; the previous MetalLB-based scaffolding (`scripts/kind-metallb-setup.sh`) was removed in favor of this kind-team-maintained approach that works on every supported `kindest/node` version.
 
 ## Upgrade Backlog
 
@@ -124,7 +124,7 @@ When spawning subagents, always pass conventions from the respective skill into 
 - **CI workflows** (`.github/workflows/`):
   - `ci.yml` — 8 jobs: `static-check` → { `build`, `test`, `integration-test` } (parallel) → { `e2e` (needs build + test), `docker` (needs all three), `cve-check` (tag/weekly/manual only) } → `ci-pass` (branch-protection gate, `if: always()`). Every job uses `jdx/mise-action` to provision java+maven+CLI tools from `.mise.toml`; `actions/cache` handles `~/.m2/repository` separately. The `docker` job follows Pattern A: Gates 1–3 (build + Trivy image scan blocking CRITICAL/HIGH + smoke test) plus Gate 4 multi-arch build run on every push (catches arm64 cross-compile regressions early); push to GHCR + cosign keyless signing happen only on `v*` tags. `provenance: false` + `sbom: false` keep the image index clean
   - `cleanup-runs.yml` — weekly (Sunday) run pruning via `gh run delete` (retain 7 days, keep 5 minimum)
-- **Version manager:** [mise](https://mise.jdx.dev/) is the single source of truth for every CLI tool the build needs — Java, Maven, Node, kubectl, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck all pin in `.mise.toml`. `make deps` bootstraps mise (if missing) and runs `mise install`. The Makefile retains a short list of `_VERSION` constants only for things mise does not manage: `GJF_VERSION` (google-java-format JAR), `DEPCHECK_VERSION` (Maven plugin), `MERMAID_CLI_VERSION` (Docker image), `KIND_NODE_IMAGE` (Docker image digest), `METALLB_VERSION` (manifest URL)
+- **Version manager:** [mise](https://mise.jdx.dev/) is the single source of truth for every CLI tool the build needs — Java, Maven, Node, kubectl, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck all pin in `.mise.toml`. `make deps` bootstraps mise (if missing) and runs `mise install`. The Makefile retains a short list of `_VERSION` constants only for things mise does not manage: `GJF_VERSION` (google-java-format JAR), `DEPCHECK_VERSION` (Maven plugin), `MERMAID_CLI_VERSION` (Docker image), `KIND_NODE_IMAGE` (Docker image digest), `CLOUD_PROVIDER_KIND_VERSION` (Docker image tag on registry.k8s.io)
 - **Renovate:** `renovate.json` drives automated dependency updates. Two `customManagers` regexes track both the `.mise.toml` `# renovate:` inline comments and the remaining Makefile `_VERSION` constants
 - **Trivy suppressions:** `.trivyignore` documents demo-scope K8s hardening exceptions and upstream CVEs tracked by Renovate
 - **Architecture diagrams:** three inline Mermaid diagrams in README.md (C4 Context under the description, C4 Container + C4 Deployment in the `## Architecture` section). Lint target: `make mermaid-lint` uses the `minlag/mermaid-cli` Docker image (same engine GitHub uses to render). Wired into `make static-check`. No separate PlantUML toolchain — single-service + modest K8s topology fits inside Mermaid C4 cleanly
