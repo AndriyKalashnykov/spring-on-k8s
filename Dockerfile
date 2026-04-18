@@ -1,9 +1,10 @@
-ARG MVN_VERSION=3.9.14
-ARG JDK_VENDOR=eclipse-temurin
 ARG JDK_VERSION=21
 
-# https://hub.docker.com/_/maven?tab=tags&page=1&name=eclipse-temurin
-FROM maven:${MVN_VERSION}-${JDK_VENDOR}-${JDK_VERSION} AS build
+# Maven build image. Literal tag — Renovate's `dockerfile` manager tracks this
+# `FROM` line natively (Docker Hub tags for library/maven; bump when the
+# 3.9.x-eclipse-temurin-21 variant is published).
+# https://hub.docker.com/_/maven?tab=tags&page=1&name=eclipse-temurin-21
+FROM maven:3.9.14-eclipse-temurin-21 AS build
 
 WORKDIR /build
 COPY pom.xml .
@@ -22,8 +23,10 @@ RUN java -Djarmode=tools -jar *.jar extract --layers --launcher --destination ex
 
 # runtime image
 # https://github.com/GoogleContainerTools/distroless
-# use gcr.io/distroless/java${JDK_VERSION}-debian12:debug if you want to attach to the running image etc. and  gcr.io/distroless/java${JDK_VERSION}-debian12 for production
-FROM gcr.io/distroless/java${JDK_VERSION}-debian12:debug@sha256:d100a8c571a3ed914a1a59dc076ca6d950347610385d7ca2e14cb6825a362fe3 AS runtime
+# Production-hardened: distroless :nonroot has no shell and no coreutils. For
+# troubleshooting (`kubectl exec`), temporarily swap this tag for :debug which
+# ships busybox. Debian 13 base (Debian 12 EOL 2026-06-10).
+FROM gcr.io/distroless/java${JDK_VERSION}-debian13:nonroot@sha256:80b758131ebac8564fc68c835d948497716de84e54b9eb76b49a4e892a68a8ea AS runtime
 
 USER nonroot:nonroot
 WORKDIR /application

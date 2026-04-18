@@ -29,8 +29,8 @@ make upgrade               # Show available Maven dependency updates (dry-run)
 make upgrade-apply         # Apply latest Maven releases (prompts, mutates pom.xml)
 make release VERSION=1.2.3 # Tag a release (with confirmation prompt)
 make renovate-validate     # Validate Renovate configuration
-make deps-install          # Install Java/Maven via mise (one-time bootstrap)
-make deps-check            # Show installed tool versions
+make deps                  # Install mise + every tool pinned in .mise.toml (idempotent)
+make deps-check            # Show installed tool versions (mise list + docker/git)
 ```
 
 Direct Maven equivalents:
@@ -87,15 +87,20 @@ Local e2e path uses KinD + MetalLB: `make e2e` spins up a cluster, deploys, curl
 
 ## Upgrade Backlog
 
-Items surfaced by `/upgrade-analysis` 2026-04-13. Most resolved in the same session; remaining items deferred:
+Items surfaced by `/upgrade-analysis` 2026-04-13. Re-run 2026-04-18:
 
 - [x] ~~`KIND_VERSION` pinned at non-existent 0.32.0~~ → downgraded to 0.31.0 + `kindest/node:v1.35.0@sha256:452d707d...`
 - [x] ~~google-java-format 1.24.0 → 1.35.0~~ → bumped, GJF jar re-downloaded
-- [x] ~~Maven 3.9.9 → 3.9.14~~ → bumped in Makefile + Dockerfile ARG default
+- [x] ~~Maven 3.9.9 → 3.9.14~~ → bumped in Makefile + Dockerfile ARG default (3.9.14 → 3.9.15 pending in PR #201)
 - [x] ~~metallb → 0.15.3, kubectl → 1.35.3, mermaid-cli → 11.12.0, hadolint → 2.14.0, maven-dependency-plugin → 3.10.0~~ → all bumped
-- [ ] **Dockerfile ARG-substituted `FROM` is potentially a Renovate blind spot.** `FROM maven:${MVN_VERSION}-${JDK_VENDOR}-${JDK_VERSION}` and `FROM gcr.io/distroless/java${JDK_VERSION}-debian12:debug@sha256:...` rely on ARG interpolation. Monitor: if Renovate doesn't open PRs against the maven or distroless base image tags after a week, replace ARG interpolation with literals + `# renovate:` custom-regex comments.
-- [ ] **Maven 4.0.0** is at RC-5 (GA imminent); plan for the ecosystem transition when plugins announce stable 4.x support.
-- [ ] **Spring Boot 4.0.6+** will likely bump hibernate-validator past CVE-2025-15104 — when the PR lands, remove the corresponding entry from `dependency-check-suppressions.xml`.
+- [x] ~~Mise migration: 8 CLI tools (act, hadolint, gitleaks, trivy, actionlint, shellcheck, kind, kubectl) moved from Makefile `_VERSION` pins to `.mise.toml`~~ → single source of truth
+- [x] ~~kubectl 1.35.3 → 1.35.4~~ (2026-04-18)
+- [x] ~~Paketo builder 0.4.286 → 0.4.563~~ (`pom.xml`; buildpacks-only path, 277 versions behind)
+- [x] ~~Dockerfile ARG Renovate blind spot~~ → `# renovate:` annotation added to `Dockerfile:1` ARG MVN_VERSION, custom-regex added to `renovate.json`
+- [x] ~~Distroless `java21-debian12:debug` → `java21-debian13:nonroot`~~ (2026-04-18) — ahead of Debian 12 EOL 2026-06-10. Smoke-tested: readiness UP, `/v1/hello` responds, container runs as nonroot:nonroot. Reverted: if troubleshooting via `kubectl exec` is needed, temporarily swap the tag back to `:debug` (keep the same image path / digest pattern).
+- [ ] **Post-release manifest verification (first run after next tag push)** — after the hardened `docker` job first publishes with Pattern A (`provenance: false` + `sbom: false`, multi-arch), run the three checks documented in README §"Post-release manifest verification": (a) `docker buildx imagetools inspect` lists linux/amd64 + linux/arm64 with zero `unknown/unknown` entries, (b) GHCR Packages UI shows the "OS / Arch" tab, (c) `cosign verify` succeeds. Once verified, delete this item.
+- [ ] **Maven 4.0.0** is at RC-5 (latest: rc-5 published 2025-11-13); GA not yet released. Monitor; migrate when GA ships and plugin ecosystem signals stable 4.x support.
+- [ ] **Spring Boot 4.0.6+** not yet released (latest stable: 4.0.5 published 2026-03-26). When it ships, check hibernate-validator for CVE-2025-15104 fix; remove the corresponding entry from `dependency-check-suppressions.xml` if the upstream fix lands.
 
 ## Skills
 
@@ -112,14 +117,15 @@ When spawning subagents, always pass conventions from the respective skill into 
 
 ## Build Configuration Notes
 
-- **Java:** 21 across the board — `<java.version>` in pom.xml, `JAVA_VER`/`JDK_VERSION` in Makefile, `.java-version` for setup-java in CI
+- **Java:** 21 across the board — `<java.version>` in pom.xml, `JDK_VERSION` in Makefile (used for Docker build args), `.mise.toml` `java = "temurin-21"` is the single source of truth consumed by both local `make deps` and the CI `jdx/mise-action` step
 - **Compiler:** `failOnWarning=true` is set on maven-compiler-plugin (pom.xml); any javac warning blocks the build
-- **Docker image:** Multi-stage Dockerfile with distroless runtime (`gcr.io/distroless/java21-debian12:debug`), layered JAR via `spring-boot-maven-plugin`, non-root user
+- **Docker image:** Multi-stage Dockerfile with distroless runtime (`gcr.io/distroless/java21-debian13:nonroot`, digest-pinned), layered JAR via `spring-boot-maven-plugin`, runs as `nonroot:nonroot` (no shell / no coreutils in runtime). Debian 13 base (Debian 12 EOL 2026-06-10).
 - **Buildpacks alternative:** `mvn spring-boot:build-image` with Paketo builder
 - **CI workflows** (`.github/workflows/`):
-  - `ci.yml` — 8 jobs: `static-check` → { `build`, `test`, `integration-test` } (parallel) → { `e2e` (needs build + test), `docker` (needs all three), `cve-check` (tag/weekly/manual only) } → `ci-pass` (branch-protection gate, `if: always()`). The `docker` job runs Trivy image scan + smoke test on every push; multi-arch build + push to GHCR + cosign keyless signing happens only on `v*` tags
+  - `ci.yml` — 8 jobs: `static-check` → { `build`, `test`, `integration-test` } (parallel) → { `e2e` (needs build + test), `docker` (needs all three), `cve-check` (tag/weekly/manual only) } → `ci-pass` (branch-protection gate, `if: always()`). Every job uses `jdx/mise-action` to provision java+maven+CLI tools from `.mise.toml`; `actions/cache` handles `~/.m2/repository` separately. The `docker` job follows Pattern A: Gates 1–3 (build + Trivy image scan blocking CRITICAL/HIGH + smoke test) plus Gate 4 multi-arch build run on every push (catches arm64 cross-compile regressions early); push to GHCR + cosign keyless signing happen only on `v*` tags. `provenance: false` + `sbom: false` keep the image index clean
   - `cleanup-runs.yml` — weekly (Sunday) run pruning via `gh run delete` (retain 7 days, keep 5 minimum)
-- **Renovate:** `renovate.json` drives automated dependency updates. Makefile `_VERSION` constants carry `# renovate:` inline comments; a single generic `customManagers` regex in `renovate.json` tracks them all
+- **Version manager:** [mise](https://mise.jdx.dev/) is the single source of truth for every CLI tool the build needs — Java, Maven, Node, kubectl, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck all pin in `.mise.toml`. `make deps` bootstraps mise (if missing) and runs `mise install`. The Makefile retains a short list of `_VERSION` constants only for things mise does not manage: `GJF_VERSION` (google-java-format JAR), `DEPCHECK_VERSION` (Maven plugin), `MERMAID_CLI_VERSION` (Docker image), `KIND_NODE_IMAGE` (Docker image digest), `METALLB_VERSION` (manifest URL)
+- **Renovate:** `renovate.json` drives automated dependency updates. Two `customManagers` regexes track both the `.mise.toml` `# renovate:` inline comments and the remaining Makefile `_VERSION` constants
 - **Trivy suppressions:** `.trivyignore` documents demo-scope K8s hardening exceptions and upstream CVEs tracked by Renovate
 - **Architecture diagrams:** three inline Mermaid diagrams in README.md (C4 Context under the description, C4 Container + C4 Deployment in the `## Architecture` section). Lint target: `make mermaid-lint` uses the `minlag/mermaid-cli` Docker image (same engine GitHub uses to render). Wired into `make static-check`. No separate PlantUML toolchain — single-service + modest K8s topology fits inside Mermaid C4 cleanly
 - **All `make` targets depend on `deps`** — tool availability is checked / auto-installed before execution
