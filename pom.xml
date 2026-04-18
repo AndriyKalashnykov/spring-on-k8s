@@ -22,7 +22,7 @@
 
         <image.publish>false</image.publish>
         <image.name>andriykalashnykov/spring-on-k8s:latest</image.name>
-        <image.builder>paketobuildpacks/builder-jammy-base:0.4.286</image.builder>
+        <image.builder>paketobuildpacks/builder-jammy-base:0.4.563</image.builder>
         <docker.publishRegistry.username>andriykalashnykov</docker.publishRegistry.username>
         <docker.publishRegistry.password>YOUR-REGISTRY-PASSWORD</docker.publishRegistry.password>
         <docker.publishRegistry.url>docker.io</docker.publishRegistry.url>

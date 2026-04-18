@@ -40,7 +40,7 @@ C4Context
 ## Quick Start
 
 ```bash
-make deps          # verify tools; installs Maven locally if missing
+make deps          # installs mise + all tools pinned in .mise.toml
 make build         # build the project
 make test          # run tests
 make run           # start at http://localhost:8080
@@ -48,19 +48,20 @@ make run           # start at http://localhost:8080
 
 ## Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | Build orchestration |
-| [JDK](https://adoptium.net/) | 21+ | Java runtime and compiler |
-| [Maven](https://maven.apache.org/) | 3.9+ | Build and dependency management (`make deps-maven` auto-installs if missing) |
-| [Docker](https://www.docker.com/) | latest | Container image builds, KinD, Trivy filesystem scans |
-| [Git](https://git-scm.com/) | 2.0+ | Version control |
-| [mise](https://mise.jdx.dev/) | latest | Java/Maven/Node version management (optional — `make deps-install` auto-installs mise and reads `.mise.toml`) |
-| [kubectl](https://kubernetes.io/docs/tasks/tools/) | 1.30+ | Kubernetes deployment (`make deps-kubectl` auto-installs) |
-| [KinD](https://kind.sigs.k8s.io/) | 0.31+ | Local K8s cluster for `make e2e` (`make deps-kind` auto-installs) |
-| [Carvel](https://carvel.dev/) | latest | `ytt` + `kapp` for production K8s deploy (optional) |
+`make deps` installs [mise](https://mise.jdx.dev/) (no root required, to `~/.local/bin`), then runs `mise install` to fetch every pinned tool from `.mise.toml` — Java, Maven, Node, kubectl, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck. The host only needs the items marked **system** below.
 
-Install all required dependencies:
+| Tool | Source | Purpose |
+|------|--------|---------|
+| [GNU Make](https://www.gnu.org/software/make/) | **system** | Build orchestration (3.81+) |
+| [Docker](https://www.docker.com/) | **system** | Container image builds, KinD nodes, Mermaid / Trivy containers |
+| [Git](https://git-scm.com/) | **system** | Version control |
+| [mise](https://mise.jdx.dev/) | auto-installed by `make deps` | Manages every tool pinned in `.mise.toml` |
+| Java (Temurin 21), Maven, Node 24 | mise | Build, dependency management, Renovate validation |
+| kubectl, kind | mise | Local K8s cluster for `make e2e` |
+| act, hadolint, gitleaks, trivy, actionlint, shellcheck | mise | Workflow-local CI, linters, security scanners |
+| [Carvel](https://carvel.dev/) | optional | `ytt` + `kapp` for production K8s deploy |
+
+Install everything:
 
 ```bash
 make deps
@@ -145,17 +146,15 @@ make image-run                                           # run at http://localho
 make image-push                                          # push to registry
 ```
 
-Buildpacks alternative (Paketo):
+Buildpacks alternative (Paketo). Requires `DOCKER_LOGIN` and `DOCKER_PWD` to be set in your shell first (Docker Hub username + access token):
 
 ```bash
-export DOCKER_LOGIN=<your-dockerhub-username>
-export DOCKER_PWD=<your-dockerhub-token>
 mvn clean spring-boot:build-image \
   -Djava.version=21 \
   -Dimage.publish=false \
-  -Dimage.name=${DOCKER_LOGIN}/spring-on-k8s:latest \
-  -Ddocker.publishRegistry.username=${DOCKER_LOGIN} \
-  -Ddocker.publishRegistry.password=${DOCKER_PWD}
+  -Dimage.name="${DOCKER_LOGIN}/spring-on-k8s:latest" \
+  -Ddocker.publishRegistry.username="${DOCKER_LOGIN}" \
+  -Ddocker.publishRegistry.password="${DOCKER_PWD}"
 ```
 
 Scan with Docker Scout:
@@ -293,15 +292,17 @@ Run `make help` to see all available targets.
 
 GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Non-source paths (`*.md`, `docs/`, images, `LICENSE`) are skipped via `paths-ignore`.
 
+Every job that needs Java, Maven, or any CLI tool pinned in `.mise.toml` uses `jdx/mise-action` as the single toolchain-provisioning step. `actions/cache` handles the Maven repository (`~/.m2/repository`) separately.
+
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR, tags | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, deps-prune-check) |
+| **static-check** | push, PR, tags | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, mermaid-lint, deps-prune-check) |
 | **build** | push, PR, tags (needs: static-check) | `make build` |
 | **test** | push, PR, tags (needs: static-check) | `make test` — unit layer (Surefire) |
 | **integration-test** | push, PR, tags (needs: static-check) | `make integration-test` — in-process integration via Failsafe profile |
 | **e2e** | push, PR, tags (needs: build, test) | `make e2e` — KinD + MetalLB, asserts ConfigMap override + LB wiring |
 | **cve-check** | tags, weekly Monday 04:00 UTC, manual dispatch (needs: static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned) |
-| **docker** | push, PR, tags (needs: static-check, build, test) | Every push: build single-arch + Trivy image scan + smoke test. On tag: rebuild multi-arch (amd64, arm64), push to `ghcr.io`, cosign keyless OIDC sign |
+| **docker** | every push (needs: static-check, build, test) | Pattern A hardening. Gates 1–3 (single-arch build → Trivy image scan blocking CRITICAL/HIGH → smoke test on `/actuator/health/readiness`) run on every push. Gate 4 (multi-arch build for amd64+arm64) always runs to catch cross-compile regressions; push is tag-gated. Gate 5 (cosign keyless OIDC sign) tag-gated. `provenance: false` + `sbom: false` keep the image index clean so the GHCR "OS / Arch" tab renders |
 | **ci-pass** | always (needs: static-check, build, test, integration-test, e2e, docker) | Single stable branch-protection gate. `cve-check` is intentionally excluded from the gate — transient external-dep issues (Sonatype rate limits, NVD slowness) shouldn't block releases; failures still show in the run UI |
 | **cleanup** | weekly (Sunday) | Prune old workflow runs (retain 7 days, keep 5 minimum) |
 
@@ -325,6 +326,22 @@ cosign verify ghcr.io/andriykalashnykov/spring-on-k8s:<tag> \
   --certificate-identity-regexp 'https://github\.com/AndriyKalashnykov/spring-on-k8s/.*' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+
+### Post-release manifest verification
+
+After the first `docker` job publishes a multi-arch image, run all three checks before declaring the release good:
+
+```bash
+# 1. Manifest: must list linux/amd64 AND linux/arm64, and ZERO Platform: unknown/unknown entries
+docker buildx imagetools inspect ghcr.io/andriykalashnykov/spring-on-k8s:<tag>
+
+# 2. GHCR Packages UI: open in a browser — the "OS / Arch" tab must list both architectures
+#    URL: https://github.com/AndriyKalashnykov/spring-on-k8s/pkgs/container/spring-on-k8s
+
+# 3. Cosign signature (command above under "Image signing")
+```
+
+If `imagetools inspect` shows any `Platform: unknown/unknown` entry, buildkit attestations have leaked in — check that `provenance: false` and `sbom: false` are still set on the `Build and push` step of the `docker` job.
 
 [Renovate](https://docs.renovatebot.com/) keeps dependencies up to date with platform automerge enabled for minor/patch (3-day release-age buffer on majors).
 

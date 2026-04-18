@@ -54,13 +54,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
-          distribution: temurin
-          java-version-file: .java-version
-          cache: maven
+          fetch-depth: 0  # gitleaks needs full git history
+
+      - name: Set up mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          install: true
+          cache: true
+
+      - name: Cache Maven repository
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
 
       - name: Static check
         run: make static-check
@@ -73,12 +81,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+      - name: Set up mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          distribution: temurin
-          java-version-file: .java-version
-          cache: maven
+          install: true
+          cache: true
+
+      - name: Cache Maven repository
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
 
       - name: Build
         run: make build
@@ -91,12 +105,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+      - name: Set up mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          distribution: temurin
-          java-version-file: .java-version
-          cache: maven
+          install: true
+          cache: true
+
+      - name: Cache Maven repository
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
 
       - name: Test
         run: make test
@@ -109,12 +129,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+      - name: Set up mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          distribution: temurin
-          java-version-file: .java-version
-          cache: maven
+          install: true
+          cache: true
+
+      - name: Cache Maven repository
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
 
       - name: Integration test
         run: make integration-test
@@ -127,12 +153,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+      - name: Set up mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          distribution: temurin
-          java-version-file: .java-version
-          cache: maven
+          install: true
+          cache: true
+
+      - name: Cache Maven repository
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
 
       - name: E2E
         run: make e2e
@@ -148,12 +180,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up JDK
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+      - name: Set up mise
+        uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
-          distribution: temurin
-          java-version-file: .java-version
-          cache: maven
+          install: true
+          cache: true
+
+      - name: Cache Maven repository
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
+
+      - name: Cache NVD database
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-db-${{ hashFiles('pom.xml') }}
+          restore-keys: nvd-db-
 
       - name: CVE check
         env:
@@ -161,8 +206,8 @@ jobs:
         run: make cve-check
 
   docker:
-    # Every push: build single-arch + Trivy image scan + smoke test (non-publishing).
-    # On tag push: rebuild multi-arch, push to GHCR, cosign keyless OIDC sign.
+    # Gates 1-3 (build + Trivy + smoke) and Gate 4 build validation run on every push.
+    # Gate 4 push and Gate 5 cosign signing are tag-gated at step level.
     needs: [static-check, build, test]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -177,6 +222,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v4
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
@@ -189,12 +237,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=sha-
           flavor: latest=${{ startsWith(github.ref, 'refs/tags/') }}
 
-      - name: Build and load (single-arch, for scan + smoke)
+      # Gate 1: single-arch load-local build for scanning and smoke testing.
+      - name: Build image for scan
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
@@ -208,16 +254,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Gate 2: Trivy image scan — CRITICAL/HIGH blocks the release.
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           image-ref: spring-on-k8s:ci-scan
           format: table
-          exit-code: '0'
+          exit-code: '1'
           vuln-type: os,library
           severity: HIGH,CRITICAL
+          ignore-unfixed: true
           trivyignores: .trivyignore
 
+      # Gate 3: smoke test — readiness endpoint reports UP within 60s.
       - name: Smoke test
         run: |
           docker run -d --rm --name smoke -p 8080:8080 spring-on-k8s:ci-scan
@@ -234,6 +283,8 @@ jobs:
           docker stop smoke || true
           exit 1
 
+      # Gate 4: multi-arch build always runs (catches arm64 cross-compile
+      # regressions early); push is tag-gated via step-level conditional.
       - name: Log in to GHCR
         if: startsWith(github.ref, 'refs/tags/')
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -242,33 +293,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push (multi-arch)
+      - name: Build and push
         id: build-push
-        if: startsWith(github.ref, 'refs/tags/')
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             JDK_VENDOR=eclipse-temurin
             JDK_VERSION=21
+          # Pattern A default: clean image index so GHCR "OS / Arch" tab
+          # renders. Cosign keyless signing (below) covers supply-chain
+          # verification without buildkit in-manifest attestations.
+          provenance: false
+          sbom: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Gate 5: cosign keyless OIDC signing — tag-only.
       - name: Install cosign
         if: startsWith(github.ref, 'refs/tags/')
         uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003 # v4.1.1
 
-      - name: Sign image (cosign keyless OIDC)
+      - name: Sign image with cosign
         if: startsWith(github.ref, 'refs/tags/')
         env:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-push.outputs.digest }}
         run: |
-          echo "${TAGS}" | xargs -I {} cosign sign --yes "{}@${DIGEST}"
+          set -euo pipefail
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            cosign sign --yes "${tag}@${DIGEST}"
+          done <<< "${TAGS}"
 
   ci-pass:
     # Note: cve-check is intentionally NOT in `needs:`. Transient external-dep
