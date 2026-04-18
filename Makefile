@@ -10,7 +10,7 @@ export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 # to download Maven directly when mise isn't the install path (e.g., act
 # containers in CI).
 # renovate: datasource=maven depName=org.apache.maven:apache-maven
-MAVEN_VER   := 3.9.14
+MAVEN_VER   := 3.9.15
 # renovate: datasource=github-releases depName=nektos/act
 ACT_VERSION := 0.2.87
 JDK_VERSION := 21
