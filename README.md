@@ -32,7 +32,7 @@ C4Context
 | Build | Maven 3.9 |
 | Container | Multi-stage Dockerfile, distroless runtime, non-root user |
 | Orchestration | Kubernetes 1.30+, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) |
-| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [MetalLB](https://metallb.io/) for `make e2e` |
+| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) for `make e2e` |
 | CI/CD | GitHub Actions (split `static-check` / `build` / `test` / `ci-pass`) |
 | Code quality | Checkstyle, hadolint, [google-java-format](https://github.com/google/google-java-format), gitleaks, Trivy, actionlint, OWASP dependency-check |
 | Dep management | Renovate (automerge minor/patch, 3-day buffer on majors) |
@@ -113,7 +113,7 @@ C4Deployment
 ```
 
 - **Deployment** — 1 replica, 1 Gi memory limit, liveness+readiness probes point at Actuator
-- **Service** — LoadBalancer; locally served by MetalLB in the `make e2e` KinD stack, cloud-provided in production
+- **Service** — LoadBalancer; locally served by `cloud-provider-kind` in the `make e2e` KinD stack (host-side controller on the `kind` Docker network), cloud-provided in production
 - **ConfigMap** — deployed alongside the Deployment; edits to `k8s/cm.yml` propagate via `kapp deploy` and trigger a pod rollout (config source-of-truth lives in git, not in `kubectl edit`)
 
 Sources: diagrams are inline Mermaid in this README — no build step; GitHub renders them natively. Lint with `make mermaid-lint` (uses the same `minlag/mermaid-cli` engine GitHub uses, so what parses locally renders on the homepage).
@@ -193,7 +193,7 @@ Undeploy:
 kapp delete -a spring-on-k8s --yes
 ```
 
-### Local E2E path (KinD + MetalLB)
+### Local E2E path (KinD + cloud-provider-kind)
 
 ```bash
 make e2e                 # spins up cluster, deploys, runs assertions, tears down
@@ -202,7 +202,7 @@ make e2e                 # spins up cluster, deploys, runs assertions, tears dow
 Or step by step for debugging:
 
 ```bash
-make kind-up             # create cluster + MetalLB + deploy
+make kind-up             # create cluster + cloud-provider-kind + deploy
 kubectl -n spring-on-k8s get svc app
 # run manual curls against the assigned LoadBalancer IP
 make kind-down           # tear down
@@ -226,7 +226,7 @@ Run `make help` to see all available targets.
 |--------|-------------|---------|-----------|
 | `make test` | Unit tests (Surefire, excludes `*IT.java`) | seconds | `**/*Test.java`, `**/*Tests.java` |
 | `make integration-test` | In-process integration tests via `@SpringBootTest(RANDOM_PORT)` + real Actuator/Springdoc | ~5s | `**/*IT.java` (Failsafe, `integration-test` Maven profile) |
-| `make e2e` | Full-stack end-to-end against KinD + MetalLB; asserts ConfigMap override + LB wiring + negative case | ~3–5 min | `scripts/e2e-test.sh` |
+| `make e2e` | Full-stack end-to-end against KinD + cloud-provider-kind; asserts ConfigMap override + LB wiring + negative case | ~3–5 min | `scripts/e2e-test.sh` |
 
 ### Code Quality & Security
 
@@ -258,10 +258,10 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make kind-up` | Bring the full stack up: create cluster → install MetalLB → load image → deploy |
+| `make kind-up` | Bring the full stack up: create cluster → start cloud-provider-kind → load image → deploy |
 | `make kind-down` | Tear the cluster down |
 | `make kind-create` | Create KinD cluster (granular) |
-| `make kind-setup` | Install MetalLB in KinD for `LoadBalancer` services (granular) |
+| `make kind-setup` | Start cloud-provider-kind for `LoadBalancer` IP allocation (granular) |
 | `make kind-load` | Load local Docker image into KinD (granular) |
 | `make kind-deploy` | Apply K8s manifests to the KinD cluster (granular) |
 | `make kind-undeploy` | Remove the app from the cluster (granular) |
@@ -300,7 +300,7 @@ Every job that needs Java, Maven, or any CLI tool pinned in `.mise.toml` uses `j
 | **build** | push, PR, tags (needs: static-check) | `make build` |
 | **test** | push, PR, tags (needs: static-check) | `make test` — unit layer (Surefire) |
 | **integration-test** | push, PR, tags (needs: static-check) | `make integration-test` — in-process integration via Failsafe profile |
-| **e2e** | push, PR, tags (needs: build, test) | `make e2e` — KinD + MetalLB, asserts ConfigMap override + LB wiring |
+| **e2e** | push, PR, tags (needs: build, test) | `make e2e` — KinD + cloud-provider-kind, asserts ConfigMap override + LB wiring |
 | **cve-check** | tags, weekly Monday 04:00 UTC, manual dispatch (needs: static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned) |
 | **docker** | every push (needs: static-check, build, test) | Pattern A hardening. Gates 1–3 (single-arch build → Trivy image scan blocking CRITICAL/HIGH → smoke test on `/actuator/health/readiness`) run on every push. Gate 4 (multi-arch build for amd64+arm64) always runs to catch cross-compile regressions; push is tag-gated. Gate 5 (cosign keyless OIDC sign) tag-gated. `provenance: false` + `sbom: false` keep the image index clean so the GHCR "OS / Arch" tab renders |
 | **ci-pass** | always (needs: static-check, build, test, integration-test, e2e, docker) | Single stable branch-protection gate. `cve-check` is intentionally excluded from the gate — transient external-dep issues (Sonatype rate limits, NVD slowness) shouldn't block releases; failures still show in the run UI |
