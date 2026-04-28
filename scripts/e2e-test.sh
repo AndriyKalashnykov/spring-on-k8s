@@ -56,11 +56,14 @@ assert_status() {
 }
 
 echo "Running e2e checks..."
+assert_contains /             'Hello world'
 assert_contains /v1/hello "${EXPECTED_MESSAGE}"
 assert_contains /v1/bye   "${EXPECTED_MESSAGE}"
 assert_contains /actuator/health/liveness  '"status":"UP"'
 assert_contains /actuator/health/readiness '"status":"UP"'
 assert_contains /actuator/prometheus       'jvm_memory_used_bytes'
+assert_contains /actuator/prometheus       'http_server_requests_seconds_count'
+assert_contains /v3/api-docs               '/v1/hello'
 assert_status   /does-not-exist-abc 404
 
 echo "All e2e checks passed."

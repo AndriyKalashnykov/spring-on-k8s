@@ -53,11 +53,11 @@ CVE-2026-34500
 # Upstream Jackson Core via Spring Boot — fixed in 3.1.1; Renovate will PR the bump.
 GHSA-2m67-wjpj-xhg9
 
-# Distroless base image OS packages (gcr.io/distroless/java21-debian12:debug)
+# Distroless base image OS packages (gcr.io/distroless/java21-debian13:nonroot)
 # These are pinned by digest in Dockerfile and tracked by Renovate's dockerfile
 # manager. When the digest bumps, re-evaluate these suppressions — entries that
 # become stale should be removed so new CVEs surface again.
-# Pinned digest as of this suppression: sha256:d100a8c5...
+# Pinned digest as of this suppression: sha256:80b75813...
 CVE-2026-0861    # libc6 (glibc memalign integer overflow, HIGH)
 CVE-2026-25210   # libexpat1 (information disclosure)
 CVE-2026-33416   # libpng16-16 (arbitrary code execution, fix in 1.6.39-2+deb12u4)

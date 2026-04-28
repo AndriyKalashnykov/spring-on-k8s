@@ -33,3 +33,6 @@ hs_err_pid*
 
 # Claude Code runtime state
 .claude/
+
+# OWASP ZAP DAST output (make dast / dast-scan)
+zap-output/
