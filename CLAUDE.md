@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Spring Boot 4.0.5 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted ConfigMap via Spring's `configtree:` property source.
+Spring Boot 4.0.6 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted ConfigMap via Spring's `configtree:` property source.
 
 ## Build & Run Commands
 
@@ -16,15 +16,14 @@ make e2e                   # Full e2e: kind-up → curl LB assertions → kind-d
 make run                   # Run locally (mvn spring-boot:run) at http://localhost:8080
 make static-check          # Composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check)
 make mermaid-lint          # Validate Mermaid diagrams in README.md / CLAUDE.md against minlag/mermaid-cli
-make ci                    # Full pipeline: deps → format-check → static-check → test → build
-make ci-run                # Run GitHub Actions workflow locally via act
+make ci                    # Full pipeline: deps → format-check → static-check → test → integration-test → build
+make ci-run                # Run subset of GitHub Actions locally via act (skips e2e, cve-check, ci-pass)
 make image-build           # Build Docker image ($(DOCKER_IMAGE):$(DOCKER_TAG))
 make image-run             # Run Docker container (port 8080)
 make image-stop            # Stop Docker container
 make image-push            # Push Docker image to registry
 make kind-up               # Local K8s: create KinD + cloud-provider-kind + deploy
 make kind-down             # Tear down local K8s
-make e2e                   # Full e2e: kind-up → curl assertions → kind-down
 make upgrade               # Show available Maven dependency updates (dry-run)
 make upgrade-apply         # Apply latest Maven releases (prompts, mutates pom.xml)
 make release VERSION=1.2.3 # Tag a release (with confirmation prompt)
@@ -83,24 +82,24 @@ ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
 
 K8s manifests in `k8s/`: namespace, deployment (1 replica, 1Gi memory, liveness/readiness probes), LoadBalancer service (80→8080), ConfigMap with `app.message`.
 
-Local e2e path uses KinD + cloud-provider-kind: `make e2e` creates the KinD cluster, runs `cloud-provider-kind` as a host-side Docker container on the `kind` network (it watches `Service: LoadBalancer` resources and assigns IPs from the KinD subnet), deploys, curls the LoadBalancer IP for `/v1/hello` expecting the ConfigMap override message "Hello Kubernetes!", and tears down. Implementation lives in the `kind-setup` Makefile target (one `docker run`) and `scripts/e2e-test.sh`. No separate installer script; the previous MetalLB-based scaffolding (`scripts/kind-metallb-setup.sh`) was removed in favor of this kind-team-maintained approach that works on every supported `kindest/node` version.
+Local e2e path uses KinD + cloud-provider-kind: `make e2e` creates the KinD cluster, runs `cloud-provider-kind` as a host-side Docker container on the `kind` network (it watches `Service: LoadBalancer` resources and assigns IPs from the KinD subnet), deploys, curls the LoadBalancer IP for `/v1/hello` expecting the ConfigMap override message "Hello Kubernetes!", and tears down. Lifecycle decomposes into `kind-create` → `kind-setup` (start cloud-provider-kind) → `kind-load` (load image into KinD) → `kind-deploy` (apply k8s manifests + `kubectl set image` to the actual digest) — orchestrated by `kind-up`; tear down via `kind-down` (alias for `kind-destroy`). The driver is `scripts/e2e-test.sh`. No separate installer script; the previous MetalLB-based scaffolding (`scripts/kind-metallb-setup.sh`) was removed in favor of this kind-team-maintained approach that works on every supported `kindest/node` version.
 
 ## Upgrade Backlog
 
-Items surfaced by `/upgrade-analysis` 2026-04-13. Re-run 2026-04-18:
+Items surfaced by `/upgrade-analysis` 2026-04-13. Re-run 2026-04-27:
 
 - [x] ~~`KIND_VERSION` pinned at non-existent 0.32.0~~ → downgraded to 0.31.0 + `kindest/node:v1.35.0@sha256:452d707d...`
 - [x] ~~google-java-format 1.24.0 → 1.35.0~~ → bumped, GJF jar re-downloaded
-- [x] ~~Maven 3.9.9 → 3.9.14~~ → bumped in Makefile + Dockerfile ARG default (3.9.14 → 3.9.15 pending in PR #201)
+- [x] ~~Maven 3.9.9 → 3.9.15~~ → bumped in `.mise.toml` and Dockerfile `FROM` line
 - [x] ~~metallb → 0.15.3, kubectl → 1.35.3, mermaid-cli → 11.12.0, hadolint → 2.14.0, maven-dependency-plugin → 3.10.0~~ → all bumped
 - [x] ~~Mise migration: 8 CLI tools (act, hadolint, gitleaks, trivy, actionlint, shellcheck, kind, kubectl) moved from Makefile `_VERSION` pins to `.mise.toml`~~ → single source of truth
 - [x] ~~kubectl 1.35.3 → 1.35.4~~ (2026-04-18)
 - [x] ~~Paketo builder 0.4.286 → 0.4.563~~ (`pom.xml`; buildpacks-only path, 277 versions behind)
 - [x] ~~Dockerfile ARG Renovate blind spot~~ → `# renovate:` annotation added to `Dockerfile:1` ARG MVN_VERSION, custom-regex added to `renovate.json`
-- [x] ~~Distroless `java21-debian12:debug` → `java21-debian13:nonroot`~~ (2026-04-18) — ahead of Debian 12 EOL 2026-06-10. Smoke-tested: readiness UP, `/v1/hello` responds, container runs as nonroot:nonroot. Reverted: if troubleshooting via `kubectl exec` is needed, temporarily swap the tag back to `:debug` (keep the same image path / digest pattern).
-- [ ] **Post-release manifest verification (first run after next tag push)** — after the hardened `docker` job first publishes with Pattern A (`provenance: false` + `sbom: false`, multi-arch), run the three checks documented in README §"Post-release manifest verification": (a) `docker buildx imagetools inspect` lists linux/amd64 + linux/arm64 with zero `unknown/unknown` entries, (b) GHCR Packages UI shows the "OS / Arch" tab, (c) `cosign verify` succeeds. Once verified, delete this item.
+- [x] ~~Distroless `java21-debian12:debug` → `java21-debian13:nonroot`~~ (2026-04-18) — ahead of Debian 12 EOL 2026-06-10. Smoke-tested: readiness UP, `/v1/hello` responds, container runs as nonroot:nonroot. To revert temporarily for `kubectl exec` troubleshooting, swap the tag back to `:debug` (keep the same image path / digest pattern).
+- [x] ~~Spring Boot 4.0.5 → 4.0.6~~ (commit `ba27665`). When 4.0.7 ships, re-evaluate the hibernate-validator suppression in `dependency-check-suppressions.xml` (CVE-2025-15104) — drop it if the upstream fix lands.
+- [ ] **Post-release manifest verification (first run after next tag push)** — after the hardened `docker` job first publishes with Pattern A (`provenance: false` + `sbom: false`, single-arch `linux/amd64`), run the three checks in README §"Post-release manifest verification": (a) `docker buildx imagetools inspect` shows `linux/amd64` with zero `unknown/unknown` entries, (b) GHCR Packages UI lists the package, (c) `cosign verify` succeeds. Once verified, delete this item.
 - [ ] **Maven 4.0.0** is at RC-5 (latest: rc-5 published 2025-11-13); GA not yet released. Monitor; migrate when GA ships and plugin ecosystem signals stable 4.x support.
-- [ ] **Spring Boot 4.0.6+** not yet released (latest stable: 4.0.5 published 2026-03-26). When it ships, check hibernate-validator for CVE-2025-15104 fix; remove the corresponding entry from `dependency-check-suppressions.xml` if the upstream fix lands.
 
 ## Skills
 
@@ -122,10 +121,12 @@ When spawning subagents, always pass conventions from the respective skill into 
 - **Docker image:** Multi-stage Dockerfile with distroless runtime (`gcr.io/distroless/java21-debian13:nonroot`, digest-pinned), layered JAR via `spring-boot-maven-plugin`, runs as `nonroot:nonroot` (no shell / no coreutils in runtime). Debian 13 base (Debian 12 EOL 2026-06-10).
 - **Buildpacks alternative:** `mvn spring-boot:build-image` with Paketo builder
 - **CI workflows** (`.github/workflows/`):
-  - `ci.yml` — 8 jobs: `static-check` → { `build`, `test`, `integration-test` } (parallel) → { `e2e` (needs build + test), `docker` (needs all three), `cve-check` (tag/weekly/manual only) } → `ci-pass` (branch-protection gate, `if: always()`). Every job uses `jdx/mise-action` to provision java+maven+CLI tools from `.mise.toml`; `actions/cache` handles `~/.m2/repository` separately. The `docker` job follows Pattern A: Gates 1–3 (build + Trivy image scan blocking CRITICAL/HIGH + smoke test) plus Gate 4 multi-arch build run on every push (catches arm64 cross-compile regressions early); push to GHCR + cosign keyless signing happen only on `v*` tags. `provenance: false` + `sbom: false` keep the image index clean
-  - `cleanup-runs.yml` — weekly (Sunday) run pruning via `gh run delete` (retain 7 days, keep 5 minimum)
-- **Version manager:** [mise](https://mise.jdx.dev/) is the single source of truth for every CLI tool the build needs — Java, Maven, Node, kubectl, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck all pin in `.mise.toml`. `make deps` bootstraps mise (if missing) and runs `mise install`. The Makefile retains a short list of `_VERSION` constants only for things mise does not manage: `GJF_VERSION` (google-java-format JAR), `DEPCHECK_VERSION` (Maven plugin), `MERMAID_CLI_VERSION` (Docker image), `KIND_NODE_IMAGE` (Docker image digest), `CLOUD_PROVIDER_KIND_VERSION` (Docker image tag on registry.k8s.io)
-- **Renovate:** `renovate.json` drives automated dependency updates. Two `customManagers` regexes track both the `.mise.toml` `# renovate:` inline comments and the remaining Makefile `_VERSION` constants
+  - `ci.yml` — 10 jobs: `changes` (path filter via `dorny/paths-filter`) → `static-check` → { `build`, `test`, `integration-test` } (parallel) → { `e2e` (needs build + test), `dast` (needs build + test), `docker` (needs all three + cve-check), `cve-check` (tag/weekly/manual only) } → `ci-pass` (branch-protection gate, `if: always()`, treats `skipped` as PASS). Path filtering happens **inside** the workflow, not at the trigger level — Repository Rulesets requiring `ci-pass` would deadlock on doc-only changes if `paths-ignore` filtered triggers (no run → no `ci-pass` status). Every code-running job gates on `needs.changes.outputs.code == 'true'`; doc-only PRs skip the heavy jobs and `ci-pass` still goes green. Every job uses `jdx/mise-action` to provision java+maven+CLI tools from `.mise.toml`; `actions/cache` handles `~/.m2/repository` separately. The `docker` job follows Pattern A, single-arch (`linux/amd64`): Gates 1–3 (build + Trivy image scan blocking CRITICAL/HIGH with `scanners=vuln,secret,misconfig` + smoke test via `make docker-smoke-test`) run on every push; Gate 4 publish build + Gate 5 cosign keyless signing happen only on `v*` tags. `provenance: false` + `sbom: false` keep the image index clean. Multi-arch (amd64+arm64) is intentionally disabled — the project ships a single linux/amd64 image. The parallel `dast` job runs OWASP ZAP baseline (`-I` warn-only, only FAIL blocks) against the same locally-built `spring-on-k8s:ci-scan` image; ZAP image is `actions/cache`-d so subsequent runs load in seconds. `dast` is skipped under act (`vars.ACT == 'true'`) — ZAP's docker-in-docker bind mount of `$GITHUB_WORKSPACE/zap-output` does not round-trip through the host Docker daemon; run `make dast` directly for local coverage
+  - `cleanup-runs.yml` (workflow renamed `Cleanup`) — weekly Sunday 00:00 UTC, two jobs: `cleanup-runs` prunes old workflow runs via `gh run delete` (retain 7 days, keep 5 minimum); `cleanup-caches` deletes actions caches scoped to deleted refs (frees room against the 10 GB repo cache limit)
+- **Version manager:** [mise](https://mise.jdx.dev/) is the single source of truth for every CLI tool the build needs — Java, Maven, Node, kubectl, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck all pin in `.mise.toml`. `make deps` bootstraps mise (if missing) and runs `mise install`. The Makefile retains a short list of `_VERSION` constants only for things mise does not manage: `GJF_VERSION` (google-java-format JAR), `DEPCHECK_VERSION` (Maven plugin), `MERMAID_CLI_VERSION` (Docker image), `KIND_NODE_IMAGE` (Docker image digest), `CLOUD_PROVIDER_KIND_VERSION` (Docker image tag on registry.k8s.io), `ACT_UBUNTU_VERSION` (catthehacker/ubuntu image used by `make ci-run`/`ci-run-tag`), `ZAP_VERSION` (`ghcr.io/zaproxy/zaproxy` Docker image used by `make dast` and the CI `dast` job — also duplicated as a workflow-level `env:` literal in `ci.yml`; both are Renovate-tracked via the workflow `customManagers` regex, so a Renovate PR bumps them together)
+- **Renovate:** `renovate.json` drives automated dependency updates. Enabled managers: `maven`, `github-actions`, `dockerfile`, `kubernetes` (scoped to `k8s/*.ya?ml`), `mise` (native `.mise.toml` reader), and `custom.regex`. Three `customManagers` regexes track inline `# renovate:` comments — one for the Makefile, one for `.mise.toml`, and one for `.github/workflows/*.ya?ml` `env:` literals (covers `ZAP_VERSION` duplicated between the Makefile and the `dast` job)
 - **Trivy suppressions:** `.trivyignore` documents demo-scope K8s hardening exceptions and upstream CVEs tracked by Renovate
+- **`docker` job gates on `cve-check`** via the GitHub idiom `if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}`. `cve-check` is in `docker.needs` so a real CVE failure on a tag push blocks the release; on regular pushes `cve-check` is `skipped` (it's tag/schedule/manual-only) and `!failure() && !cancelled()` lets `docker` proceed regardless. `ci-pass` lists both in `needs:` for branch-protection completeness
+- **`k8s/deployment.yml` uses `image: ghcr.io/.../spring-on-k8s:latest`:** intentional template-style placeholder. The actual tag is set at deploy time — `make kind-deploy` runs `kubectl set image deployment/app "app=$(DOCKER_IMAGE):$(DOCKER_TAG)"` after `kubectl apply`, and the Carvel production path uses `ytt` overlays. Renovate's `kubernetes` manager scans the file but treats `:latest` as a no-op (nothing to bump), which is fine
 - **Architecture diagrams:** three inline Mermaid diagrams in README.md (C4 Context under the description, C4 Container + C4 Deployment in the `## Architecture` section). Lint target: `make mermaid-lint` uses the `minlag/mermaid-cli` Docker image (same engine GitHub uses to render). Wired into `make static-check`. No separate PlantUML toolchain — single-service + modest K8s topology fits inside Mermaid C4 cleanly
 - **All `make` targets depend on `deps`** — tool availability is checked / auto-installed before execution

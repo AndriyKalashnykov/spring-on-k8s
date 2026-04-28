@@ -9,14 +9,18 @@ export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 # constants below are the exceptions — values that are not mise-managed
 # (Maven plugins, JAR downloads, Docker image pins, literals consumed by
 # Docker build args).
+# JDK_VERSION is the major-only Java version consumed as a Docker `--build-arg`
+# (Dockerfile `ARG JDK_VERSION`). Must stay in sync with `.mise.toml`
+# (`java = "temurin-21"`) and `pom.xml` `<java.version>21</java.version>`.
 JDK_VERSION := 21
-NODE_VERSION := $(shell cat .nvmrc 2>/dev/null || echo 24)
 # renovate: datasource=maven depName=com.google.googlejavaformat:google-java-format
 GJF_VERSION := 1.35.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
 DEPCHECK_VERSION := 12.2.1
 # renovate: datasource=docker depName=minlag/mermaid-cli
 MERMAID_CLI_VERSION := 11.12.0
+# renovate: datasource=github-releases depName=zaproxy/zaproxy extractVersion=^v(?<version>.*)$$
+ZAP_VERSION := 2.17.0
 # KIND_NODE_IMAGE is tied to the kind release in .mise.toml; each kind
 # release ships a matching node image tag (digest from kind release notes).
 # renovate: datasource=docker depName=kindest/node
@@ -24,9 +28,17 @@ KIND_NODE_IMAGE := kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e0
 # cloud-provider-kind runs as a host-side Docker container on the `kind`
 # network; watches Services of type LoadBalancer and allocates IPs from the
 # KinD Docker subnet. Kind-team maintained (kubernetes-sigs/cloud-provider-kind),
-# works on every supported kindest/node version.
-# renovate: datasource=github-releases depName=kubernetes-sigs/cloud-provider-kind
-CLOUD_PROVIDER_KIND_VERSION := 0.10.0
+# works on every supported kindest/node version. Tracked via the docker
+# datasource so Renovate only proposes versions that are actually published
+# to registry.k8s.io (a github-release without a corresponding image push
+# would be unpullable).
+# renovate: datasource=docker depName=registry.k8s.io/cloud-provider-kind/cloud-controller-manager
+CLOUD_PROVIDER_KIND_VERSION := v0.10.0
+
+# act runner image — pinned so `make ci-run` produces deterministic local
+# CI runs across machines.
+# renovate: datasource=docker depName=catthehacker/ubuntu versioning=loose
+ACT_UBUNTU_VERSION := act-24.04
 
 # === Docker image coordinates ===
 APP_NAME        := spring-on-k8s
@@ -80,6 +92,7 @@ deps-gjf:
 #clean: @ Cleanup
 clean: deps
 	@mvn clean
+	@rm -rf zap-output
 
 #build: @ Build project
 build: deps
@@ -113,11 +126,18 @@ format-check: deps-gjf
 	fi; \
 	echo "All Java sources are correctly formatted."
 
-#lint: @ Run Checkstyle + Dockerfile + compiler warning checks
+#lint: @ Run Maven compiler warnings + Checkstyle + hadolint Dockerfile + scripts +x guard
 lint: deps
 	@mvn -B compile
 	@mvn -B checkstyle:check
 	@hadolint Dockerfile
+	@NONEXEC=$$(find scripts -name '*.sh' -not -executable -print 2>/dev/null); \
+	if [ -n "$$NONEXEC" ]; then \
+		echo "ERROR: shell scripts missing executable bit:"; \
+		echo "$$NONEXEC" | sed 's/^/  /'; \
+		echo "Fix with: chmod +x <file>"; \
+		exit 1; \
+	fi
 
 #cve-check: @ OWASP dependency-check vulnerability scan (NVD only)
 # Data source: NVD (requires NVD_API_KEY for fast path — free key from
@@ -141,6 +161,9 @@ cve-check: deps
 	fi; \
 	mvn $$MVN_ARGS
 
+#vulncheck: @ Alias for cve-check (portfolio-standard target name)
+vulncheck: cve-check
+
 #secrets: @ Scan working tree for secrets via gitleaks (CI-oriented; use secrets-history for full git audit)
 secrets: deps
 	@gitleaks detect --source . --no-git --verbose --redact --no-banner
@@ -157,25 +180,33 @@ trivy-fs: deps
 trivy-config: deps
 	@trivy config --exit-code 1 --severity HIGH,CRITICAL --ignorefile .trivyignore k8s/
 
-#lint-ci: @ Lint GitHub Actions workflows (actionlint invokes shellcheck on run: scripts internally)
+#lint-ci: @ Lint GitHub Actions workflows (actionlint + shellcheck via mise)
 lint-ci: deps
 	@actionlint
 	@echo "Workflow lint complete."
 
 #mermaid-lint: @ Validate Mermaid diagrams in markdown files
-mermaid-lint:
-	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker is required for mermaid-lint"; exit 1; }
+mermaid-lint: deps
 	@set -euo pipefail; \
 	MD_FILES=$$(grep -lF '```mermaid' README.md CLAUDE.md 2>/dev/null || true); \
 	if [ -z "$$MD_FILES" ]; then \
 		echo "No Mermaid blocks found — skipping."; \
 		exit 0; \
 	fi; \
+	for attempt in 1 2 3; do \
+		if docker pull --quiet minlag/mermaid-cli:$(MERMAID_CLI_VERSION) >/dev/null 2>&1; then \
+			break; \
+		fi; \
+		[ "$$attempt" -lt 3 ] && { echo "  docker pull attempt $$attempt failed; retrying..."; sleep 2; } || { \
+			echo "ERROR: docker pull minlag/mermaid-cli:$(MERMAID_CLI_VERSION) failed after 3 attempts"; \
+			exit 1; \
+		}; \
+	done; \
 	FAILED=0; \
 	for md in $$MD_FILES; do \
 		echo "Validating Mermaid blocks in $$md..."; \
 		LOG=$$(mktemp); \
-		if docker run --rm -v "$$PWD:/data" \
+		if docker run --rm -v "$$PWD:/data:ro" \
 			minlag/mermaid-cli:$(MERMAID_CLI_VERSION) \
 			-i "/data/$$md" -o "/tmp/$$(basename $$md .md).svg" >"$$LOG" 2>&1; then \
 			echo "  ✓ All blocks rendered cleanly."; \
@@ -217,6 +248,54 @@ upgrade-apply: deps
 image-build: build
 	@docker buildx build --load -t $(DOCKER_IMAGE):$(DOCKER_TAG) --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=$(JDK_VERSION) .
 
+#docker-smoke-test: @ Boot the locally-built image and verify /actuator/health/readiness reports UP within 60s (leaves container running)
+# Shared by the CI `docker` and `dast` jobs. The caller is responsible for the
+# follow-up `docker rm -f spring-on-k8s-smoke` cleanup step (already wired into
+# both CI jobs as `if: always()` steps; the local `make dast` target runs the
+# cleanup in its own recipe).
+docker-smoke-test:
+	@docker rm -f spring-on-k8s-smoke 2>/dev/null || true
+	@docker run -d --name spring-on-k8s-smoke -p 8080:8080 spring-on-k8s:ci-scan >/dev/null
+	@for _ in $$(seq 1 30); do \
+		if curl -sf http://localhost:8080/actuator/health/readiness 2>/dev/null | grep -q '"status":"UP"'; then \
+			echo "Smoke test PASS: /actuator/health/readiness reports UP"; \
+			exit 0; \
+		fi; \
+		sleep 2; \
+	done; \
+	echo "Smoke test FAIL: /actuator/health/readiness did not report UP within 60s"; \
+	docker logs spring-on-k8s-smoke 2>&1 || true; \
+	docker rm -f spring-on-k8s-smoke >/dev/null 2>&1 || true; \
+	exit 1
+
+#dast-scan: @ Run OWASP ZAP baseline against http://localhost:8080 (assumes container is running)
+dast-scan:
+	@mkdir -p zap-output && chmod 777 zap-output
+	@docker run --rm --network host \
+		-v "$$PWD/zap-output:/zap/wrk:rw" \
+		ghcr.io/zaproxy/zaproxy:$(ZAP_VERSION) \
+		zap-baseline.py \
+			-t http://localhost:8080 \
+			-I \
+			-r zap-report.html \
+			-J zap-report.json \
+			-w zap-report.md
+	@echo "DAST report: $$PWD/zap-output/zap-report.html"
+
+#dast: @ Build image, boot, run ZAP baseline DAST scan, cleanup (mirrors CI dast job)
+dast: image-build
+	@docker rm -f spring-on-k8s-test 2>/dev/null || true
+	@docker run -d --name spring-on-k8s-test -p 8080:8080 $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null
+	@echo "Waiting for container readiness..."
+	@end=$$(($$(date +%s) + 60)); \
+	while [ $$(date +%s) -lt $$end ]; do \
+		curl -fsS http://localhost:8080/actuator/health/readiness 2>/dev/null | grep -q '"status":"UP"' && break; \
+		sleep 1; \
+	done
+	@$(MAKE) dast-scan ZAP_VERSION=$(ZAP_VERSION) || EXIT=$$?; \
+	docker rm -f spring-on-k8s-test >/dev/null 2>&1 || true; \
+	exit $${EXIT:-0}
+
 #image-run: @ Run Docker container
 image-run: image-stop
 	@docker run --rm -p 8080:8080 --name $(APP_NAME) $(DOCKER_IMAGE):$(DOCKER_TAG)
@@ -236,17 +315,47 @@ image-push: image-build
 ci: deps format-check static-check test integration-test build
 	@echo "CI pipeline completed successfully."
 
-#ci-run: @ Run GitHub Actions workflow locally using act (serialized per-job, random artifact port)
+#ci-run: @ Run a subset of GitHub Actions workflow locally via act (excludes e2e, cve-check, ci-pass)
+# Skipped jobs and rationale:
+#   e2e       — requires KinD inside act (docker-in-docker is flaky); use `make e2e` directly.
+#   cve-check — gated on tags/schedule/manual; requires NVD_API_KEY for fast path.
+#   ci-pass   — meta aggregator; nothing to validate locally.
+# Forwards GH_ACCESS_TOKEN, NVD_API_KEY, OSS_INDEX_USER, OSS_INDEX_TOKEN to act
+# only when set on the host, so the local run mirrors the CI secret surface.
 ci-run: deps
 	@docker container prune -f 2>/dev/null || true
 	@ACT_PORT=$$(shuf -i 40000-59999 -n 1); \
 	ARTIFACT_PATH=$$(mktemp -d -t act-artifacts.XXXXXX); \
+	SECRETS=""; \
+	for v in GH_ACCESS_TOKEN NVD_API_KEY OSS_INDEX_USER OSS_INDEX_TOKEN; do \
+		if [ -n "$${!v:-}" ]; then SECRETS="$$SECRETS --secret $$v=$${!v}"; fi; \
+	done; \
 	for j in static-check build test integration-test docker; do \
 		echo "==== act push --job $$j ===="; \
 		act push --job $$j --container-architecture linux/amd64 \
+			-P ubuntu-24.04=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
 			--artifact-server-port "$$ACT_PORT" \
-			--artifact-server-path "$$ARTIFACT_PATH" || exit 1; \
+			--artifact-server-path "$$ARTIFACT_PATH" \
+			$$SECRETS || exit 1; \
 	done
+
+#ci-run-tag: @ Simulate a tag push under act (exercises tag-gated docker job; cosign signing fails — expected, no OIDC under act)
+# The `dast` job is skipped under act (`vars.ACT == 'true'`) — its docker-in-docker
+# bind mount of `$GITHUB_WORKSPACE/zap-output` does not round-trip through the host
+# Docker daemon. Run `make dast` directly to cover that ground locally.
+ci-run-tag: deps
+	@docker container prune -f 2>/dev/null || true
+	@TAG="$$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"; \
+		echo '{"ref":"refs/tags/'"$$TAG"'","ref_type":"tag"}' > /tmp/act-tag-event.json
+	@ACT_PORT=$$(shuf -i 40000-59999 -n 1); \
+	ARTIFACT_PATH=$$(mktemp -d -t act-artifacts.XXXXXX); \
+	act push \
+		--eventpath /tmp/act-tag-event.json \
+		--container-architecture linux/amd64 \
+		-P ubuntu-24.04=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
+		--artifact-server-port "$$ACT_PORT" \
+		--artifact-server-path "$$ARTIFACT_PATH" || true
+	@echo "Note: cosign signing fails under act (no OIDC) — expected. dast job is skipped under act."
 
 #kind-create: @ Create KinD cluster
 kind-create: deps
@@ -263,12 +372,12 @@ kind-setup: kind-create
 	@# allocates IPs from the KinD subnet. No in-cluster install, no IP
 	@# pool to configure. Idempotent: replace any existing container.
 	@docker rm -f cloud-provider-kind >/dev/null 2>&1 || true
-	@echo "Starting cloud-provider-kind v$(CLOUD_PROVIDER_KIND_VERSION)..."
+	@echo "Starting cloud-provider-kind $(CLOUD_PROVIDER_KIND_VERSION)..."
 	@docker run --rm -d \
 		--name cloud-provider-kind \
 		--network kind \
 		-v /var/run/docker.sock:/var/run/docker.sock \
-		registry.k8s.io/cloud-provider-kind/cloud-controller-manager:v$(CLOUD_PROVIDER_KIND_VERSION) >/dev/null
+		registry.k8s.io/cloud-provider-kind/cloud-controller-manager:$(CLOUD_PROVIDER_KIND_VERSION) >/dev/null
 
 #kind-load: @ Load the local Docker image into KinD
 kind-load: kind-create image-build
@@ -306,16 +415,18 @@ e2e: kind-up
 	trap '$(MAKE) kind-down' EXIT; \
 	bash scripts/e2e-test.sh
 
-#release: @ Create a release (usage: make release VERSION=1.2.3)
+#release: @ Create and push a release tag (usage: make release VERSION=1.2.3)
 release: deps
 	@if [ -z "$(VERSION)" ]; then echo "Error: VERSION is required (e.g., make release VERSION=1.2.3)"; exit 1; fi
 	@if ! echo "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$'; then echo "Error: VERSION must be valid semver (e.g., 1.2.3)"; exit 1; fi
-	@bash -c 'read -p "Create release v$(VERSION)? [y/N] " ans && [ "$${ans:-N}" = y ] || { echo "Aborted."; exit 1; }'
+	@bash -c 'read -p "Create AND push release v$(VERSION) (commit + tag → origin)? [y/N] " ans && [ "$${ans:-N}" = y ] || { echo "Aborted."; exit 1; }'
 	@mvn versions:set -DnewVersion=$(VERSION) -DgenerateBackupPoms=false
 	@git add pom.xml
 	@git commit -m "release: v$(VERSION)"
 	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
-	@echo "Release v$(VERSION) created. Push with: git push origin main --tags"
+	@git push origin "v$(VERSION)"
+	@git push origin HEAD
+	@echo "Release v$(VERSION) created and pushed."
 
 #renovate-bootstrap: @ Install mise + Node for Renovate
 renovate-bootstrap: deps
@@ -330,8 +441,9 @@ renovate-validate: renovate-bootstrap
 	fi
 
 .PHONY: help deps deps-install deps-check deps-gjf deps-prune deps-prune-check \
-	clean build test integration-test run format format-check lint cve-check \
+	clean build test integration-test run format format-check lint cve-check vulncheck \
 	secrets secrets-history trivy-fs trivy-config lint-ci mermaid-lint \
 	static-check upgrade upgrade-apply image-build image-run image-stop image-push \
+	docker-smoke-test dast dast-scan \
 	kind-create kind-setup kind-load kind-deploy kind-undeploy kind-destroy \
-	kind-up kind-down e2e ci ci-run release renovate-bootstrap renovate-validate
+	kind-up kind-down e2e ci ci-run ci-run-tag release renovate-bootstrap renovate-validate

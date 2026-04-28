@@ -1,39 +1,17 @@
 name: CI
 
 on:
+  # Note: NO trigger-level `paths-ignore`. Under Repository Rulesets requiring
+  # `ci-pass`, doc-only changes filtered at the trigger level produce no
+  # workflow run → no `ci-pass` status → required check reports "expected,
+  # not received" indefinitely (admin override is also rejected). Path
+  # filtering is moved into the `changes` job below; doc-only changes still
+  # produce a green `ci-pass` because heavy jobs are skipped (skipped !=
+  # failed) and `ci-pass` only blocks on failure/cancelled.
   push:
     branches: [main]
     tags: ['v*']
-    paths-ignore:
-      - '*.md'
-      - '!CLAUDE.md'
-      - 'docs/**'
-      - 'specs/**'
-      - 'LICENSE'
-      - '.gitignore'
-      - '.claudeignore'
-      - '.claude/**'
-      - 'benchmarks/**'
-      - '**.png'
-      - '**.jpg'
-      - '**.gif'
-      - '**.svg'
   pull_request:
-    branches: [main]
-    paths-ignore:
-      - '*.md'
-      - '!CLAUDE.md'
-      - 'docs/**'
-      - 'specs/**'
-      - 'LICENSE'
-      - '.gitignore'
-      - '.claudeignore'
-      - '.claude/**'
-      - 'benchmarks/**'
-      - '**.png'
-      - '**.jpg'
-      - '**.gif'
-      - '**.svg'
   schedule:
     # Weekly CVE scan — Mondays 04:00 UTC
     - cron: '0 4 * * 1'
@@ -46,9 +24,53 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read   # dorny/paths-filter needs this on PR events
+
+env:
+  # Tracked by Renovate via the workflow customManager in renovate.json — bumped
+  # in tandem with the Makefile `ZAP_VERSION` (same depName + currentValue, so
+  # the bumps land in a single PR by default).
+  # renovate: datasource=github-releases depName=zaproxy/zaproxy extractVersion=^v(?<version>.*)$
+  ZAP_VERSION: 2.17.0
 
 jobs:
+  changes:
+    # Detect whether the change set includes any code paths. Heavy jobs gate
+    # on `needs.changes.outputs.code == 'true'`; doc-only changes skip them.
+    # On tag pushes, schedules, and workflow_dispatch we force code=true so
+    # release / CVE scan / manual runs are never skipped by accident.
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    outputs:
+      code: ${{ steps.combine.outputs.code }}
+    steps:
+      - name: Checkout
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Filter changed paths
+        id: filter
+        if: github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+            code:
+              - '!(**.md|docs/**|specs/**|LICENSE|.gitignore|.claudeignore|.claude/**|benchmarks/**|**.png|**.jpg|**.gif|**.svg)'
+              - 'CLAUDE.md'
+
+      - name: Combine signal
+        id: combine
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" || "${{ startsWith(github.ref, 'refs/tags/') }}" == "true" ]]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=${{ steps.filter.outputs.code }}" >> "$GITHUB_OUTPUT"
+          fi
+
   static-check:
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -57,7 +79,7 @@ jobs:
         with:
           fetch-depth: 0  # gitleaks needs full git history
 
-      - name: Set up mise
+      - name: Set up toolchain (mise)
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           install: true
@@ -74,14 +96,15 @@ jobs:
         run: make static-check
 
   build:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up mise
+      - name: Set up toolchain (mise)
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           install: true
@@ -98,14 +121,15 @@ jobs:
         run: make build
 
   test:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up mise
+      - name: Set up toolchain (mise)
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           install: true
@@ -122,14 +146,15 @@ jobs:
         run: make test
 
   integration-test:
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up mise
+      - name: Set up toolchain (mise)
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           install: true
@@ -146,14 +171,15 @@ jobs:
         run: make integration-test
 
   e2e:
-    needs: [build, test]
+    needs: [changes, build, test]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up mise
+      - name: Set up toolchain (mise)
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           install: true
@@ -172,15 +198,15 @@ jobs:
   cve-check:
     # Runs on tags (release gate), weekly schedule, or manual dispatch.
     # Skipped on normal pushes/PRs — slow path can take 15+ min without NVD_API_KEY.
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    needs: [static-check]
+    needs: [changes, static-check]
+    if: needs.changes.outputs.code == 'true' && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      - name: Set up mise
+      - name: Set up toolchain (mise)
         uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
         with:
           install: true
@@ -205,10 +231,86 @@ jobs:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: make cve-check
 
+  dast:
+    # OWASP ZAP baseline scan against the locally-built image. Runs in parallel
+    # with `docker`. Skipped under act — ZAP's docker-in-docker bind mount of
+    # $GITHUB_WORKSPACE/zap-output does not round-trip through the host Docker
+    # daemon. Run `make dast` directly to cover that ground locally.
+    # `-I` (warn-only) means only FAIL findings block; WARNs are captured in the
+    # uploaded report for review.
+    needs: [changes, build, test]
+    if: ${{ vars.ACT != 'true' && needs.changes.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Build image for scan
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: spring-on-k8s:ci-scan
+          build-args: |
+            JDK_VENDOR=eclipse-temurin
+            JDK_VERSION=21
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        run: make docker-smoke-test
+
+      - name: Cache ZAP image
+        id: cache-zap
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: /tmp/zap-image.tar
+          key: zap-image-${{ env.ZAP_VERSION }}-${{ runner.os }}
+
+      - name: Load cached ZAP image
+        run: |
+          set -euo pipefail
+          if [ -f /tmp/zap-image.tar ]; then
+            echo "Loading ZAP from cache..."
+            docker load -i /tmp/zap-image.tar
+          else
+            echo "Pulling ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}..."
+            docker pull "ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}"
+            docker save "ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}" -o /tmp/zap-image.tar
+          fi
+
+      - name: OWASP ZAP baseline scan
+        run: make dast-scan
+
+      - name: Cleanup smoke container
+        if: always()
+        run: docker rm -f spring-on-k8s-smoke 2>/dev/null || true
+
+      - name: Upload DAST report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: zap-baseline-report
+          path: zap-output/
+          retention-days: 30
+          if-no-files-found: ignore
+
   docker:
-    # Gates 1-3 (build + Trivy + smoke) and Gate 4 build validation run on every push.
+    # Gates 1-3 (build + Trivy + smoke) and Gate 4 amd64 build validation run on every push.
     # Gate 4 push and Gate 5 cosign signing are tag-gated at step level.
-    needs: [static-check, build, test]
+    # Single-arch (linux/amd64) publish — multi-arch is deliberately disabled.
+    # `cve-check` is in `needs:` so a real CVE failure on a tag push blocks the
+    # release. The `if:` uses `!failure() && !cancelled()` so cve-check being
+    # `skipped` on regular pushes (it's tag/schedule/manual-only) does not skip
+    # the docker job.
+    needs: [changes, static-check, build, test, cve-check]
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -221,9 +323,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
@@ -261,30 +360,25 @@ jobs:
           image-ref: spring-on-k8s:ci-scan
           format: table
           exit-code: '1'
-          vuln-type: os,library
+          scanners: 'vuln,secret,misconfig'
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           trivyignores: .trivyignore
 
-      # Gate 3: smoke test — readiness endpoint reports UP within 60s.
+      # Gate 3: smoke test — boots image, polls /actuator/health/readiness for UP within 60s.
+      # Implementation lives in `make docker-smoke-test` so the same target runs
+      # locally and in the parallel `dast` job below.
       - name: Smoke test
-        run: |
-          docker run -d --rm --name smoke -p 8080:8080 spring-on-k8s:ci-scan
-          for _ in $(seq 1 30); do
-            if curl -sf http://localhost:8080/actuator/health/readiness | grep -q '"status":"UP"'; then
-              echo "Smoke test PASS: /actuator/health/readiness reports UP"
-              docker stop smoke
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Smoke test FAIL: /actuator/health/readiness did not report UP within 60s"
-          docker logs smoke || true
-          docker stop smoke || true
-          exit 1
+        run: make docker-smoke-test
 
-      # Gate 4: multi-arch build always runs (catches arm64 cross-compile
-      # regressions early); push is tag-gated via step-level conditional.
+      - name: Cleanup smoke container
+        if: always()
+        run: docker rm -f spring-on-k8s-smoke 2>/dev/null || true
+
+      # Gate 4: amd64 build always runs to catch build regressions on the
+      # runner architecture; push is tag-gated via step-level conditional.
+      # Multi-arch (amd64+arm64) is intentionally NOT enabled — single-arch
+      # publish keeps the image index minimal and the build fast.
       - name: Log in to GHCR
         if: startsWith(github.ref, 'refs/tags/')
         uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
@@ -298,7 +392,7 @@ jobs:
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: ${{ startsWith(github.ref, 'refs/tags/') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -331,13 +425,14 @@ jobs:
           done <<< "${TAGS}"
 
   ci-pass:
-    # Note: cve-check is intentionally NOT in `needs:`. Transient external-dep
-    # issues (NVD slow responses, Sonatype OSS Index rate limits returning
-    # HTTP 401) should not block a release. cve-check still runs and produces
-    # security signal; failure is visible in the run UI but doesn't gate
-    # ci-pass / branch protection.
+    # Branch-protection / Repository Rulesets aggregator. Lists every upstream
+    # job in `needs:` so a failure or cancellation in any of them blocks the
+    # gate. Skipped jobs (e.g., heavy jobs on doc-only changes via the
+    # `changes` filter; cve-check on non-tag pushes) are treated as PASS —
+    # this is what makes doc-only PRs mergeable while still requiring CI on
+    # code changes.
     if: always()
-    needs: [static-check, build, test, integration-test, e2e, docker]
+    needs: [changes, static-check, build, test, integration-test, e2e, cve-check, dast, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
@@ -345,6 +440,10 @@ jobs:
         run: |
           if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
             echo "One or more upstream jobs failed"
+            exit 1
+          fi
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more upstream jobs were cancelled"
             exit 1
           fi
           echo "All upstream jobs succeeded or were skipped."

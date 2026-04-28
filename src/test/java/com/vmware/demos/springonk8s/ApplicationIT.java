@@ -60,7 +60,22 @@ public class ApplicationIT {
   public void testHealth() {
     RestClient client = getRestClient();
     String body = client.get().uri("/actuator/health").retrieve().body(String.class);
-    assertThat(body).contains("\"status\":\"UP\"");
+    assertThat(body)
+        .contains("\"status\":\"UP\"")
+        .contains("\"groups\"")
+        .contains("\"liveness\"")
+        .contains("\"readiness\"");
+  }
+
+  @Test
+  public void testSwaggerUi() {
+    RestClient client = getRestClient();
+    var response = client.get().uri("/swagger-ui.html").retrieve().toEntity(String.class);
+    // Springdoc redirects /swagger-ui.html to /swagger-ui/index.html (302) by default.
+    assertThat(
+            response.getStatusCode().is2xxSuccessful()
+                || response.getStatusCode().is3xxRedirection())
+        .isTrue();
   }
 
   @Test

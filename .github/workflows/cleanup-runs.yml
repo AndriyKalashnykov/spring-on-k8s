@@ -1,15 +1,16 @@
-name: Cleanup old workflow runs
+name: Cleanup
 
 on:
   schedule:
     - cron: '0 0 * * 0'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   actions: write
 
 jobs:
-  cleanup:
+  cleanup-runs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
@@ -25,3 +26,28 @@ jobs:
             --json databaseId,createdAt --limit 200 \
             --jq "${JQ_FILTER}" \
           | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"
+
+  cleanup-caches:
+    # Stale caches from merged/deleted branches accumulate against the 10 GB
+    # repo limit and silently evict caches the active branches still need.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Delete caches for deleted branches
+        run: |
+          set -euo pipefail
+          # Live refs in the repo (heads + tags), normalised to refs/heads/<name>.
+          LIVE_REFS=$(gh api "repos/${{ github.repository }}/git/refs" --jq '.[].ref' | sort -u)
+          # Every cache, with its ref. gh cache list returns ref like refs/heads/main or refs/pull/N/merge.
+          gh cache list --repo "${{ github.repository }}" --limit 200 --json id,ref --jq '.[] | [.id, .ref] | @tsv' \
+          | while IFS=$'\t' read -r id ref; do
+              # Always preserve caches scoped to live branches/tags.
+              if grep -qx "$ref" <<<"$LIVE_REFS"; then
+                continue
+              fi
+              # PR caches whose source branch was deleted are safe to delete.
+              echo "Deleting cache id=$id ref=$ref"
+              gh cache delete "$id" --repo "${{ github.repository }}" || true
+            done

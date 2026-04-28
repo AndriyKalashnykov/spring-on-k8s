@@ -26,15 +26,18 @@ C4Context
 | Component | Technology |
 |-----------|-----------|
 | Language | Java 21 (source + target + runtime) |
-| Framework | Spring Boot 4.0.5 |
+| Framework | Spring Boot 4.0.6 |
 | API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 |
 | Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry |
-| Build | Maven 3.9 |
+| Build | Maven 3.9.15 |
 | Container | Multi-stage Dockerfile, distroless runtime, non-root user |
 | Orchestration | Kubernetes 1.30+, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) |
-| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) for `make e2e` |
-| CI/CD | GitHub Actions (split `static-check` / `build` / `test` / `ci-pass`) |
-| Code quality | Checkstyle, hadolint, [google-java-format](https://github.com/google/google-java-format), gitleaks, Trivy, actionlint, OWASP dependency-check |
+| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.35.0`) |
+| CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) |
+| Format | [google-java-format](https://github.com/google/google-java-format) |
+| Static analysis | Checkstyle (Java), hadolint (Dockerfile), actionlint (workflows) |
+| Secret scan | gitleaks |
+| Vuln scan | Trivy (filesystem + image + IaC), OWASP dependency-check (NVD) |
 | Dep management | Renovate (automerge minor/patch, 3-day buffer on majors) |
 
 ## Quick Start
@@ -50,16 +53,18 @@ make run           # start at http://localhost:8080
 
 `make deps` installs [mise](https://mise.jdx.dev/) (no root required, to `~/.local/bin`), then runs `mise install` to fetch every pinned tool from `.mise.toml` — Java, Maven, Node, kubectl, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck. The host only needs the items marked **system** below.
 
-| Tool | Source | Purpose |
-|------|--------|---------|
-| [GNU Make](https://www.gnu.org/software/make/) | **system** | Build orchestration (3.81+) |
-| [Docker](https://www.docker.com/) | **system** | Container image builds, KinD nodes, Mermaid / Trivy containers |
-| [Git](https://git-scm.com/) | **system** | Version control |
-| [mise](https://mise.jdx.dev/) | auto-installed by `make deps` | Manages every tool pinned in `.mise.toml` |
-| Java (Temurin 21), Maven, Node 24 | mise | Build, dependency management, Renovate validation |
-| kubectl, kind | mise | Local K8s cluster for `make e2e` |
-| act, hadolint, gitleaks, trivy, actionlint, shellcheck | mise | Workflow-local CI, linters, security scanners |
-| [Carvel](https://carvel.dev/) | optional | `ytt` + `kapp` for production K8s deploy |
+| Tool | Version | Source | Purpose |
+|------|---------|--------|---------|
+| [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | **system** | Build orchestration |
+| [Docker](https://www.docker.com/) | latest | **system** | Container image builds, KinD nodes, Mermaid / Trivy containers |
+| [Git](https://git-scm.com/) | latest | **system** | Version control |
+| [mise](https://mise.jdx.dev/) | latest | auto-installed by `make deps` | Manages every tool pinned in `.mise.toml` |
+| Java (Temurin) | 21 | mise | Build + runtime |
+| Maven | 3.9.15 | mise | Dependency management |
+| Node | 24 | mise | Renovate validation (`renovate-validate`) |
+| kubectl, kind | pinned in `.mise.toml` | mise | Local K8s cluster for `make e2e` |
+| act, hadolint, gitleaks, trivy, actionlint, shellcheck | pinned in `.mise.toml` | mise | Workflow-local CI, linters, security scanners |
+| [Carvel](https://carvel.dev/) | latest | optional | `ytt` + `kapp` for production K8s deploy |
 
 Install everything:
 
@@ -77,15 +82,17 @@ C4Container
 
   Person(user, "End User")
   System_Ext(prom, "Prometheus")
+  System_Ext(k8s, "Kubernetes", "Probes pod liveness + readiness")
 
   System_Boundary(sys, "spring-on-k8s") {
-    Container(api, "API Service", "Spring Boot 4.0.5, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
+    Container(api, "API Service", "Spring Boot 4.0.6, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
     ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
   }
 
   Rel(user, api, "GET /v1/hello, /v1/bye, /swagger-ui.html", "HTTPS")
   Rel(api, cm, "Reads app.message", "configtree (file mount)")
   Rel(prom, api, "Scrapes /actuator/prometheus", "HTTP")
+  Rel(k8s, api, "Probes /actuator/health/{liveness,readiness}", "HTTP")
 ```
 
 - **API Service** — single Spring Boot process, Micrometer exports Prometheus metrics, Actuator backs the K8s probes (`/actuator/health/liveness`, `/actuator/health/readiness`)
@@ -243,7 +250,7 @@ Run `make help` to see all available targets.
 | `make cve-check` | OWASP dependency-check (fast with `NVD_API_KEY`) |
 | `make deps-prune` | Report unused/undeclared Maven dependencies |
 | `make deps-prune-check` | Fail if unused/undeclared Maven dependencies found |
-| `make static-check` | Composite gate: format-check + lint + secrets + trivy-fs + trivy-config + lint-ci + deps-prune-check |
+| `make static-check` | Composite gate: format-check + lint + secrets + trivy-fs + trivy-config + lint-ci + mermaid-lint + deps-prune-check |
 
 ### Docker
 
@@ -253,6 +260,9 @@ Run `make help` to see all available targets.
 | `make image-run` | Run Docker container |
 | `make image-stop` | Stop Docker container |
 | `make image-push` | Push Docker image to registry |
+| `make docker-smoke-test` | Boot the locally-built `spring-on-k8s:ci-scan` image and verify `/actuator/health/readiness` reports `UP` within 60s (mirrors CI Gate 3) |
+| `make dast` | Build image, boot, run OWASP ZAP baseline scan, cleanup (mirrors CI `dast` job locally) |
+| `make dast-scan` | Run ZAP baseline against `http://localhost:8080` (assumes container is already running) |
 
 ### Kubernetes (KinD)
 
@@ -266,79 +276,113 @@ Run `make help` to see all available targets.
 | `make kind-deploy` | Apply K8s manifests to the KinD cluster (granular) |
 | `make kind-undeploy` | Remove the app from the cluster (granular) |
 | `make kind-destroy` | Delete the KinD cluster (granular) |
-| `make e2e` | Full end-to-end: `kind-up` → curl LB IP assertions → `kind-down` |
+
+> The `make e2e` target lives in the [Testing](#testing-three-layers) group above — it depends on `make kind-up` and tears down via `make kind-down`.
 
 ### CI
 
 | Target | Description |
 |--------|-------------|
-| `make ci` | Full local CI: deps → format-check → static-check → test → build |
-| `make ci-run` | Run the GitHub Actions workflow locally via [act](https://github.com/nektos/act) |
+| `make ci` | Full local CI: deps → format-check → static-check → test → integration-test → build |
+| `make ci-run` | Run a subset of the GitHub Actions workflow locally via [act](https://github.com/nektos/act) — covers `static-check`, `build`, `test`, `integration-test`, `docker`. Skips `e2e` (KinD-in-act flakes), `cve-check` (tag/schedule-gated, slow without `NVD_API_KEY`), and `ci-pass` (meta) |
+| `make ci-run-tag` | Simulate a tag-push event under act (exercises the tag-gated parts of the `docker` job; cosign signing fails — expected, no OIDC under act). The `dast` job is skipped under act — run `make dast` directly to cover that ground |
 
 ### Utilities
 
 | Target | Description |
 |--------|-------------|
 | `make help` | List all available targets |
-| `make deps` | Verify required tools; auto-installs Maven if missing |
-| `make deps-install` | Install Java + Maven via mise (reads `.mise.toml`; one-time bootstrap) |
-| `make deps-check` | Show installed tool versions |
+| `make deps` | Install mise + all tools pinned in `.mise.toml` (idempotent) |
+| `make deps-install` | Alias for `deps` (kept for backwards compatibility) |
+| `make deps-check` | Show installed tool versions from mise |
+| `make deps-gjf` | Download google-java-format JAR (not managed by mise — JAR download only) |
 | `make upgrade` | Show available Maven dependency updates (dry-run) |
 | `make upgrade-apply` | Apply latest Maven releases (prompts, mutates `pom.xml`) |
 | `make release VERSION=x.y.z` | Create a semver release tag |
+| `make renovate-bootstrap` | Install Node via mise so `renovate-validate` can run |
 | `make renovate-validate` | Validate Renovate configuration locally |
 
 ## CI/CD
 
-GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Non-source paths (`*.md`, `docs/`, images, `LICENSE`) are skipped via `paths-ignore`.
+GitHub Actions runs on every push to `main`, tags `v*`, and pull requests. Path filtering is done **inside** the workflow by a `changes` detector job (using `dorny/paths-filter`), not at the trigger level. Trigger-level `paths-ignore` deadlocks under Repository Rulesets that require a `ci-pass` status check — a doc-only change produces no run, so `ci-pass` reports "expected, not received" indefinitely. With in-workflow filtering, doc-only PRs still create a workflow run; heavy jobs are skipped, and `ci-pass` aggregates the skips into a green status so the merge gate passes.
 
 Every job that needs Java, Maven, or any CLI tool pinned in `.mise.toml` uses `jdx/mise-action` as the single toolchain-provisioning step. `actions/cache` handles the Maven repository (`~/.m2/repository`) separately.
 
+### CI workflow (`.github/workflows/ci.yml`)
+
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **static-check** | push, PR, tags | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, mermaid-lint, deps-prune-check) |
-| **build** | push, PR, tags (needs: static-check) | `make build` |
-| **test** | push, PR, tags (needs: static-check) | `make test` — unit layer (Surefire) |
-| **integration-test** | push, PR, tags (needs: static-check) | `make integration-test` — in-process integration via Failsafe profile |
-| **e2e** | push, PR, tags (needs: build, test) | `make e2e` — KinD + cloud-provider-kind, asserts ConfigMap override + LB wiring |
-| **cve-check** | tags, weekly Monday 04:00 UTC, manual dispatch (needs: static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned) |
-| **docker** | every push (needs: static-check, build, test) | Pattern A hardening. Gates 1–3 (single-arch build → Trivy image scan blocking CRITICAL/HIGH → smoke test on `/actuator/health/readiness`) run on every push. Gate 4 (multi-arch build for amd64+arm64) always runs to catch cross-compile regressions; push is tag-gated. Gate 5 (cosign keyless OIDC sign) tag-gated. `provenance: false` + `sbom: false` keep the image index clean so the GHCR "OS / Arch" tab renders |
-| **ci-pass** | always (needs: static-check, build, test, integration-test, e2e, docker) | Single stable branch-protection gate. `cve-check` is intentionally excluded from the gate — transient external-dep issues (Sonatype rate limits, NVD slowness) shouldn't block releases; failures still show in the run UI |
-| **cleanup** | weekly (Sunday) | Prune old workflow runs (retain 7 days, keep 5 minimum) |
+| **changes** | push, PR, tags, schedule, manual | `dorny/paths-filter` — sets `code=true` on any non-doc file change; forced to `true` on tag push, schedule, and `workflow_dispatch` |
+| **static-check** | needs: changes (gated on `code == 'true'`) | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, mermaid-lint, deps-prune-check) |
+| **build** | needs: changes, static-check | `make build` |
+| **test** | needs: changes, static-check | `make test` — unit layer (Surefire) |
+| **integration-test** | needs: changes, static-check | `make integration-test` — in-process integration via Failsafe profile |
+| **e2e** | needs: changes, build, test | `make e2e` — KinD + cloud-provider-kind, asserts ConfigMap override + LB wiring |
+| **cve-check** | tags, weekly Monday 04:00 UTC, manual dispatch (needs: changes, static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned) |
+| **dast** | every push, parallel with `docker` (needs: changes, build, test) | OWASP ZAP baseline scan against the locally-built image. Builds via `cache-from: type=gha` (~10s cache hit), boots via `make docker-smoke-test`, runs `make dast-scan`. ZAP `-I` mode = warn-only (only FAIL blocks); WARN findings captured in the uploaded `zap-baseline-report` artifact. ZAP image (~3.4 GB) cached via `actions/cache`. Skipped under act (`vars.ACT == 'true'`) — ZAP's docker-in-docker bind mount of `$GITHUB_WORKSPACE/zap-output` does not round-trip through the host Docker daemon |
+| **docker** | every push (needs: changes, static-check, build, test, cve-check) | Pattern A hardening, single-arch (`linux/amd64`). Gates 1–3 (build → Trivy image scan blocking CRITICAL/HIGH with `scanners=vuln,secret,misconfig` → smoke test on `/actuator/health/readiness` via `make docker-smoke-test`) run on every push. Gate 4 (amd64 publish build) tag-gated. Gate 5 (cosign keyless OIDC sign) tag-gated. `provenance: false` + `sbom: false` keep the image index clean. Gates on `cve-check` via `if: !failure() && !cancelled()` so a real CVE on tag push blocks publish, but `cve-check` being `skipped` on regular pushes does not skip docker |
+| **ci-pass** | always (needs: every upstream job including `dast`) | Single stable branch-protection gate. Aggregates `failure` and `cancelled` results across upstream jobs; treats `skipped` as PASS — this is what makes doc-only PRs mergeable without disabling the required check |
+
+### Cleanup workflow (`.github/workflows/cleanup-runs.yml`)
+
+| Job | Triggers | Steps |
+|-----|----------|-------|
+| **cleanup-runs** | weekly (Sunday 00:00 UTC), manual | Prune old workflow runs (retain 7 days, keep 5 minimum) |
+| **cleanup-caches** | weekly (Sunday 00:00 UTC), manual | Delete actions caches scoped to refs that no longer exist (deleted PR branches), reclaiming room against the 10 GB repo cache limit |
+
+### Pre-push image hardening
+
+The `docker` job runs the following gates **before** any image is pushed to GHCR. Any failure blocks the release.
+
+| # | Gate | Catches | Tool |
+|---|------|---------|------|
+| 1 | Build local single-arch image | Build regressions on the runner architecture | `docker/build-push-action` with `load: true` |
+| 2 | **Trivy image scan** (CRITICAL/HIGH blocking, `scanners=vuln,secret,misconfig`) | CVEs in the base image, OS packages, build layers; secrets baked into layers; Dockerfile misconfigs | `aquasecurity/trivy-action` with `image-ref:` |
+| 3 | **Smoke test** | Image boots correctly on its own — Spring Boot reaches `/actuator/health/readiness` UP within 60s | `make docker-smoke-test` |
+| 4 | Build + push (`linux/amd64`) | Publishes the production image to GHCR; push only on `v*` tags | `docker/build-push-action` |
+| 5 | **Cosign keyless OIDC signing** | Sigstore signature on the manifest digest, tag-gated | `sigstore/cosign-installer` + `cosign sign` |
+
+The parallel `dast` job adds one more gate (runs alongside `docker`, separate runner, zero wall-clock cost on the critical path):
+
+| Gate | Catches | Tool |
+|------|---------|------|
+| **OWASP ZAP baseline scan** | Missing security headers, server-info leaks, XSS protection misconfigs, cookie flags | `make dast-scan` ([OWASP ZAP](https://www.zaproxy.org/) `-I` warn-only; report uploaded as `zap-baseline-report` artifact, 30-day retention) |
+
+Buildkit in-manifest attestations (`provenance` + `sbom`) are deliberately disabled (`provenance: false`, `sbom: false`) so the OCI image index stays free of `unknown/unknown` platform entries — that lets the GHCR Packages UI render the "OS / Arch" tab for the multi-arch manifest. Cosign keyless signing still provides the Sigstore signature for supply-chain verification, which is sufficient for almost all consumers.
+
+Verify a published image's signature with:
+
+```bash
+cosign verify ghcr.io/andriykalashnykov/spring-on-k8s:<tag> \
+  --certificate-identity-regexp 'https://github\.com/AndriyKalashnykov/spring-on-k8s/.+' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
 
 ### Required Secrets and Variables
 
 | Name | Type | Used by | How to obtain |
 |------|------|---------|---------------|
-| `GITHUB_TOKEN` | Secret (default) | `docker` job (GHCR push), `cleanup` job (run delete) | Provided automatically by GitHub Actions |
+| `GITHUB_TOKEN` | Secret (default) | `docker` job (GHCR push), `cleanup-runs` + `cleanup-caches` jobs (gh CLI) | Provided automatically by GitHub Actions |
 | `NVD_API_KEY` | Secret (recommended) | `cve-check` job (NVD data source) | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, NVD uses an anonymous slow path (~15 min); with it, ~1 min |
 
 Set via **Settings → Secrets and variables → Actions → New repository secret**. The same env var works locally (`export NVD_API_KEY=...`) for `make cve-check` runs.
 
 OSS Index (Sonatype) is disabled for this project — Spring Boot's ~173-batch dependency tree exceeds free-tier rate limits even with authentication (server returns HTTP 401, which OWASP dep-check classifies as permanent and does not soft-fail). NVD is the sole CVE data source. If you want OSS Index back, upgrade to a paid Sonatype account and remove the `-DossIndexAnalyzerEnabled=false` flag from `make cve-check`.
 
-### Image signing
-
-On tag push (`v*`), the `docker` job signs the published image with [cosign](https://docs.sigstore.dev/) using keyless OIDC — no signing key to manage. Verify a published image with:
-
-```bash
-cosign verify ghcr.io/andriykalashnykov/spring-on-k8s:<tag> \
-  --certificate-identity-regexp 'https://github\.com/AndriyKalashnykov/spring-on-k8s/.*' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com
-```
-
 ### Post-release manifest verification
 
-After the first `docker` job publishes a multi-arch image, run all three checks before declaring the release good:
+After the first `docker` job publishes the image, run all three checks before declaring the release good:
 
 ```bash
-# 1. Manifest: must list linux/amd64 AND linux/arm64, and ZERO Platform: unknown/unknown entries
+# 1. Manifest: must list linux/amd64 only, with ZERO Platform: unknown/unknown entries
 docker buildx imagetools inspect ghcr.io/andriykalashnykov/spring-on-k8s:<tag>
 
-# 2. GHCR Packages UI: open in a browser — the "OS / Arch" tab must list both architectures
-#    URL: https://github.com/AndriyKalashnykov/spring-on-k8s/pkgs/container/spring-on-k8s
+# 2. GHCR Packages UI: https://github.com/AndriyKalashnykov/spring-on-k8s/pkgs/container/spring-on-k8s
 
-# 3. Cosign signature (command above under "Image signing")
+# 3. Cosign signature (verify command in the Pre-push image hardening section above)
+cosign verify ghcr.io/andriykalashnykov/spring-on-k8s:<tag> \
+  --certificate-identity-regexp 'https://github\.com/AndriyKalashnykov/spring-on-k8s/.+' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
 If `imagetools inspect` shows any `Platform: unknown/unknown` entry, buildkit attestations have leaked in — check that `provenance: false` and `sbom: false` are still set on the `Build and push` step of the `docker` job.
