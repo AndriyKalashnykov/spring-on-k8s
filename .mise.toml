@@ -10,7 +10,7 @@
 # when 25 LTS ships. Not Renovate-tracked — adoptium-java datasource returns
 # point releases (21.0.10+7.0.LTS) which mise's `temurin-21` alias resolves to
 # automatically. Renovate would churn PRs for every patch with no human value.
-java = "temurin-21.0.11+10.0.LTS"
+java = "temurin-25.0.3+9.0.LTS"
 # renovate: datasource=maven depName=org.apache.maven:apache-maven
 maven = "3.9.15"
 # Node reads from .nvmrc natively.
