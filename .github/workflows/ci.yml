@@ -53,10 +53,26 @@ jobs:
         if: github.event_name == 'pull_request' || (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/'))
         uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         with:
-          predicate-quantifier: 'every'
+          # Default 'some' semantics: `code` = true if ANY changed file matches
+          # the include rules below. Negative patterns prefixed with `!` exclude
+          # doc-only paths from contributing to the match. Native paths-filter
+          # syntax — does not depend on extglob, predicate-quantifier, or other
+          # version-specific features.
           filters: |
             code:
-              - '!(**.md|docs/**|specs/**|LICENSE|.gitignore|.claudeignore|.claude/**|benchmarks/**|**.png|**.jpg|**.gif|**.svg)'
+              - '**'
+              - '!**.md'
+              - '!docs/**'
+              - '!specs/**'
+              - '!LICENSE'
+              - '!.gitignore'
+              - '!.claudeignore'
+              - '!.claude/**'
+              - '!benchmarks/**'
+              - '!**.png'
+              - '!**.jpg'
+              - '!**.gif'
+              - '!**.svg'
               - 'CLAUDE.md'
 
       - name: Combine signal
