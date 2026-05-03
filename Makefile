@@ -16,7 +16,7 @@ JDK_VERSION := 21
 # renovate: datasource=maven depName=com.google.googlejavaformat:google-java-format
 GJF_VERSION := 1.35.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
-DEPCHECK_VERSION := 12.2.1
+DEPCHECK_VERSION := 12.2.2
 # renovate: datasource=docker depName=minlag/mermaid-cli
 MERMAID_CLI_VERSION := 11.12.0
 # renovate: datasource=github-releases depName=zaproxy/zaproxy extractVersion=^v(?<version>.*)$$
