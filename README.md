@@ -153,21 +153,21 @@ make image-run                                           # run at http://localho
 make image-push                                          # push to registry
 ```
 
-Buildpacks alternative (Paketo). Requires `DOCKER_LOGIN` and `DOCKER_PWD` to be set in your shell first (Docker Hub username + access token):
+Buildpacks alternative (Paketo) — builds the image locally without pushing:
 
 ```bash
 mvn clean spring-boot:build-image \
   -Djava.version=21 \
   -Dimage.publish=false \
-  -Dimage.name="${DOCKER_LOGIN}/spring-on-k8s:latest" \
-  -Ddocker.publishRegistry.username="${DOCKER_LOGIN}" \
-  -Ddocker.publishRegistry.password="${DOCKER_PWD}"
+  -Dimage.name="andriykalashnykov/spring-on-k8s:latest"
 ```
+
+To push, configure registry credentials in `~/.m2/settings.xml` under `<servers>` and run with `-Dimage.publish=true`. Do not pass passwords on the Maven command line — `-D` flag values are visible in `ps -ef` / `/proc/<pid>/cmdline` for the JVM lifetime.
 
 Scan with Docker Scout:
 
 ```bash
-docker scout cves andriykalashnykov/spring-on-k8s:latest
+docker scout cves ghcr.io/andriykalashnykov/spring-on-k8s:latest
 ```
 
 ## Deployment

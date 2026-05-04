@@ -151,15 +151,17 @@ lint: deps
 # OSS_INDEX_USER / OSS_INDEX_TOKEN repo secrets are kept for local dev use
 # and for potential future re-enablement (paid tier or reduced dep tree).
 cve-check: deps
-	@set -e; \
-	MVN_ARGS="-B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check -DsuppressionFiles=dependency-check-suppressions.xml -DossindexAnalyzerEnabled=false"; \
-	if [ -n "$$NVD_API_KEY" ]; then \
+	@if [ -n "$$NVD_API_KEY" ]; then \
 		echo "NVD: authenticated (fast path)"; \
-		MVN_ARGS="$$MVN_ARGS -DnvdApiKey=$$NVD_API_KEY"; \
 	else \
 		echo "WARN: NVD_API_KEY not set — NVD slow path may take 10+ min."; \
-	fi; \
-	mvn $$MVN_ARGS
+	fi
+	@# nvdApiKey is read from $$NVD_API_KEY via pom.xml pluginManagement
+	@# (`<nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>`) — keeps the secret out
+	@# of argv. Public flags stay on argv (no leak risk).
+	@mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
+		-DsuppressionFiles=dependency-check-suppressions.xml \
+		-DossindexAnalyzerEnabled=false
 
 #vulncheck: @ Alias for cve-check (portfolio-standard target name)
 vulncheck: cve-check
@@ -197,7 +199,7 @@ mermaid-lint: deps
 		if docker pull --quiet minlag/mermaid-cli:$(MERMAID_CLI_VERSION) >/dev/null 2>&1; then \
 			break; \
 		fi; \
-		[ "$$attempt" -lt 3 ] && { echo "  docker pull attempt $$attempt failed; retrying..."; sleep 2; } || { \
+		[ "$$attempt" -lt 3 ] && { echo "  docker pull attempt $$attempt failed; retrying..."; sleep $$((attempt * 5)); } || { \
 			echo "ERROR: docker pull minlag/mermaid-cli:$(MERMAID_CLI_VERSION) failed after 3 attempts"; \
 			exit 1; \
 		}; \
@@ -231,6 +233,9 @@ deps-prune-check: deps
 	@mvn -B dependency:analyze -DignoreNonCompile=true -DfailOnWarning=true
 
 #static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check)
+# vulncheck/cve-check is intentionally excluded — runs separately as a tag /
+# weekly / manual job in CI. NVD slow path adds 10+ min when NVD_API_KEY is
+# absent, which would dominate every static-check run. See CLAUDE.md.
 static-check: format-check lint secrets trivy-fs trivy-config lint-ci mermaid-lint deps-prune-check
 	@echo "All static checks passed. Run 'make cve-check' separately for vulnerability scan (slow)."
 
@@ -256,6 +261,21 @@ image-build: build
 docker-smoke-test:
 	@docker rm -f spring-on-k8s-smoke 2>/dev/null || true
 	@docker run -d --name spring-on-k8s-smoke -p 8080:8080 spring-on-k8s:ci-scan >/dev/null
+	@# Verify the runtime image exposes the documented port and runs as nonroot.
+	@USER=$$(docker inspect -f '{{.Config.User}}' spring-on-k8s-smoke); \
+	if [ "$$USER" != "nonroot:nonroot" ]; then \
+		echo "Smoke test FAIL: container User='$$USER' (expected 'nonroot:nonroot')"; \
+		docker rm -f spring-on-k8s-smoke >/dev/null 2>&1 || true; \
+		exit 1; \
+	fi; \
+	echo "Image runtime user: $$USER"
+	@PORTS=$$(docker inspect -f '{{range $$p, $$_ := .Config.ExposedPorts}}{{$$p}} {{end}}' spring-on-k8s-smoke); \
+	if ! echo "$$PORTS" | grep -q '8080/tcp'; then \
+		echo "Smoke test FAIL: container ExposedPorts='$$PORTS' (expected to contain 8080/tcp)"; \
+		docker rm -f spring-on-k8s-smoke >/dev/null 2>&1 || true; \
+		exit 1; \
+	fi; \
+	echo "Image exposes: $$PORTS"
 	@for _ in $$(seq 1 30); do \
 		if curl -sf http://localhost:8080/actuator/health/readiness 2>/dev/null | grep -q '"status":"UP"'; then \
 			echo "Smoke test PASS: /actuator/health/readiness reports UP"; \
@@ -292,7 +312,7 @@ dast: image-build
 		curl -fsS http://localhost:8080/actuator/health/readiness 2>/dev/null | grep -q '"status":"UP"' && break; \
 		sleep 1; \
 	done
-	@$(MAKE) dast-scan ZAP_VERSION=$(ZAP_VERSION) || EXIT=$$?; \
+	@$(MAKE) dast-scan || EXIT=$$?; \
 	docker rm -f spring-on-k8s-test >/dev/null 2>&1 || true; \
 	exit $${EXIT:-0}
 
@@ -324,19 +344,25 @@ ci: deps format-check static-check test integration-test build
 # only when set on the host, so the local run mirrors the CI secret surface.
 ci-run: deps
 	@docker container prune -f 2>/dev/null || true
+	@# Synthesize a push event payload that includes `repository.default_branch`
+	@# so the `changes` job's dorny/paths-filter step can resolve its base ref
+	@# (act's default push event omits this, breaking the action with
+	@# "This action requires 'base' input to be configured...").
+	@echo '{"ref":"refs/heads/main","repository":{"default_branch":"main","name":"spring-on-k8s","full_name":"AndriyKalashnykov/spring-on-k8s"}}' > /tmp/act-push-event.json
 	@ACT_PORT=$$(shuf -i 40000-59999 -n 1); \
 	ARTIFACT_PATH=$$(mktemp -d -t act-artifacts.XXXXXX); \
-	SECRETS=""; \
+	secret_args=(); \
 	for v in GH_ACCESS_TOKEN NVD_API_KEY OSS_INDEX_USER OSS_INDEX_TOKEN; do \
-		if [ -n "$${!v:-}" ]; then SECRETS="$$SECRETS --secret $$v=$${!v}"; fi; \
+		if [ -n "$${!v:-}" ]; then secret_args+=(--secret "$$v"); fi; \
 	done; \
 	for j in static-check build test integration-test docker; do \
 		echo "==== act push --job $$j ===="; \
 		act push --job $$j --container-architecture linux/amd64 \
+			--eventpath /tmp/act-push-event.json \
 			-P ubuntu-24.04=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
 			--artifact-server-port "$$ACT_PORT" \
 			--artifact-server-path "$$ARTIFACT_PATH" \
-			$$SECRETS || exit 1; \
+			"$${secret_args[@]}" || exit 1; \
 	done
 
 #ci-run-tag: @ Simulate a tag push under act (exercises tag-gated docker job; cosign signing fails — expected, no OIDC under act)
@@ -385,7 +411,10 @@ kind-load: kind-create image-build
 	@kind load docker-image $(DOCKER_IMAGE):$(DOCKER_TAG) --name $(KIND_CLUSTER)
 
 #kind-deploy: @ Apply K8s manifests to the KinD cluster
-kind-deploy: kind-load
+# Depends on kind-setup so the cloud-provider-kind container is running before
+# the LoadBalancer service is created — otherwise the Service hangs in <pending>
+# with no clear failure signal. cloud-provider-kind startup is idempotent.
+kind-deploy: kind-load kind-setup
 	@kubectl apply -f k8s/namespace.yml
 	@kubectl -n spring-on-k8s apply -f k8s/cm.yml -f k8s/deployment.yml -f k8s/service.yml
 	@echo "Patching deployment to use image $(DOCKER_IMAGE):$(DOCKER_TAG)..."

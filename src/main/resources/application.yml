@@ -21,14 +21,7 @@ server:
 spring:
   jmx:
     unique-names: true
-  h2:
-    console:
-      enabled: true
-      path: /console
-      settings:
-        trace: false
-        web-allow-others: false
-        
+
 logging.pattern.console: "%clr(%d{yyyy-MM-dd E HH:mm:ss.SSS}){faint} %clr(%-5p) %clr(${PID}){faint} %clr([%8.15t]){faint} %clr(%c{1}:%L){cyan} %clr(:){red} %clr(%m){faint}%n"
 logging.level.ROOT: "INFO"
 logging.level.org.springframework.: "INFO"
