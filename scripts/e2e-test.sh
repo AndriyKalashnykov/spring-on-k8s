@@ -55,6 +55,18 @@ assert_status() {
   fi
 }
 
+assert_header() {
+  local path="$1" header="$2" expected="$3"
+  local actual
+  actual=$(curl -sI --max-time 10 "${BASE_URL}${path}" | grep -i "^${header}:" | sed -E 's/^[^:]+:[[:space:]]*//' | tr -d '\r')
+  if [ "${actual}" = "${expected}" ]; then
+    echo "  PASS  GET ${path}  ${header}: ${actual}"
+  else
+    echo "  FAIL  GET ${path}  ${header}: '${actual}' (expected '${expected}')"
+    exit 1
+  fi
+}
+
 assert_pod_annotation() {
   local annotation="$1" expected="$2"
   local actual
@@ -81,5 +93,7 @@ assert_contains /actuator/prometheus       'jvm_memory_used_bytes'
 assert_contains /actuator/prometheus       'http_server_requests_seconds_count'
 assert_contains /v3/api-docs               '/v1/hello'
 assert_status   /does-not-exist-abc 404
+assert_header   /v1/hello              Cache-Control                 no-store
+assert_header   /v1/hello              Cross-Origin-Resource-Policy  same-origin
 
 echo "All e2e checks passed."

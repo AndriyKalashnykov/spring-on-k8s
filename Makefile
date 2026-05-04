@@ -72,9 +72,6 @@ deps:
 	@command -v docker >/dev/null 2>&1 || { echo "Error: docker is not installed or not in PATH"; exit 1; }
 	@command -v git >/dev/null 2>&1 || { echo "Error: git is not installed or not in PATH"; exit 1; }
 
-#deps-install: @ Alias for deps (kept for backwards compatibility)
-deps-install: deps
-
 #deps-check: @ Show installed tool versions from mise
 deps-check:
 	@command -v mise >/dev/null 2>&1 && mise list || echo "mise not installed — run 'make deps'"
@@ -151,17 +148,27 @@ lint: deps
 # OSS_INDEX_USER / OSS_INDEX_TOKEN repo secrets are kept for local dev use
 # and for potential future re-enablement (paid tier or reduced dep tree).
 cve-check: deps
-	@if [ -n "$$NVD_API_KEY" ]; then \
-		echo "NVD: authenticated (fast path)"; \
-	else \
+	@# Canonical OWASP dependency-check secret pattern (rules/common/security.md):
+	@# write a private settings.xml with <server id="nvd"><password>...</password></server>
+	@# via the bash-builtin printf (no fork → no argv leak), then pass the public
+	@# -DnvdApiServerId=nvd flag. The pom.xml form `${env.NVD_API_KEY}` was avoided
+	@# because `mvn help:effective-pom` would interpolate the live value into stdout.
+	@if [ -z "$$NVD_API_KEY" ]; then \
 		echo "WARN: NVD_API_KEY not set — NVD slow path may take 10+ min."; \
+		mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
+			-DsuppressionFiles=dependency-check-suppressions.xml \
+			-DossindexAnalyzerEnabled=false; \
+	else \
+		echo "NVD: authenticated (fast path)"; \
+		SETTINGS=$$(mktemp -t mvn-cve-settings-XXXXXX.xml); \
+		trap 'rm -f "$$SETTINGS"' EXIT; \
+		umask 077; \
+		printf '<settings><servers><server><id>nvd</id><password>%s</password></server></servers></settings>\n' "$$NVD_API_KEY" > "$$SETTINGS"; \
+		mvn -B -s "$$SETTINGS" org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
+			-DsuppressionFiles=dependency-check-suppressions.xml \
+			-DossindexAnalyzerEnabled=false \
+			-DnvdApiServerId=nvd; \
 	fi
-	@# nvdApiKey is read from $$NVD_API_KEY via pom.xml pluginManagement
-	@# (`<nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>`) — keeps the secret out
-	@# of argv. Public flags stay on argv (no leak risk).
-	@mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
-		-DsuppressionFiles=dependency-check-suppressions.xml \
-		-DossindexAnalyzerEnabled=false
 
 #vulncheck: @ Alias for cve-check (portfolio-standard target name)
 vulncheck: cve-check
@@ -469,7 +476,7 @@ renovate-validate: renovate-bootstrap
 		npx --yes renovate --platform=local; \
 	fi
 
-.PHONY: help deps deps-install deps-check deps-gjf deps-prune deps-prune-check \
+.PHONY: help deps deps-check deps-gjf deps-prune deps-prune-check \
 	clean build test integration-test run format format-check lint cve-check vulncheck \
 	secrets secrets-history trivy-fs trivy-config lint-ci mermaid-lint \
 	static-check upgrade upgrade-apply image-build image-run image-stop image-push \

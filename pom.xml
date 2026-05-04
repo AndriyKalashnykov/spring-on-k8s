@@ -76,23 +76,6 @@
 
     <build>
         <finalName>${project.artifactId}</finalName>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <!-- Configuration applies when invoked via direct goal
-                         `mvn org.owasp:dependency-check-maven:VERSION:check`
-                         from `make cve-check`. Reading nvdApiKey from
-                         ${env.NVD_API_KEY} keeps the secret in the process
-                         environment (execve envp) instead of argv, where it
-                         would be visible via `ps -ef` / `/proc/<pid>/cmdline`. -->
-                    <groupId>org.owasp</groupId>
-                    <artifactId>dependency-check-maven</artifactId>
-                    <configuration>
-                        <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
-                    </configuration>
-                </plugin>
-            </plugins>
-        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -130,6 +113,9 @@
                         <!-- ApplicationIT.testOpenApiDocs parses /v3/api-docs JSON via Jackson;
                              jackson-databind comes transitively through spring-boot-starter-web. -->
                         <dep>com.fasterxml.jackson.core:jackson-databind</dep>
+                        <!-- SecurityHeadersFilter implements jakarta.servlet.* types whose embed
+                             jar (tomcat-embed-core) ships transitively via spring-boot-starter-web. -->
+                        <dep>org.apache.tomcat.embed:tomcat-embed-core</dep>
                     </ignoredUsedUndeclaredDependencies>
                     <!-- jackson-databind is used in test code only (ApplicationIT) but ships at
                          compile scope through spring-boot-starter-web. Don't flag the scope mismatch. -->
