@@ -114,6 +114,11 @@ public class ApplicationIT {
     var response = client.get().uri("/actuator/prometheus").retrieve().toEntity(String.class);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getBody()).contains("jvm_memory_used_bytes");
+    // Prometheus' parser requires the OpenMetrics text exposition format. A regression where the
+    // response is served as application/json or text/html would still return 200 + scrape body
+    // but break the scraper — assert the content-type explicitly.
+    String contentType = response.getHeaders().getFirst("Content-Type");
+    assertThat(contentType).isNotNull().startsWith("text/plain").contains("version=0.0.4");
   }
 
   @Test
@@ -166,22 +171,31 @@ public class ApplicationIT {
   }
 
   @Test
-  public void testSecurityHeadersOnApi() {
-    // SecurityHeadersFilter must set Cache-Control: no-store and
-    // Cross-Origin-Resource-Policy: same-origin on every response.
-    var response = getRestClient().get().uri("/v1/hello").retrieve().toEntity(String.class);
-    assertThat(response.getHeaders().getFirst("Cache-Control")).isEqualTo("no-store");
-    assertThat(response.getHeaders().getFirst("Cross-Origin-Resource-Policy"))
-        .isEqualTo("same-origin");
+  public void testSecurityHeadersOnHello() {
+    // SecurityHeadersFilter sets all four hardening headers on every response.
+    assertAllSecurityHeaders("/v1/hello");
+  }
+
+  @Test
+  public void testSecurityHeadersOnBye() {
+    // Symmetric assertion on /v1/bye guards against a controller-specific filter mis-bind that
+    // would silently drop hardening headers on one endpoint while leaving the other intact.
+    assertAllSecurityHeaders("/v1/bye");
   }
 
   @Test
   public void testSecurityHeadersOnActuator() {
     // Actuator endpoints get the same headers — ZAP probes /actuator/* too.
-    var response = getRestClient().get().uri("/actuator/health").retrieve().toEntity(String.class);
+    assertAllSecurityHeaders("/actuator/health");
+  }
+
+  private void assertAllSecurityHeaders(String path) {
+    var response = getRestClient().get().uri(path).retrieve().toEntity(String.class);
     assertThat(response.getHeaders().getFirst("Cache-Control")).isEqualTo("no-store");
     assertThat(response.getHeaders().getFirst("Cross-Origin-Resource-Policy"))
         .isEqualTo("same-origin");
+    assertThat(response.getHeaders().getFirst("X-Content-Type-Options")).isEqualTo("nosniff");
+    assertThat(response.getHeaders().getFirst("X-Frame-Options")).isEqualTo("DENY");
   }
 
   @Test
