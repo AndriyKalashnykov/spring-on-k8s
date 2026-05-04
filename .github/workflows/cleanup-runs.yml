@@ -6,6 +6,10 @@ on:
   workflow_dispatch:
   workflow_call:
 
+concurrency:
+  group: cleanup-${{ github.workflow }}
+  cancel-in-progress: true
+
 permissions:
   actions: write
 

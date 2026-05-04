@@ -31,7 +31,7 @@ C4Context
 | Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry |
 | Build | Maven 3.9.15 |
 | Container | Multi-stage Dockerfile, distroless runtime, non-root user |
-| Orchestration | Kubernetes 1.30+, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) |
+| Orchestration | Kubernetes, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) |
 | Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.35.0`) |
 | CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) |
 | Format | [google-java-format](https://github.com/google/google-java-format) |
@@ -105,7 +105,7 @@ C4Container
 C4Deployment
   title Deployment — Kubernetes (via Carvel ytt + kapp)
 
-  Deployment_Node(cluster, "Kubernetes Cluster", "v1.30+") {
+  Deployment_Node(cluster, "Kubernetes Cluster") {
     Deployment_Node(ns, "Namespace: spring-on-k8s") {
       Deployment_Node(pod, "Pod (Deployment replicas=1)") {
         Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, distroless Java 21, non-root")
@@ -248,6 +248,7 @@ Run `make help` to see all available targets.
 | `make trivy-config` | Trivy scan of K8s manifests |
 | `make lint-ci` | actionlint on `.github/workflows/` |
 | `make cve-check` | OWASP dependency-check (fast with `NVD_API_KEY`) |
+| `make vulncheck` | Alias for `cve-check` (portfolio-standard target name) |
 | `make deps-prune` | Report unused/undeclared Maven dependencies |
 | `make deps-prune-check` | Fail if unused/undeclared Maven dependencies found |
 | `make static-check` | Composite gate: format-check + lint + secrets + trivy-fs + trivy-config + lint-ci + mermaid-lint + deps-prune-check |
@@ -261,7 +262,7 @@ Run `make help` to see all available targets.
 | `make image-stop` | Stop Docker container |
 | `make image-push` | Push Docker image to registry |
 | `make docker-smoke-test` | Boot the locally-built `spring-on-k8s:ci-scan` image and verify `/actuator/health/readiness` reports `UP` within 60s (mirrors CI Gate 3) |
-| `make dast` | Build image, boot, run OWASP ZAP baseline scan, cleanup (mirrors CI `dast` job locally) |
+| `make dast` | Build image, boot, run OWASP ZAP baseline scan, cleanup (local equivalent of the CI `docker` job's DAST steps) |
 | `make dast-scan` | Run ZAP baseline against `http://localhost:8080` (assumes container is already running) |
 
 ### Kubernetes (KinD)
@@ -283,9 +284,9 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make ci` | Full local CI: deps → format-check → static-check → test → integration-test → build |
-| `make ci-run` | Run a subset of the GitHub Actions workflow locally via [act](https://github.com/nektos/act) — covers `static-check`, `build`, `test`, `integration-test`, `docker`. Skips `e2e` (KinD-in-act flakes), `cve-check` (tag/schedule-gated, slow without `NVD_API_KEY`), and `ci-pass` (meta) |
-| `make ci-run-tag` | Simulate a tag-push event under act (exercises the tag-gated parts of the `docker` job; cosign signing fails — expected, no OIDC under act). The `dast` job is skipped under act — run `make dast` directly to cover that ground |
+| `make ci` | Full local CI: deps → static-check → test → integration-test → build (`format-check` runs transitively inside `static-check`) |
+| `make ci-run` | Run a subset of the GitHub Actions workflow locally via [act](https://github.com/nektos/act) — covers `static-check`, `build`, `test`, `integration-test`, `docker`. Skips `e2e` (KinD-in-act flakes), `cve-check` (tag/schedule-gated, slow without `NVD_API_KEY`), and `ci-pass` (meta). DAST steps inside `docker` are skipped under act (`vars.ACT == 'true'`) — run `make dast` directly to cover that ground |
+| `make ci-run-tag` | Simulate a tag-push event under act (exercises the tag-gated parts of the `docker` job; cosign signing fails — expected, no OIDC under act). DAST steps in `docker` are skipped under act |
 
 ### Utilities
 
@@ -318,9 +319,8 @@ Every job that needs Java, Maven, or any CLI tool pinned in `.mise.toml` uses `j
 | **integration-test** | needs: changes, static-check | `make integration-test` — in-process integration via Failsafe profile |
 | **e2e** | needs: changes, build, test | `make e2e` — KinD + cloud-provider-kind, asserts ConfigMap override + LB wiring |
 | **cve-check** | tags, weekly Monday 04:00 UTC, manual dispatch (needs: changes, static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned) |
-| **dast** | every push, parallel with `docker` (needs: changes, build, test) | OWASP ZAP baseline scan against the locally-built image. Builds via `cache-from: type=gha` (~10s cache hit), boots via `make docker-smoke-test`, runs `make dast-scan`. ZAP `-I` mode = warn-only (only FAIL blocks); WARN findings captured in the uploaded `zap-baseline-report` artifact. ZAP image (~3.4 GB) cached via `actions/cache`. Skipped under act (`vars.ACT == 'true'`) — ZAP's docker-in-docker bind mount of `$GITHUB_WORKSPACE/zap-output` does not round-trip through the host Docker daemon |
-| **docker** | every push (needs: changes, static-check, build, test, cve-check) | Pattern A hardening, single-arch (`linux/amd64`). Gates 1–3 (build → Trivy image scan blocking CRITICAL/HIGH with `scanners=vuln,secret,misconfig` → smoke test on `/actuator/health/readiness` via `make docker-smoke-test`) run on every push. Gate 4 (amd64 publish build) tag-gated. Gate 5 (cosign keyless OIDC sign) tag-gated. `provenance: false` + `sbom: false` keep the image index clean. Gates on `cve-check` via `if: !failure() && !cancelled()` so a real CVE on tag push blocks publish, but `cve-check` being `skipped` on regular pushes does not skip docker |
-| **ci-pass** | always (needs: every upstream job including `dast`) | Single stable branch-protection gate. Aggregates `failure` and `cancelled` results across upstream jobs; treats `skipped` as PASS — this is what makes doc-only PRs mergeable without disabling the required check |
+| **docker** | every push (needs: changes, static-check, build, test, cve-check) | Pattern A hardening, single-arch (`linux/amd64`). Gates 1–3 (build → Trivy image scan blocking CRITICAL/HIGH with `scanners=vuln,secret,misconfig` → smoke test on `/actuator/health/readiness` via `make docker-smoke-test`) run on every push. **DAST** (OWASP ZAP baseline against the running smoke container) runs inline after Gate 3 — ZAP `-I` warn-only mode (only FAIL blocks), WARN findings captured in the uploaded `zap-baseline-report` artifact, ZAP image (~3.4 GB) cached via `actions/cache`, all DAST steps skipped under act (`vars.ACT == 'true'`). Gate 4 (amd64 publish build) tag-gated. Gate 5 (cosign keyless OIDC sign) tag-gated. `provenance: false` + `sbom: false` keep the image index clean. Gates on `cve-check` via `if: !failure() && !cancelled()` so a real CVE on tag push blocks publish, but `cve-check` being `skipped` on regular pushes does not skip docker |
+| **ci-pass** | always (needs: every upstream job) | Single stable branch-protection gate. Aggregates `failure` and `cancelled` results across upstream jobs; treats `skipped` as PASS — this is what makes doc-only PRs mergeable without disabling the required check |
 
 ### Cleanup workflow (`.github/workflows/cleanup-runs.yml`)
 
@@ -335,17 +335,12 @@ The `docker` job runs the following gates **before** any image is pushed to GHCR
 
 | # | Gate | Catches | Tool |
 |---|------|---------|------|
-| 1 | Build local single-arch image | Build regressions on the runner architecture | `docker/build-push-action` with `load: true` |
+| 1 | Build local single-arch image | Build regressions on the runner architecture | `docker/build-push-action` with `load: true` (`cache-from`/`cache-to` of `type=gha` for sub-10s rebuilds) |
 | 2 | **Trivy image scan** (CRITICAL/HIGH blocking, `scanners=vuln,secret,misconfig`) | CVEs in the base image, OS packages, build layers; secrets baked into layers; Dockerfile misconfigs | `aquasecurity/trivy-action` with `image-ref:` |
 | 3 | **Smoke test** | Image boots correctly on its own — Spring Boot reaches `/actuator/health/readiness` UP within 60s | `make docker-smoke-test` |
+| 3a | **OWASP ZAP baseline scan** (DAST) | Missing security headers, server-info leaks, XSS protection misconfigs, cookie flags — scans the running smoke container | `make dast-scan` ([OWASP ZAP](https://www.zaproxy.org/) `-I` warn-only, report uploaded as `zap-baseline-report` artifact, 30-day retention; ZAP image cached via `actions/cache`; all DAST steps skipped under act) |
 | 4 | Build + push (`linux/amd64`) | Publishes the production image to GHCR; push only on `v*` tags | `docker/build-push-action` |
 | 5 | **Cosign keyless OIDC signing** | Sigstore signature on the manifest digest, tag-gated | `sigstore/cosign-installer` + `cosign sign` |
-
-The parallel `dast` job adds one more gate (runs alongside `docker`, separate runner, zero wall-clock cost on the critical path):
-
-| Gate | Catches | Tool |
-|------|---------|------|
-| **OWASP ZAP baseline scan** | Missing security headers, server-info leaks, XSS protection misconfigs, cookie flags | `make dast-scan` ([OWASP ZAP](https://www.zaproxy.org/) `-I` warn-only; report uploaded as `zap-baseline-report` artifact, 30-day retention) |
 
 Buildkit in-manifest attestations (`provenance` + `sbom`) are deliberately disabled (`provenance: false`, `sbom: false`) so the OCI image index stays free of `unknown/unknown` platform entries — that lets the GHCR Packages UI render the "OS / Arch" tab for the multi-arch manifest. Cosign keyless signing still provides the Sigstore signature for supply-chain verification, which is sufficient for almost all consumers.
 
@@ -361,7 +356,7 @@ cosign verify ghcr.io/andriykalashnykov/spring-on-k8s:<tag> \
 
 | Name | Type | Used by | How to obtain |
 |------|------|---------|---------------|
-| `GITHUB_TOKEN` | Secret (default) | `docker` job (GHCR push), `cleanup-runs` + `cleanup-caches` jobs (gh CLI) | Provided automatically by GitHub Actions |
+| `GITHUB_TOKEN` | Secret (default) | `docker` job (GHCR push, via `${{ secrets.GITHUB_TOKEN }}`); `cleanup-runs` + `cleanup-caches` jobs use the same token via the `${{ github.token }}` context expression | Provided automatically by GitHub Actions |
 | `NVD_API_KEY` | Secret (recommended) | `cve-check` job (NVD data source) | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, NVD uses an anonymous slow path (~15 min); with it, ~1 min |
 
 Set via **Settings → Secrets and variables → Actions → New repository secret**. The same env var works locally (`export NVD_API_KEY=...`) for `make cve-check` runs.

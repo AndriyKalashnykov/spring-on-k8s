@@ -12,6 +12,9 @@ export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 # JDK_VERSION is the major-only Java version consumed as a Docker `--build-arg`
 # (Dockerfile `ARG JDK_VERSION`). Must stay in sync with `.mise.toml`
 # (`java = "temurin-21"`) and `pom.xml` `<java.version>21</java.version>`.
+# Major-only — not Renovate-tracked (analogous to the NODE_VERSION exemption
+# in the `/renovate` skill). Bumps are coordinated manually across the four
+# files when a new Java LTS ships.
 JDK_VERSION := 21
 # renovate: datasource=maven depName=com.google.googlejavaformat:google-java-format
 GJF_VERSION := 1.35.0
@@ -23,7 +26,9 @@ MERMAID_CLI_VERSION := 11.12.0
 ZAP_VERSION := 2.17.0
 # KIND_NODE_IMAGE is tied to the kind release in .mise.toml; each kind
 # release ships a matching node image tag (digest from kind release notes).
-# renovate: datasource=docker depName=kindest/node
+# Bump manually whenever Renovate bumps `kind` in `.mise.toml` — the value
+# (tag@digest concatenation) is not independently Renovate-trackable per the
+# `/renovate` skill's "Not independently trackable" exception.
 KIND_NODE_IMAGE := kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
 # cloud-provider-kind runs as a host-side Docker container on the `kind`
 # network; watches Services of type LoadBalancer and allocates IPs from the
@@ -86,10 +91,9 @@ deps-gjf:
 		curl -sSfL -o $(GJF_JAR) "https://github.com/google/google-java-format/releases/download/v$(GJF_VERSION)/google-java-format-$(GJF_VERSION)-all-deps.jar"; \
 	}
 
-#clean: @ Cleanup
-clean: deps
-	@mvn clean
-	@rm -rf zap-output
+#clean: @ Cleanup build artifacts (no toolchain required)
+clean:
+	@rm -rf target zap-output
 
 #build: @ Build project
 build: deps
@@ -195,7 +199,8 @@ lint-ci: deps
 	@echo "Workflow lint complete."
 
 #mermaid-lint: @ Validate Mermaid diagrams in markdown files
-mermaid-lint: deps
+mermaid-lint:
+	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker required for mermaid-lint"; exit 1; }
 	@set -euo pipefail; \
 	MD_FILES=$$(grep -lF '```mermaid' README.md CLAUDE.md 2>/dev/null || true); \
 	if [ -z "$$MD_FILES" ]; then \
@@ -265,7 +270,7 @@ image-build: build
 # follow-up `docker rm -f spring-on-k8s-smoke` cleanup step (already wired into
 # both CI jobs as `if: always()` steps; the local `make dast` target runs the
 # cleanup in its own recipe).
-docker-smoke-test:
+docker-smoke-test: deps
 	@docker rm -f spring-on-k8s-smoke 2>/dev/null || true
 	@docker run -d --name spring-on-k8s-smoke -p 8080:8080 spring-on-k8s:ci-scan >/dev/null
 	@# Verify the runtime image exposes the documented port and runs as nonroot.
@@ -296,7 +301,7 @@ docker-smoke-test:
 	exit 1
 
 #dast-scan: @ Run OWASP ZAP baseline against http://localhost:8080 (assumes container is running)
-dast-scan:
+dast-scan: deps
 	@mkdir -p zap-output && chmod 777 zap-output
 	@docker run --rm --network host \
 		-v "$$PWD/zap-output:/zap/wrk:rw" \
@@ -309,7 +314,7 @@ dast-scan:
 			-w zap-report.md
 	@echo "DAST report: $$PWD/zap-output/zap-report.html"
 
-#dast: @ Build image, boot, run ZAP baseline DAST scan, cleanup (mirrors CI dast job)
+#dast: @ Build image, boot, run ZAP baseline DAST scan, cleanup (local equivalent of the CI docker job's DAST steps)
 dast: image-build
 	@docker rm -f spring-on-k8s-test 2>/dev/null || true
 	@docker run -d --name spring-on-k8s-test -p 8080:8080 $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null
@@ -324,11 +329,11 @@ dast: image-build
 	exit $${EXIT:-0}
 
 #image-run: @ Run Docker container
-image-run: image-stop
+image-run: deps image-stop
 	@docker run --rm -p 8080:8080 --name $(APP_NAME) $(DOCKER_IMAGE):$(DOCKER_TAG)
 
 #image-stop: @ Stop Docker container
-image-stop:
+image-stop: deps
 	@docker stop $(APP_NAME) 2>/dev/null || true
 
 #image-push: @ Push Docker image to registry
@@ -338,8 +343,10 @@ image-push: image-build
 	fi
 	@docker push $(DOCKER_IMAGE):$(DOCKER_TAG)
 
-#ci: @ Run full CI pipeline (deps, format-check, static-check, test, integration-test, build)
-ci: deps format-check static-check test integration-test build
+#ci: @ Run full CI pipeline (deps, static-check, test, integration-test, build)
+# format-check is invoked transitively by static-check (Makefile:246) — listing it
+# here would run it twice per `make ci`.
+ci: deps static-check test integration-test build
 	@echo "CI pipeline completed successfully."
 
 #ci-run: @ Run a subset of GitHub Actions workflow locally via act (excludes e2e, cve-check, ci-pass)
@@ -365,6 +372,8 @@ ci-run: deps
 	for j in static-check build test integration-test docker; do \
 		echo "==== act push --job $$j ===="; \
 		act push --job $$j --container-architecture linux/amd64 \
+			--pull=false \
+			--var ACT=true \
 			--eventpath /tmp/act-push-event.json \
 			-P ubuntu-24.04=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
 			--artifact-server-port "$$ACT_PORT" \
@@ -385,6 +394,8 @@ ci-run-tag: deps
 	act push \
 		--eventpath /tmp/act-tag-event.json \
 		--container-architecture linux/amd64 \
+		--pull=false \
+		--var ACT=true \
 		-P ubuntu-24.04=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
 		--artifact-server-port "$$ACT_PORT" \
 		--artifact-server-path "$$ARTIFACT_PATH" || true
@@ -429,13 +440,23 @@ kind-deploy: kind-load kind-setup
 	@kubectl -n spring-on-k8s rollout status deployment/app --timeout=180s
 
 #kind-undeploy: @ Remove the app from the KinD cluster (keeps cluster running)
-kind-undeploy:
+kind-undeploy: deps
 	@kubectl -n spring-on-k8s delete -f k8s/service.yml -f k8s/deployment.yml -f k8s/cm.yml --ignore-not-found
 	@kubectl delete -f k8s/namespace.yml --ignore-not-found
 
-#kind-destroy: @ Delete the KinD cluster and stop cloud-provider-kind
-kind-destroy:
+#kind-destroy: @ Delete the KinD cluster, stop cloud-provider-kind, prune kindccm-* sidecars
+# cloud-provider-kind spawns a per-Service Envoy sidecar container named
+# kindccm-<hash> for every LoadBalancer. These survive `kind delete cluster`
+# and orphan-hold IPs in the kind Docker subnet. A subsequent `kind-up`
+# can land on an orphan's IP, inheriting its stale Envoy config (configured
+# for a dead pod from the previous run) → "connection reset" on first curl.
+# Always prune kindccm-* on teardown.
+kind-destroy: deps
 	@docker rm -f cloud-provider-kind >/dev/null 2>&1 || true
+	@ORPHANS=$$(docker ps -aq --filter name=kindccm- 2>/dev/null); \
+	if [ -n "$$ORPHANS" ]; then \
+		docker rm -f $$ORPHANS >/dev/null 2>&1 || true; \
+	fi
 	@kind delete cluster --name $(KIND_CLUSTER) 2>/dev/null || true
 
 #kind-up: @ Bring the full stack up (create + setup + load + deploy)
