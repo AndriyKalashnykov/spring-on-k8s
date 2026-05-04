@@ -139,14 +139,20 @@ assert_pod_ready() {
   # Catches probe-wiring regressions where a path drift makes kubelet mark the pod NotReady.
   # Selector matches k8s/deployment.yml `spec.selector.matchLabels.role: app`. If that
   # convention changes, this assertion fails loudly — surface it before merge.
-  local pod ready
-  pod=$("${KUBECTL[@]}" -n "${NS}" get pod -l role=app -o jsonpath='{.items[0].metadata.name}')
-  ready=$("${KUBECTL[@]}" -n "${NS}" get pod "${pod}" \
-    -o jsonpath='{.status.containerStatuses[0].ready}')
+  #
+  # Filters to Running pods only, combines name + ready into a single kubectl call. A
+  # rollout's terminating old pod still carries the label until kubelet finishes cleanup,
+  # so without the field-selector we'd race between pod-name lookup and pod-status lookup.
+  local result name ready
+  result=$("${KUBECTL[@]}" -n "${NS}" get pod -l role=app \
+    --field-selector=status.phase=Running \
+    -o jsonpath='{.items[0].metadata.name}{"\t"}{.items[0].status.containerStatuses[0].ready}')
+  name="${result%$'\t'*}"
+  ready="${result##*$'\t'}"
   if [ "${ready}" = "true" ]; then
-    echo "  PASS  pod ${pod} containerStatus.ready=${ready}"
+    echo "  PASS  pod ${name} containerStatus.ready=${ready}"
   else
-    echo "  FAIL  pod ${pod} containerStatus.ready=${ready} (expected true)"
+    echo "  FAIL  pod ${name} containerStatus.ready=${ready} (expected true)"
     exit 1
   fi
 }
