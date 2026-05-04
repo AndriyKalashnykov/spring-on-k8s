@@ -137,9 +137,12 @@ assert_probe_path() {
 
 assert_pod_ready() {
   # Catches probe-wiring regressions where a path drift makes kubelet mark the pod NotReady.
+  # Selector matches k8s/deployment.yml `spec.selector.matchLabels.role: app`. If that
+  # convention changes, this assertion fails loudly — surface it before merge.
   local pod ready
-  pod=$("${KUBECTL[@]}" -n "${NS}" get pod -l app="${SVC}" -o jsonpath='{.items[0].metadata.name}')
-  ready=$("${KUBECTL[@]}" -n "${NS}" get pod "${pod}" -o jsonpath='{.status.containerStatuses[0].ready}')
+  pod=$("${KUBECTL[@]}" -n "${NS}" get pod -l role=app -o jsonpath='{.items[0].metadata.name}')
+  ready=$("${KUBECTL[@]}" -n "${NS}" get pod "${pod}" \
+    -o jsonpath='{.status.containerStatuses[0].ready}')
   if [ "${ready}" = "true" ]; then
     echo "  PASS  pod ${pod} containerStatus.ready=${ready}"
   else
