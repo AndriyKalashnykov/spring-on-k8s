@@ -25,16 +25,20 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Sets baseline security response headers on every response. Closes the two ZAP baseline WARN-NEW
- * findings reported by the {@code dast} CI job:
+ * Sets baseline security response headers on every response. Closes ZAP baseline findings reported
+ * by the {@code dast} CI job:
  *
  * <ul>
+ *   <li>{@code 10021 X-Content-Type-Options Header Missing} — sets {@code nosniff} so browsers
+ *       don't MIME-sniff response content.
  *   <li>{@code 10049 Storable and Cacheable Content} — pages must declare a Cache-Control policy.
  *       For an API + actuator + Swagger UI demo, {@code no-store} is appropriate (responses reflect
  *       live state and are cheap to recompute).
  *   <li>{@code 90004 Cross-Origin-Resource-Policy Header Missing or Invalid} — sets {@code
  *       same-origin} so external pages cannot embed our responses.
  * </ul>
+ *
+ * Also sets {@code X-Frame-Options: DENY} as defense-in-depth against clickjacking.
  */
 @Component
 public class SecurityHeadersFilter extends OncePerRequestFilter {
@@ -45,6 +49,8 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
       throws ServletException, IOException {
     response.setHeader("Cache-Control", "no-store");
     response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.setHeader("X-Frame-Options", "DENY");
     chain.doFilter(request, response);
   }
 }

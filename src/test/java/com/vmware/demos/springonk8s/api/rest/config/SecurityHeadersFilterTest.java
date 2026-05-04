@@ -36,5 +36,7 @@ class SecurityHeadersFilterTest {
 
     assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
     assertThat(response.getHeader("Cross-Origin-Resource-Policy")).isEqualTo("same-origin");
+    assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+    assertThat(response.getHeader("X-Frame-Options")).isEqualTo("DENY");
   }
 }
