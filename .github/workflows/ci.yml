@@ -202,7 +202,7 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
           restore-keys: ${{ runner.os }}-m2-
 
-      - name: Run E2E tests
+      - name: Run e2e tests
         run: make e2e
 
   cve-check:
@@ -235,89 +235,23 @@ jobs:
           key: nvd-db-${{ hashFiles('pom.xml') }}
           restore-keys: nvd-db-
 
-      - name: Run CVE check
+      - name: CVE check
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: make cve-check
 
-  dast:
-    # OWASP ZAP baseline scan against the locally-built image. Runs in parallel
-    # with `docker`. Skipped under act — ZAP's docker-in-docker bind mount of
-    # $GITHUB_WORKSPACE/zap-output does not round-trip through the host Docker
-    # daemon. Run `make dast` directly to cover that ground locally.
-    # `-I` (warn-only) means only FAIL findings block; WARNs are captured in the
-    # uploaded report for review.
-    needs: [changes, build, test]
-    if: ${{ vars.ACT != 'true' && needs.changes.outputs.code == 'true' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
-
-      - name: Build image for scan
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
-        with:
-          context: .
-          platforms: linux/amd64
-          load: true
-          push: false
-          tags: spring-on-k8s:ci-scan
-          build-args: |
-            JDK_VENDOR=eclipse-temurin
-            JDK_VERSION=21
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Smoke test
-        run: make docker-smoke-test
-
-      - name: Cache ZAP image
-        id: cache-zap
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
-        with:
-          path: /tmp/zap-image.tar
-          key: zap-image-${{ env.ZAP_VERSION }}-${{ runner.os }}
-
-      - name: Load cached ZAP image
-        run: |
-          set -euo pipefail
-          if [ -f /tmp/zap-image.tar ]; then
-            echo "Loading ZAP from cache..."
-            docker load -i /tmp/zap-image.tar
-          else
-            echo "Pulling ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}..."
-            docker pull "ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}"
-            docker save "ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}" -o /tmp/zap-image.tar
-          fi
-
-      - name: OWASP ZAP baseline scan
-        run: make dast-scan
-
-      - name: Cleanup smoke container
-        if: always()
-        run: docker rm -f spring-on-k8s-smoke 2>/dev/null || true
-
-      - name: Upload DAST report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: zap-baseline-report
-          path: zap-output/
-          retention-days: 30
-          if-no-files-found: ignore
-
   docker:
-    # Gates 1-3 (build + Trivy + smoke) and Gate 4 amd64 build validation run on every push.
-    # Gate 4 push and Gate 5 cosign signing are tag-gated at step level.
-    # Single-arch (linux/amd64) publish — multi-arch is deliberately disabled.
+    # Gates 1-3 (build + Trivy + smoke), DAST (OWASP ZAP baseline), and Gate 4
+    # amd64 build validation run on every push. Gate 4 push and Gate 5 cosign
+    # signing are tag-gated at step level. Single-arch (linux/amd64) publish —
+    # multi-arch is deliberately disabled (single image index, no QEMU
+    # cross-compile cost; setup-qemu is loaded for future-proofing only).
     # `cve-check` is in `needs:` so a real CVE failure on a tag push blocks the
     # release. The `if:` uses `!failure() && !cancelled()` so cve-check being
     # `skipped` on regular pushes (it's tag/schedule/manual-only) does not skip
-    # the docker job.
+    # the docker job. DAST steps are gated by `vars.ACT != 'true'` so local
+    # `make ci-run` skips ZAP (its docker-in-docker bind mount does not
+    # round-trip through the host Docker daemon under act).
     needs: [changes, static-check, build, test, cve-check]
     if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}
     runs-on: ubuntu-latest
@@ -332,6 +266,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
@@ -375,10 +312,49 @@ jobs:
           trivyignores: .trivyignore
 
       # Gate 3: smoke test — boots image, polls /actuator/health/readiness for UP within 60s.
-      # Implementation lives in `make docker-smoke-test` so the same target runs
-      # locally and in the parallel `dast` job below.
+      # Implementation lives in `make docker-smoke-test` so the same target runs locally.
+      # The container is left running so the DAST step below can scan it.
       - name: Smoke test
         run: make docker-smoke-test
+
+      # DAST: OWASP ZAP baseline scan against the running smoke container.
+      # Skipped under act — ZAP's docker-in-docker bind mount of
+      # $GITHUB_WORKSPACE/zap-output does not round-trip through the host Docker
+      # daemon. Run `make dast` directly to cover that ground locally. `-I`
+      # (warn-only, set inside `make dast-scan`) means only FAIL findings block.
+      - name: Cache ZAP image
+        if: vars.ACT != 'true'
+        id: cache-zap
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: /tmp/zap-image.tar
+          key: zap-image-${{ env.ZAP_VERSION }}-${{ runner.os }}
+
+      - name: Load cached ZAP image
+        if: vars.ACT != 'true'
+        run: |
+          set -euo pipefail
+          if [ -f /tmp/zap-image.tar ]; then
+            echo "Loading ZAP from cache..."
+            docker load -i /tmp/zap-image.tar
+          else
+            echo "Pulling ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}..."
+            docker pull "ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}"
+            docker save "ghcr.io/zaproxy/zaproxy:${ZAP_VERSION}" -o /tmp/zap-image.tar
+          fi
+
+      - name: OWASP ZAP baseline scan
+        if: vars.ACT != 'true'
+        run: make dast-scan
+
+      - name: Upload DAST report
+        if: always() && vars.ACT != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: zap-baseline-report
+          path: zap-output/
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Cleanup smoke container
         if: always()
@@ -441,7 +417,7 @@ jobs:
     # this is what makes doc-only PRs mergeable while still requiring CI on
     # code changes.
     if: always()
-    needs: [changes, static-check, build, test, integration-test, e2e, cve-check, dast, docker]
+    needs: [changes, static-check, build, test, integration-test, e2e, cve-check, docker]
     runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:

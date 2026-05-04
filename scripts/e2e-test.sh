@@ -31,6 +31,29 @@ fi
 echo "LoadBalancer IP: ${EXTERNAL_IP}"
 BASE_URL="http://${EXTERNAL_IP}"
 
+# Wait for the LB IP to be routable, not just assigned. cloud-provider-kind
+# sets `.status.loadBalancer.ingress[0].ip` as soon as it allocates, but the
+# host-side iptables/IPVS rules that actually route traffic to the pod take
+# additional seconds to propagate. Polling for HTTP readiness here turns the
+# K1-class race ("IP assigned" vs "IP routable") into a deterministic wait.
+echo "Waiting for LoadBalancer route to become reachable..."
+ROUTE_READY=""
+for _ in $(seq 1 60); do
+  if curl -sf --max-time 2 -o /dev/null "${BASE_URL}/actuator/health/readiness" 2>/dev/null; then
+    ROUTE_READY=1
+    break
+  fi
+  sleep 2
+done
+
+if [ -z "${ROUTE_READY}" ]; then
+  echo "FAIL: LoadBalancer IP ${EXTERNAL_IP} did not become routable within 120s"
+  kubectl -n "${NS}" get svc "${SVC}" -o yaml
+  kubectl -n "${NS}" get pods -o wide
+  exit 1
+fi
+echo "LoadBalancer route is reachable."
+
 assert_contains() {
   local path="$1" expected="$2"
   local body
