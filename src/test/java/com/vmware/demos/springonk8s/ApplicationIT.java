@@ -166,6 +166,25 @@ public class ApplicationIT {
   }
 
   @Test
+  public void testSecurityHeadersOnApi() {
+    // SecurityHeadersFilter must set Cache-Control: no-store and
+    // Cross-Origin-Resource-Policy: same-origin on every response.
+    var response = getRestClient().get().uri("/v1/hello").retrieve().toEntity(String.class);
+    assertThat(response.getHeaders().getFirst("Cache-Control")).isEqualTo("no-store");
+    assertThat(response.getHeaders().getFirst("Cross-Origin-Resource-Policy"))
+        .isEqualTo("same-origin");
+  }
+
+  @Test
+  public void testSecurityHeadersOnActuator() {
+    // Actuator endpoints get the same headers — ZAP probes /actuator/* too.
+    var response = getRestClient().get().uri("/actuator/health").retrieve().toEntity(String.class);
+    assertThat(response.getHeaders().getFirst("Cache-Control")).isEqualTo("no-store");
+    assertThat(response.getHeaders().getFirst("Cross-Origin-Resource-Policy"))
+        .isEqualTo("same-origin");
+  }
+
+  @Test
   public void testNotFound() {
     RestClient client = getRestClient();
     HttpClientErrorException ex =

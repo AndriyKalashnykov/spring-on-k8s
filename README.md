@@ -293,7 +293,6 @@ Run `make help` to see all available targets.
 |--------|-------------|
 | `make help` | List all available targets |
 | `make deps` | Install mise + all tools pinned in `.mise.toml` (idempotent) |
-| `make deps-install` | Alias for `deps` (kept for backwards compatibility) |
 | `make deps-check` | Show installed tool versions from mise |
 | `make deps-gjf` | Download google-java-format JAR (not managed by mise — JAR download only) |
 | `make upgrade` | Show available Maven dependency updates (dry-run) |
