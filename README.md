@@ -5,14 +5,14 @@
 
 # Running Spring Boot app on Kubernetes
 
-Spring Boot 4 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Spring Boot Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted `ConfigMap` via Spring's `configtree:` property source.
+Spring Boot 4.0 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Spring Boot Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted `ConfigMap` via Spring's `configtree:` property source.
 
 ```mermaid
 C4Context
   title System Context — spring-on-k8s
 
   Person(user, "End User", "Consumes the REST API over HTTPS")
-  System(sys, "spring-on-k8s", "Spring Boot 4 service: REST + Actuator + Swagger")
+  System(sys, "spring-on-k8s", "Spring Boot 4.0 service: REST + Actuator + Swagger")
   System_Ext(prom, "Prometheus", "Scrapes /actuator/prometheus")
   System_Ext(k8s, "Kubernetes", "Runs the pod; probes health endpoints")
 
@@ -23,22 +23,27 @@ C4Context
   UpdateLayoutConfig($c4ShapeInRow="2")
 ```
 
-| Component | Technology |
-|-----------|-----------|
-| Language | Java 21 (source + target + runtime) |
-| Framework | Spring Boot 4.0.6 |
-| API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 |
-| Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry |
-| Build | Maven 3.9.15 |
-| Container | Multi-stage Dockerfile, distroless runtime, non-root user |
-| Orchestration | Kubernetes, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) |
-| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.35.0`) |
-| CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) |
-| Format | [google-java-format](https://github.com/google/google-java-format) |
-| Static analysis | Checkstyle (Java), hadolint (Dockerfile), actionlint (workflows) |
-| Secret scan | gitleaks |
-| Vuln scan | Trivy (filesystem + image + IaC), OWASP dependency-check (NVD) |
-| Dep management | Renovate (automerge minor/patch, 3-day buffer on majors) |
+- **End User** — calls the REST API directly over HTTPS / JSON; no fronting gateway in this reference setup
+- **spring-on-k8s** — single Spring Boot process exposing application + Actuator endpoints
+- **Prometheus** — scrapes the Micrometer-exported metrics endpoint on a fixed schedule
+- **Kubernetes** — runs the pod, drives liveness + readiness probes against Actuator paths
+
+| Component | Technology | Rationale |
+|-----------|-----------|-----------|
+| Language | Java 21 (source + target + runtime) | Current Temurin LTS; stays in lockstep with Spring Boot 4 baseline |
+| Framework | Spring Boot 4.0.6 | Reference target; built-in Actuator covers probes, metrics, and info |
+| API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 | OpenAPI generated from controller annotations — no separate spec to drift |
+| Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry | Spring Boot default; zero-config Prometheus scrape endpoint |
+| Build | Maven 3.9.15 | Mature Spring Boot tooling; `pom.xml` plays well with Renovate |
+| Container | Multi-stage Dockerfile, distroless runtime, non-root user | Distroless drops shell + coreutils — smaller attack surface; nonroot UID enables K8s restricted pod security |
+| Orchestration | Kubernetes, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) | Carvel is GitOps-friendly without the Helm template-hell; `ytt` overlays beat string substitution |
+| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.35.0`) | KinD is what upstream K8s uses for testing; cloud-provider-kind allocates LB IPs without MetalLB's nftables fragility |
+| CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) | Native to GitHub; SHA-pinned actions; one `ci-pass` aggregator gates the whole pipeline |
+| Format | [google-java-format](https://github.com/google/google-java-format) | Opinionated, deterministic; pairs cleanly with strict `google_checks.xml` Checkstyle (zero violations after format) |
+| Static analysis | Checkstyle (Java), hadolint (Dockerfile), actionlint (workflows) | Each catches a different surface; mermaid-cli on top validates README diagrams |
+| Secret scan | gitleaks | Working-tree scan in `static-check` + full-history audit on demand |
+| Vuln scan | Trivy (filesystem + image + IaC), OWASP dependency-check (NVD) | Trivy on every push (CRITICAL/HIGH blocking); OWASP on tag/weekly (deeper Maven coordinate analysis, slow NVD fetch) |
+| Dep management | Renovate (automerge minor/patch, 3-day buffer on majors) | Replaces Dependabot; tracks Makefile/`.mise.toml` versions via `# renovate:` comments |
 
 ## Quick Start
 
@@ -51,7 +56,7 @@ make run           # start at http://localhost:8080
 
 ## Prerequisites
 
-`make deps` installs [mise](https://mise.jdx.dev/) (no root required, to `~/.local/bin`), then runs `mise install` to fetch every pinned tool from `.mise.toml` — Java, Maven, Node, kubectl, kind, act, hadolint, gitleaks, trivy, actionlint, shellcheck. The host only needs the items marked **system** below.
+`make deps` installs [mise](https://mise.jdx.dev/) (no root required, to `~/.local/bin`), then runs `mise install` to fetch every pinned tool from `.mise.toml` — Java, Maven, Node, plus 8 CLI tools (see table below). The host only needs the items marked **system** below.
 
 | Tool | Version | Source | Purpose |
 |------|---------|--------|---------|
@@ -74,7 +79,7 @@ make deps
 
 ## Architecture
 
-### Container view
+### Container View
 
 ```mermaid
 C4Container
@@ -89,7 +94,7 @@ C4Container
     ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
   }
 
-  Rel(user, api, "GET /v1/hello, /v1/bye, /swagger-ui.html", "HTTPS")
+  Rel(user, api, "REST endpoints (see API table)", "HTTPS")
   Rel(api, cm, "Reads app.message", "configtree (file mount)")
   Rel(prom, api, "Scrapes /actuator/prometheus", "HTTP")
   Rel(k8s, api, "Probes /actuator/health/{liveness,readiness}", "HTTP")
@@ -164,11 +169,13 @@ mvn clean spring-boot:build-image \
 
 To push, configure registry credentials in `~/.m2/settings.xml` under `<servers>` and run with `-Dimage.publish=true`. Do not pass passwords on the Maven command line — `-D` flag values are visible in `ps -ef` / `/proc/<pid>/cmdline` for the JVM lifetime.
 
-Scan with Docker Scout:
+Scan locally with Trivy (filesystem scan covers source, dependencies, Dockerfile, k8s manifests, and secrets):
 
 ```bash
-docker scout cves ghcr.io/andriykalashnykov/spring-on-k8s:latest
+make trivy-fs
 ```
+
+The CI `docker` job additionally runs an image scan (`aquasecurity/trivy-action` with `image-ref:`) blocking on CRITICAL/HIGH, plus an OWASP dependency-check (`make cve-check`) on tag pushes / weekly schedule.
 
 ## Deployment
 
@@ -356,10 +363,11 @@ cosign verify ghcr.io/andriykalashnykov/spring-on-k8s:<tag> \
 
 | Name | Type | Used by | How to obtain |
 |------|------|---------|---------------|
-| `GITHUB_TOKEN` | Secret (default) | `docker` job (GHCR push, via `${{ secrets.GITHUB_TOKEN }}`); `cleanup-runs` + `cleanup-caches` jobs use the same token via the `${{ github.token }}` context expression | Provided automatically by GitHub Actions |
 | `NVD_API_KEY` | Secret (recommended) | `cve-check` job (NVD data source) | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, NVD uses an anonymous slow path (~15 min); with it, ~1 min |
 
 Set via **Settings → Secrets and variables → Actions → New repository secret**. The same env var works locally (`export NVD_API_KEY=...`) for `make cve-check` runs.
+
+GHCR push (`docker` job) and run/cache cleanup use the auto-provisioned `GITHUB_TOKEN` — no configuration required.
 
 OSS Index (Sonatype) is disabled for this project — Spring Boot's ~173-batch dependency tree exceeds free-tier rate limits even with authentication (server returns HTTP 401, which OWASP dep-check classifies as permanent and does not soft-fail). NVD is the sole CVE data source. If you want OSS Index back, upgrade to a paid Sonatype account and remove the `-DossIndexAnalyzerEnabled=false` flag from `make cve-check`.
 

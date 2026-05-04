@@ -25,6 +25,7 @@ import java.util.Comparator;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.web.client.RestClient;
@@ -42,13 +43,29 @@ public class ConfigTreeOverrideIT {
 
   private static final Path CONFIGTREE_DIR = Path.of("target", "configtree-test");
   private static final String OVERRIDE = "Hello configtree!";
+  // A second, controller-unrelated key materialises as a regular property but must NOT influence
+  // the controllers' @Value("${app.message:...}") resolution. Catches a regression where the
+  // configtree binding accidentally maps every file under the directory onto `app.message`.
+  private static final String UNRELATED_KEY = "app.unrelated";
+  private static final String UNRELATED_VALUE = "do-not-leak-into-app.message";
 
   @LocalServerPort private int port;
+
+  // Field injection routes through Spring's PropertySources just like the controllers' own
+  // @Value resolution — proves the configtree mounted both keys without importing
+  // org.springframework.core.env.Environment (which would drag spring-core into test-only usage
+  // and trip mvn dependency:analyze).
+  @Value("${app.unrelated:NOT_SET}")
+  private String unrelatedFromEnvironment;
+
+  @Value("${app.message:DEFAULT}")
+  private String appMessageFromEnvironment;
 
   @BeforeAll
   static void writeOverride() throws IOException {
     Files.createDirectories(CONFIGTREE_DIR);
     Files.writeString(CONFIGTREE_DIR.resolve("app.message"), OVERRIDE);
+    Files.writeString(CONFIGTREE_DIR.resolve(UNRELATED_KEY), UNRELATED_VALUE);
   }
 
   @AfterAll
@@ -73,6 +90,18 @@ public class ConfigTreeOverrideIT {
   @Test
   public void byeReflectsConfigtreeOverride() {
     String body = client().get().uri("/v1/bye").retrieve().body(String.class);
+    assertThat(body).isEqualTo(OVERRIDE);
+  }
+
+  @Test
+  public void unrelatedKeyIsBoundButDoesNotShadowAppMessage() {
+    // The unrelated key resolves via @Value into its own property slot…
+    assertThat(unrelatedFromEnvironment).isEqualTo(UNRELATED_VALUE);
+    // …and must NOT bleed into app.message. A name-collision regression where configtree
+    // mapped every file onto app.message would surface here (and on the live HTTP call below)
+    // as the unrelated value leaking through.
+    assertThat(appMessageFromEnvironment).isEqualTo(OVERRIDE);
+    String body = client().get().uri("/v1/hello").retrieve().body(String.class);
     assertThat(body).isEqualTo(OVERRIDE);
   }
 }

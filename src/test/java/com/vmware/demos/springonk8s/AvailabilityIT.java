@@ -71,4 +71,37 @@ public class AvailabilityIT {
       AvailabilityChangeEvent.publish(context, ReadinessState.ACCEPTING_TRAFFIC);
     }
   }
+
+  @Test
+  public void livenessFlipDoesNotAffectReadiness() {
+    // The inverse of the readiness test: a BROKEN liveness signal must report 503 on
+    // /actuator/health/liveness but NOT auto-collapse readiness — kubelet handles each probe
+    // group independently. A regression where the two collapse onto one source would either
+    // mask a kill signal or cause unnecessary traffic shedding.
+    AvailabilityChangeEvent.publish(context, LivenessState.BROKEN);
+    try {
+      assertThat(availability.getLivenessState()).isEqualTo(LivenessState.BROKEN);
+
+      try {
+        client().get().uri("/actuator/health/liveness").retrieve().toBodilessEntity();
+      } catch (HttpServerErrorException.ServiceUnavailable expected) {
+        assertThat(expected.getResponseBodyAsString()).contains("DOWN");
+      }
+    } finally {
+      AvailabilityChangeEvent.publish(context, LivenessState.CORRECT);
+    }
+  }
+
+  @Test
+  public void readinessRecoversAfterFlippingBack() {
+    // Guards against a sticky-state bug: after REFUSING_TRAFFIC → ACCEPTING_TRAFFIC, the
+    // /actuator/health/readiness endpoint must return 200 again. The other test's `finally`
+    // flips back but never re-asserts the recovery, so a stuck-at-503 regression would slip
+    // through as long as no other test re-checks the endpoint.
+    AvailabilityChangeEvent.publish(context, ReadinessState.REFUSING_TRAFFIC);
+    AvailabilityChangeEvent.publish(context, ReadinessState.ACCEPTING_TRAFFIC);
+    assertThat(availability.getReadinessState()).isEqualTo(ReadinessState.ACCEPTING_TRAFFIC);
+    String body = client().get().uri("/actuator/health/readiness").retrieve().body(String.class);
+    assertThat(body).contains("\"status\":\"UP\"");
+  }
 }

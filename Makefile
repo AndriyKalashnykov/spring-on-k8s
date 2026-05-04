@@ -4,18 +4,21 @@ SHELL := /bin/bash
 # mise shims come first, then ~/.local/bin tool installs, then system PATH.
 export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 
-# === Tool Versions (pinned, Renovate-tracked) ===
+# === Tool Versions (pinned) ===
 # Single source of truth for every mise-managed tool is .mise.toml. The
 # constants below are the exceptions — values that are not mise-managed
 # (Maven plugins, JAR downloads, Docker image pins, literals consumed by
 # Docker build args).
+
+# --- Group 1: major-only, NOT Renovate-tracked (manual bump on LTS rollover) ---
 # JDK_VERSION is the major-only Java version consumed as a Docker `--build-arg`
 # (Dockerfile `ARG JDK_VERSION`). Must stay in sync with `.mise.toml`
 # (`java = "temurin-21"`) and `pom.xml` `<java.version>21</java.version>`.
-# Major-only — not Renovate-tracked (analogous to the NODE_VERSION exemption
-# in the `/renovate` skill). Bumps are coordinated manually across the four
-# files when a new Java LTS ships.
+# Analogous to the NODE_VERSION exemption in the `/renovate` skill — bumps
+# are coordinated manually across the four files when a new Java LTS ships.
 JDK_VERSION := 21
+
+# --- Group 2: Renovate-tracked tool versions (one inline `# renovate:` per pin) ---
 # renovate: datasource=maven depName=com.google.googlejavaformat:google-java-format
 GJF_VERSION := 1.35.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
@@ -52,7 +55,21 @@ DOCKER_IMAGE    := $(DOCKER_REGISTRY)/$(APP_NAME)
 CURRENTTAG      := $(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)
 DOCKER_TAG      := $(CURRENTTAG)
 
-KIND_CLUSTER := spring-on-k8s
+# KinD cluster name follows the project APP_NAME so multiple projects can coexist
+# on one laptop without collision.
+KIND_CLUSTER_NAME := $(APP_NAME)
+
+# Pin every kubectl call to OUR cluster's context. A parallel `make` from another
+# KinD-using project on the same host can otherwise overwrite the kubeconfig's
+# current-context via `kubectl config use-context`, sending bare-`kubectl` calls
+# to the wrong cluster mid-recipe (silent failure: namespaces "vanish",
+# rollouts wait on non-existent Deployments).
+KUBECTL := kubectl --context=kind-$(KIND_CLUSTER_NAME)
+
+# Local-only image tag and container names used by docker-smoke-test / dast.
+SMOKE_IMAGE     := $(APP_NAME):ci-scan
+SMOKE_CONTAINER := $(APP_NAME)-smoke
+DAST_CONTAINER  := $(APP_NAME)-test
 
 GJF_JAR := $(HOME)/.local/lib/google-java-format-$(GJF_VERSION).jar
 
@@ -257,6 +274,7 @@ upgrade: deps
 
 #upgrade-apply: @ Apply latest Maven releases (mutates pom.xml — prompts for confirmation)
 upgrade-apply: deps
+	@git diff --quiet pom.xml || { echo "Error: pom.xml has uncommitted changes; commit or stash first."; exit 1; }
 	@bash -c 'read -p "Apply latest releases to pom.xml? [y/N] " ans && [ "$${ans:-N}" = y ] || { echo "Aborted."; exit 1; }'
 	@mvn versions:use-latest-releases
 	@mvn versions:commit
@@ -267,24 +285,24 @@ image-build: build
 
 #docker-smoke-test: @ Boot the locally-built image and verify /actuator/health/readiness reports UP within 60s (leaves container running)
 # Shared by the CI `docker` and `dast` jobs. The caller is responsible for the
-# follow-up `docker rm -f spring-on-k8s-smoke` cleanup step (already wired into
+# follow-up `docker rm -f $(SMOKE_CONTAINER)` cleanup step (already wired into
 # both CI jobs as `if: always()` steps; the local `make dast` target runs the
 # cleanup in its own recipe).
 docker-smoke-test: deps
-	@docker rm -f spring-on-k8s-smoke 2>/dev/null || true
-	@docker run -d --name spring-on-k8s-smoke -p 8080:8080 spring-on-k8s:ci-scan >/dev/null
+	@docker rm -f $(SMOKE_CONTAINER) 2>/dev/null || true
+	@docker run -d --name $(SMOKE_CONTAINER) -p 8080:8080 $(SMOKE_IMAGE) >/dev/null
 	@# Verify the runtime image exposes the documented port and runs as nonroot.
-	@USER=$$(docker inspect -f '{{.Config.User}}' spring-on-k8s-smoke); \
+	@USER=$$(docker inspect -f '{{.Config.User}}' $(SMOKE_CONTAINER)); \
 	if [ "$$USER" != "nonroot:nonroot" ]; then \
 		echo "Smoke test FAIL: container User='$$USER' (expected 'nonroot:nonroot')"; \
-		docker rm -f spring-on-k8s-smoke >/dev/null 2>&1 || true; \
+		docker rm -f $(SMOKE_CONTAINER) >/dev/null 2>&1 || true; \
 		exit 1; \
 	fi; \
 	echo "Image runtime user: $$USER"
-	@PORTS=$$(docker inspect -f '{{range $$p, $$_ := .Config.ExposedPorts}}{{$$p}} {{end}}' spring-on-k8s-smoke); \
+	@PORTS=$$(docker inspect -f '{{range $$p, $$_ := .Config.ExposedPorts}}{{$$p}} {{end}}' $(SMOKE_CONTAINER)); \
 	if ! echo "$$PORTS" | grep -q '8080/tcp'; then \
 		echo "Smoke test FAIL: container ExposedPorts='$$PORTS' (expected to contain 8080/tcp)"; \
-		docker rm -f spring-on-k8s-smoke >/dev/null 2>&1 || true; \
+		docker rm -f $(SMOKE_CONTAINER) >/dev/null 2>&1 || true; \
 		exit 1; \
 	fi; \
 	echo "Image exposes: $$PORTS"
@@ -296,8 +314,8 @@ docker-smoke-test: deps
 		sleep 2; \
 	done; \
 	echo "Smoke test FAIL: /actuator/health/readiness did not report UP within 60s"; \
-	docker logs spring-on-k8s-smoke 2>&1 || true; \
-	docker rm -f spring-on-k8s-smoke >/dev/null 2>&1 || true; \
+	docker logs $(SMOKE_CONTAINER) 2>&1 || true; \
+	docker rm -f $(SMOKE_CONTAINER) >/dev/null 2>&1 || true; \
 	exit 1
 
 #dast-scan: @ Run OWASP ZAP baseline against http://localhost:8080 (assumes container is running)
@@ -316,8 +334,8 @@ dast-scan: deps
 
 #dast: @ Build image, boot, run ZAP baseline DAST scan, cleanup (local equivalent of the CI docker job's DAST steps)
 dast: image-build
-	@docker rm -f spring-on-k8s-test 2>/dev/null || true
-	@docker run -d --name spring-on-k8s-test -p 8080:8080 $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null
+	@docker rm -f $(DAST_CONTAINER) 2>/dev/null || true
+	@docker run -d --name $(DAST_CONTAINER) -p 8080:8080 $(DOCKER_IMAGE):$(DOCKER_TAG) >/dev/null
 	@echo "Waiting for container readiness..."
 	@end=$$(($$(date +%s) + 60)); \
 	while [ $$(date +%s) -lt $$end ]; do \
@@ -325,7 +343,7 @@ dast: image-build
 		sleep 1; \
 	done
 	@$(MAKE) dast-scan || EXIT=$$?; \
-	docker rm -f spring-on-k8s-test >/dev/null 2>&1 || true; \
+	docker rm -f $(DAST_CONTAINER) >/dev/null 2>&1 || true; \
 	exit $${EXIT:-0}
 
 #image-run: @ Run Docker container
@@ -350,10 +368,12 @@ ci: deps static-check test integration-test build
 	@echo "CI pipeline completed successfully."
 
 #ci-run: @ Run a subset of GitHub Actions workflow locally via act (excludes e2e, cve-check, ci-pass)
-# Skipped jobs and rationale:
+# Skipped jobs and rationale (cross-reference: ci.yml job keys must match):
 #   e2e       — requires KinD inside act (docker-in-docker is flaky); use `make e2e` directly.
-#   cve-check — gated on tags/schedule/manual; requires NVD_API_KEY for fast path.
-#   ci-pass   — meta aggregator; nothing to validate locally.
+#   cve-check — gated on tags/schedule/manual in ci.yml; requires NVD_API_KEY for fast path.
+#   ci-pass   — meta aggregator (`if: always()` over upstream needs); nothing to validate locally.
+# If you rename a job in ci.yml, update this comment AND CLAUDE.md "ci.yml" bullet so the
+# documentation stays in sync with the workflow.
 # Forwards GH_ACCESS_TOKEN, NVD_API_KEY, OSS_INDEX_USER, OSS_INDEX_TOKEN to act
 # only when set on the host, so the local run mirrors the CI secret surface.
 ci-run: deps
@@ -403,11 +423,11 @@ ci-run-tag: deps
 
 #kind-create: @ Create KinD cluster
 kind-create: deps
-	@kind get clusters 2>/dev/null | grep -q "^$(KIND_CLUSTER)$$" || { \
-		echo "Creating KinD cluster '$(KIND_CLUSTER)' with node image $(KIND_NODE_IMAGE)..."; \
-		kind create cluster --name $(KIND_CLUSTER) --image $(KIND_NODE_IMAGE); \
+	@kind get clusters 2>/dev/null | grep -q "^$(KIND_CLUSTER_NAME)$$" || { \
+		echo "Creating KinD cluster '$(KIND_CLUSTER_NAME)' with node image $(KIND_NODE_IMAGE)..."; \
+		kind create cluster --name $(KIND_CLUSTER_NAME) --image $(KIND_NODE_IMAGE); \
 	}
-	@kubectl cluster-info --context kind-$(KIND_CLUSTER)
+	@$(KUBECTL) cluster-info
 
 #kind-setup: @ Start cloud-provider-kind for LoadBalancer services
 kind-setup: kind-create
@@ -425,24 +445,24 @@ kind-setup: kind-create
 
 #kind-load: @ Load the local Docker image into KinD
 kind-load: kind-create image-build
-	@echo "Loading $(DOCKER_IMAGE):$(DOCKER_TAG) into KinD cluster '$(KIND_CLUSTER)'..."
-	@kind load docker-image $(DOCKER_IMAGE):$(DOCKER_TAG) --name $(KIND_CLUSTER)
+	@echo "Loading $(DOCKER_IMAGE):$(DOCKER_TAG) into KinD cluster '$(KIND_CLUSTER_NAME)'..."
+	@kind load docker-image $(DOCKER_IMAGE):$(DOCKER_TAG) --name $(KIND_CLUSTER_NAME)
 
 #kind-deploy: @ Apply K8s manifests to the KinD cluster
 # Depends on kind-setup so the cloud-provider-kind container is running before
 # the LoadBalancer service is created — otherwise the Service hangs in <pending>
 # with no clear failure signal. cloud-provider-kind startup is idempotent.
 kind-deploy: kind-load kind-setup
-	@kubectl apply -f k8s/namespace.yml
-	@kubectl -n spring-on-k8s apply -f k8s/cm.yml -f k8s/deployment.yml -f k8s/service.yml
+	@$(KUBECTL) apply -f k8s/namespace.yml
+	@$(KUBECTL) -n spring-on-k8s apply -f k8s/cm.yml -f k8s/deployment.yml -f k8s/service.yml
 	@echo "Patching deployment to use image $(DOCKER_IMAGE):$(DOCKER_TAG)..."
-	@kubectl -n spring-on-k8s set image deployment/app "app=$(DOCKER_IMAGE):$(DOCKER_TAG)"
-	@kubectl -n spring-on-k8s rollout status deployment/app --timeout=180s
+	@$(KUBECTL) -n spring-on-k8s set image deployment/app "app=$(DOCKER_IMAGE):$(DOCKER_TAG)"
+	@$(KUBECTL) -n spring-on-k8s rollout status deployment/app --timeout=180s
 
 #kind-undeploy: @ Remove the app from the KinD cluster (keeps cluster running)
 kind-undeploy: deps
-	@kubectl -n spring-on-k8s delete -f k8s/service.yml -f k8s/deployment.yml -f k8s/cm.yml --ignore-not-found
-	@kubectl delete -f k8s/namespace.yml --ignore-not-found
+	@$(KUBECTL) -n spring-on-k8s delete -f k8s/service.yml -f k8s/deployment.yml -f k8s/cm.yml --ignore-not-found
+	@$(KUBECTL) delete -f k8s/namespace.yml --ignore-not-found
 
 #kind-destroy: @ Delete the KinD cluster, stop cloud-provider-kind, prune kindccm-* sidecars
 # cloud-provider-kind spawns a per-Service Envoy sidecar container named
@@ -457,11 +477,11 @@ kind-destroy: deps
 	if [ -n "$$ORPHANS" ]; then \
 		docker rm -f $$ORPHANS >/dev/null 2>&1 || true; \
 	fi
-	@kind delete cluster --name $(KIND_CLUSTER) 2>/dev/null || true
+	@kind delete cluster --name $(KIND_CLUSTER_NAME) 2>/dev/null || true
 
 #kind-up: @ Bring the full stack up (create + setup + load + deploy)
 kind-up: kind-create kind-setup kind-load kind-deploy
-	@echo "Stack is up. Service: kubectl -n spring-on-k8s get svc app"
+	@echo "Stack is up. Service: $(KUBECTL) -n spring-on-k8s get svc app"
 
 #kind-down: @ Tear the full stack down (alias for kind-destroy)
 kind-down: kind-destroy
@@ -470,7 +490,7 @@ kind-down: kind-destroy
 e2e: kind-up
 	@set -e; \
 	trap '$(MAKE) kind-down' EXIT; \
-	bash scripts/e2e-test.sh
+	KIND_CLUSTER_NAME=$(KIND_CLUSTER_NAME) bash scripts/e2e-test.sh
 
 #release: @ Create and push a release tag (usage: make release VERSION=1.2.3)
 release: deps

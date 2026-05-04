@@ -1,4 +1,4 @@
-name: Cleanup
+name: Cleanup old workflow runs
 
 on:
   schedule:
@@ -25,10 +25,12 @@ jobs:
       - name: Delete old workflow runs
         run: |
           CUTOFF=$(date -u -d "${RETAIN_DAYS} days ago" +%Y-%m-%dT%H:%M:%SZ)
-          JQ_FILTER='sort_by(.createdAt) | reverse | .['"${KEEP_MINIMUM}"':] | .[] | select(.createdAt < "'"${CUTOFF}"'") | .databaseId'
+          # `--arg`/`--argjson` pass values into jq via the JSON variable space —
+          # no shell interpolation into the filter string, no quoting traps.
           gh run list --repo "${{ github.repository }}" \
             --json databaseId,createdAt --limit 200 \
-            --jq "${JQ_FILTER}" \
+          | jq -r --arg cutoff "$CUTOFF" --argjson keep "$KEEP_MINIMUM" \
+              'sort_by(.createdAt) | reverse | .[$keep:] | .[] | select(.createdAt < $cutoff) | .databaseId' \
           | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"
 
   cleanup-caches:
