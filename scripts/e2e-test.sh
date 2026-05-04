@@ -55,7 +55,23 @@ assert_status() {
   fi
 }
 
+assert_pod_annotation() {
+  local annotation="$1" expected="$2"
+  local actual
+  actual=$(kubectl -n "${NS}" get deploy "${SVC}" \
+    -o jsonpath="{.spec.template.metadata.annotations.${annotation//./\\.}}" 2>/dev/null || true)
+  if [ "${actual}" = "${expected}" ]; then
+    echo "  PASS  pod annotation ${annotation}=${actual}"
+  else
+    echo "  FAIL  pod annotation ${annotation}=${actual} (expected ${expected})"
+    exit 1
+  fi
+}
+
 echo "Running e2e checks..."
+assert_pod_annotation prometheus.io/scrape "true"
+assert_pod_annotation prometheus.io/path   "/actuator/prometheus"
+assert_pod_annotation prometheus.io/port   "8080"
 assert_contains /             'Hello world'
 assert_contains /v1/hello "${EXPECTED_MESSAGE}"
 assert_contains /v1/bye   "${EXPECTED_MESSAGE}"

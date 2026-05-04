@@ -64,10 +64,35 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Spring Boot 4 split the @WebMvcTest slice out of spring-boot-starter-test
+             into its own starter. Required for HelloControllerTest / ByeControllerTest. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <finalName>${project.artifactId}</finalName>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <!-- Configuration applies when invoked via direct goal
+                         `mvn org.owasp:dependency-check-maven:VERSION:check`
+                         from `make cve-check`. Reading nvdApiKey from
+                         ${env.NVD_API_KEY} keeps the secret in the process
+                         environment (execve envp) instead of argv, where it
+                         would be visible via `ps -ef` / `/proc/<pid>/cmdline`. -->
+                    <groupId>org.owasp</groupId>
+                    <artifactId>dependency-check-maven</artifactId>
+                    <configuration>
+                        <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -102,7 +127,15 @@
                         <dep>org.junit.jupiter:*</dep>
                         <dep>org.assertj:*</dep>
                         <dep>io.swagger.core.v3:*</dep>
+                        <!-- ApplicationIT.testOpenApiDocs parses /v3/api-docs JSON via Jackson;
+                             jackson-databind comes transitively through spring-boot-starter-web. -->
+                        <dep>com.fasterxml.jackson.core:jackson-databind</dep>
                     </ignoredUsedUndeclaredDependencies>
+                    <!-- jackson-databind is used in test code only (ApplicationIT) but ships at
+                         compile scope through spring-boot-starter-web. Don't flag the scope mismatch. -->
+                    <ignoredNonTestScopedDependencies>
+                        <dep>com.fasterxml.jackson.core:jackson-databind</dep>
+                    </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
 
