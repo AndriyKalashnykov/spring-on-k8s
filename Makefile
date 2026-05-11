@@ -291,13 +291,16 @@ image-build: build
 docker-smoke-test: deps
 	@docker rm -f $(SMOKE_CONTAINER) 2>/dev/null || true
 	@docker run -d --name $(SMOKE_CONTAINER) -p 8080:8080 $(SMOKE_IMAGE) >/dev/null
-	@# Verify the runtime image exposes the documented port and runs as nonroot.
+	@# Verify the runtime image runs as a non-root user. Accepts named ("nonroot:nonroot")
+	@# or numeric ("65532:65532") forms — both are valid nonroot per K8s PSA restricted.
+	@# Rejects: empty (= root by default), "0"/"0:0", "root"/"root:root".
 	@USER=$$(docker inspect -f '{{.Config.User}}' $(SMOKE_CONTAINER)); \
-	if [ "$$USER" != "nonroot:nonroot" ]; then \
-		echo "Smoke test FAIL: container User='$$USER' (expected 'nonroot:nonroot')"; \
-		docker rm -f $(SMOKE_CONTAINER) >/dev/null 2>&1 || true; \
-		exit 1; \
-	fi; \
+	case "$$USER" in \
+		"" | 0 | 0:0 | root | root:root) \
+			echo "Smoke test FAIL: container runs as root (User='$$USER')"; \
+			docker rm -f $(SMOKE_CONTAINER) >/dev/null 2>&1 || true; \
+			exit 1 ;; \
+	esac; \
 	echo "Image runtime user: $$USER"
 	@PORTS=$$(docker inspect -f '{{range $$p, $$_ := .Config.ExposedPorts}}{{$$p}} {{end}}' $(SMOKE_CONTAINER)); \
 	if ! echo "$$PORTS" | grep -q '8080/tcp'; then \

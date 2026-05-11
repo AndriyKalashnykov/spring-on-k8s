@@ -140,19 +140,25 @@ assert_pod_ready() {
   # Selector matches k8s/deployment.yml `spec.selector.matchLabels.role: app`. If that
   # convention changes, this assertion fails loudly — surface it before merge.
   #
-  # Filters to Running pods only, combines name + ready into a single kubectl call. A
-  # rollout's terminating old pod still carries the label until kubelet finishes cleanup,
-  # so without the field-selector we'd race between pod-name lookup and pod-status lookup.
+  # During a rolling update, a terminating old pod keeps `status.phase=Running` until
+  # kubelet finalizes it, so `--field-selector=status.phase=Running` is not enough to
+  # exclude it. Filter `metadata.deletionTimestamp` (set on terminating pods) via
+  # jsonpath range, then take the first non-terminating Running pod.
   local result name ready
   result=$("${KUBECTL[@]}" -n "${NS}" get pod -l role=app \
     --field-selector=status.phase=Running \
-    -o jsonpath='{.items[0].metadata.name}{"\t"}{.items[0].status.containerStatuses[0].ready}')
+    -o jsonpath='{range .items[?(!@.metadata.deletionTimestamp)]}{.metadata.name}{"\t"}{.status.containerStatuses[0].ready}{"\n"}{end}' \
+    | head -n 1)
   name="${result%$'\t'*}"
   ready="${result##*$'\t'}"
   if [ "${ready}" = "true" ]; then
     echo "  PASS  pod ${name} containerStatus.ready=${ready}"
   else
     echo "  FAIL  pod ${name} containerStatus.ready=${ready} (expected true)"
+    # Diagnostics: dump the full pod listing so the next failure has enough
+    # signal to distinguish a real readiness regression from a rollout race.
+    "${KUBECTL[@]}" -n "${NS}" get pod -l role=app -o wide || true
+    "${KUBECTL[@]}" -n "${NS}" describe pod -l role=app | tail -40 || true
     exit 1
   fi
 }
