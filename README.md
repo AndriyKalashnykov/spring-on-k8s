@@ -35,7 +35,7 @@ C4Context
 | API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 | OpenAPI generated from controller annotations — no separate spec to drift |
 | Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry | Spring Boot default; zero-config Prometheus scrape endpoint |
 | Build | Maven 3.9.15 | Mature Spring Boot tooling; `pom.xml` plays well with Renovate |
-| Container | Multi-stage Dockerfile, distroless runtime, non-root user | Distroless drops shell + coreutils — smaller attack surface; nonroot UID enables K8s restricted pod security |
+| Container | Multi-stage Dockerfile, `eclipse-temurin:21-jre-alpine` runtime, non-root user (UID/GID 65532) | Adoptium-official Java 21 LTS on Alpine 3.23 — faster CVE turnaround than Google's distroless (rationale and tradeoffs in [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md)); nonroot UID enables K8s restricted pod security |
 | Orchestration | Kubernetes, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) | Carvel is GitOps-friendly without the Helm template-hell; `ytt` overlays beat string substitution |
 | Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.35.0`) | KinD is what upstream K8s uses for testing; cloud-provider-kind allocates LB IPs without MetalLB's nftables fragility |
 | CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) | Native to GitHub; SHA-pinned actions; one `ci-pass` aggregator gates the whole pipeline |
@@ -104,7 +104,7 @@ C4Container
 - **ConfigMap** — cluster-side K8s resource, mounted as a volume at `/etc/config/`; the env `SPRING_CONFIG_IMPORT=configtree:/etc/config/` tells Spring to read each file as a property (default `Hello world!` → ConfigMap overrides to `Hello Kubernetes!`)
 - **Prometheus** — external scrape target, no code changes required; the endpoint is enabled via `management.endpoints.web.exposure.include`
 
-### Deployment
+### Deployment View
 
 ```mermaid
 C4Deployment
@@ -113,7 +113,7 @@ C4Deployment
   Deployment_Node(cluster, "Kubernetes Cluster") {
     Deployment_Node(ns, "Namespace: spring-on-k8s") {
       Deployment_Node(pod, "Pod (Deployment replicas=1)") {
-        Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, distroless Java 21, non-root")
+        Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, Temurin 21 JRE on Alpine, non-root (uid 65532)")
       }
       Container(svc, "Service: app", "LoadBalancer 80 → 8080")
       ContainerDb(cmres, "ConfigMap: config", "app.message = Hello Kubernetes!")
@@ -150,7 +150,7 @@ Sources: diagrams are inline Mermaid in this README — no build step; GitHub re
 
 ## Build & Package
 
-A multi-stage [Dockerfile](./Dockerfile) builds a distroless runtime image with a non-root user and Spring Boot JAR layering.
+A multi-stage [Dockerfile](./Dockerfile) builds an `eclipse-temurin:21-jre-alpine` runtime image with a non-root user (UID/GID 65532) and Spring Boot JAR layering. See [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md) for the base-image decision (distroless → Alpine, 2026-05-11).
 
 ```bash
 make image-build                                         # build
