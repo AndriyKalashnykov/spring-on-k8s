@@ -133,10 +133,38 @@ public class ApplicationIT {
   }
 
   @Test
-  public void testActuatorInfo() {
+  public void testActuatorInfo() throws Exception {
+    // /actuator/info is exposed (application.yml `include: health,info,prometheus`) and must
+    // return a JSON body. No build-info plugin is wired into pom.xml, so the body is `{}` — but
+    // it must still be a parseable JSON object, not an HTML error page or empty string. A future
+    // contributor enabling the build-info plugin can extend this assertion without rewriting it.
     RestClient client = getRestClient();
     var response = client.get().uri("/actuator/info").retrieve().toEntity(String.class);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getHeaders().getContentType()).isNotNull();
+    // Spring Boot Actuator returns a vendor-specific JSON type
+    // (`application/vnd.spring-boot.actuator.v3+json`). Spring's
+    // `MediaType.APPLICATION_JSON.isCompatibleWith(...)` doesn't honor the `+json` structured
+    // suffix here — `application/json` has no suffix and `isCompatibleWith` then short-circuits
+    // false. Check the subtype ends with `json` instead, which captures both `application/json`
+    // and any vendor `+json` variant per RFC 6839.
+    assertThat(response.getHeaders().getContentType().getSubtype()).endsWith("json");
+    JsonNode root = new ObjectMapper().readTree(response.getBody());
+    assertThat(root.isObject()).isTrue();
+  }
+
+  @Test
+  public void testActuatorEnvIsNotExposed() {
+    // Confirm the actuator exposure allowlist (application.yml `include: health,info,prometheus`)
+    // is the real contract: endpoints OUTSIDE that list — e.g., /actuator/env — must 404. If a
+    // future contributor widens the exposure include and forgets the security review, this test
+    // surfaces the change at the IT layer instead of in a ZAP scan against prod.
+    RestClient client = getRestClient();
+    HttpClientErrorException ex =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            HttpClientErrorException.class,
+            () -> client.get().uri("/actuator/env").retrieve().toBodilessEntity());
+    assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
   }
 
   @Test
@@ -164,6 +192,32 @@ public class ApplicationIT {
             .accept(MediaType.TEXT_PLAIN)
             .retrieve()
             .toEntity(String.class);
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    assertThat(response.getHeaders().getContentType()).isNotNull();
+    assertThat(response.getHeaders().getContentType().isCompatibleWith(MediaType.TEXT_PLAIN))
+        .isTrue();
+  }
+
+  @Test
+  public void testByeProducesTextPlain() {
+    // Symmetric to testHelloProducesTextPlain — guards against a controller-specific MediaType
+    // misconfiguration. ByeController declares `produces=text/plain`; an Accept that excludes it
+    // must 406. If a future change drops the `produces` attribute on /v1/bye, this test fails.
+    RestClient client = getRestClient();
+    HttpClientErrorException ex =
+        org.junit.jupiter.api.Assertions.assertThrows(
+            HttpClientErrorException.class,
+            () ->
+                client
+                    .get()
+                    .uri("/v1/bye")
+                    .accept(MediaType.APPLICATION_XML)
+                    .retrieve()
+                    .toBodilessEntity());
+    assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.NOT_ACCEPTABLE);
+
+    var response =
+        client.get().uri("/v1/bye").accept(MediaType.TEXT_PLAIN).retrieve().toEntity(String.class);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getHeaders().getContentType()).isNotNull();
     assertThat(response.getHeaders().getContentType().isCompatibleWith(MediaType.TEXT_PLAIN))
