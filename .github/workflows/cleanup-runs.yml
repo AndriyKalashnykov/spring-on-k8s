@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  actions: write
+  actions: write   # gh run delete + gh cache delete
+  contents: read   # gh api repos/.../git/refs (cleanup-caches LIVE_REFS lookup)
 
 jobs:
   cleanup-runs:
