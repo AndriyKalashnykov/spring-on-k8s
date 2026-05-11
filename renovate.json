@@ -91,6 +91,18 @@
         "java"
       ],
       "enabled": false
+    },
+    {
+      "description": "Carvel tools — wait 3 days before bumping. The mise `aqua:carvel-dev/*` backend resolves binaries from the GitHub Release page; upstream Carvel pushes the git tag `vX.Y.Z` before its release pipeline publishes the linux-amd64 / darwin-arm64 binary artifacts. Renovate's github-tags datasource sees the tag immediately and opens a PR; `mise install` then 404s on the missing artifacts. Source: spring-on-k8s PR #228 closed 2026-05-11 — kapp 0.65.2 → 0.66.0 PR opened minutes after upstream tag push; CI failed because the v0.66.0 release artifacts hadn't been published yet. Three days is enough buffer for the typical Carvel release pipeline to complete.",
+      "matchManagers": [
+        "mise"
+      ],
+      "matchPackageNames": [
+        "ytt",
+        "kapp",
+        "/^carvel-dev\\//"
+      ],
+      "minimumReleaseAge": "3 days"
     }
   ],
   "customManagers": [
