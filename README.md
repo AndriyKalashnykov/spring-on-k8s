@@ -3,9 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Renovate enabled](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://app.renovatebot.com/dashboard#github/AndriyKalashnykov/spring-on-k8s)
 
-# Running Spring Boot app on Kubernetes
+# Spring Boot 4 on Kubernetes — Reference Service
 
-Spring Boot 4.0 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Spring Boot Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted `ConfigMap` via Spring's `configtree:` property source.
+Reference implementation of a production-pattern Spring Boot 4 service on Kubernetes — the full path from source to signed image. The **runtime surface** exposes REST controllers (`/v1/hello`, `/v1/bye`) with OpenAPI via [springdoc-openapi](https://springdoc.org/), Micrometer + Prometheus instrumentation, Actuator-backed liveness/readiness probes, and ConfigMap-driven configuration through Spring's `configtree:` property source; the **delivery surface** covers Carvel (`ytt` + `kapp`) production deploy, a KinD + cloud-provider-kind local e2e harness, and a supply-chain–hardened GitHub Actions pipeline (Trivy CVE scan, OWASP ZAP baseline DAST, cosign keyless OIDC signing) on an `mise`-pinned toolchain with Renovate-managed dependencies.
 
 ```mermaid
 C4Context
@@ -30,12 +30,12 @@ C4Context
 
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
-| Language | Java 21 (source + target + runtime) | Current Temurin LTS; stays in lockstep with Spring Boot 4 baseline |
+| Language | Java 21 source/target, Java 25 LTS runtime | Project compiles for Java 21 LTS (`pom.xml` `<java.version>21</java.version>`); the published image ships a Java 25 LTS JRE for the longest-supported in-production runtime. Java 21 bytecode runs forward on Java 25 |
 | Framework | Spring Boot 4.0.6 | Reference target; built-in Actuator covers probes, metrics, and info |
 | API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 | OpenAPI generated from controller annotations — no separate spec to drift |
 | Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry | Spring Boot default; zero-config Prometheus scrape endpoint |
 | Build | Maven 3.9.15 | Mature Spring Boot tooling; `pom.xml` plays well with Renovate |
-| Container | Multi-stage Dockerfile, `eclipse-temurin:21-jre-alpine` runtime, non-root user (UID/GID 65532) | Adoptium-official Java 21 LTS on Alpine 3.23 — faster CVE turnaround than Google's distroless (rationale and tradeoffs in [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md)); nonroot UID enables K8s restricted pod security |
+| Container | Multi-stage Dockerfile, `eclipse-temurin:25-jre-alpine` runtime, non-root user (UID/GID 65532) | Adoptium-official Java 25 LTS on Alpine 3.23 — faster CVE turnaround than Google's distroless (rationale and tradeoffs in [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md)); nonroot UID enables K8s restricted pod security |
 | Orchestration | Kubernetes, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) | Carvel is GitOps-friendly without the Helm template-hell; `ytt` overlays beat string substitution |
 | Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.35.0`) | KinD is what upstream K8s uses for testing; cloud-provider-kind allocates LB IPs without MetalLB's nftables fragility |
 | CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) | Native to GitHub; SHA-pinned actions; one `ci-pass` aggregator gates the whole pipeline |
@@ -64,7 +64,7 @@ make run           # start at http://localhost:8080
 | [Docker](https://www.docker.com/) | latest | **system** | Container image builds, KinD nodes, Mermaid / Trivy containers |
 | [Git](https://git-scm.com/) | latest | **system** | Version control |
 | [mise](https://mise.jdx.dev/) | latest | auto-installed by `make deps` | Manages every tool pinned in `.mise.toml` |
-| Java (Temurin) | 21 | mise | Build + runtime |
+| Java (Temurin) | 21 | mise | Build (compiles for Java 21); the published runtime image uses Java 25 LTS — see Tech Stack |
 | Maven | 3.9.15 | mise | Dependency management |
 | Node | 24 | mise | Renovate validation (`renovate-validate`) |
 | kubectl, kind | pinned in `.mise.toml` | mise | Local K8s cluster for `make e2e` |
@@ -113,7 +113,7 @@ C4Deployment
   Deployment_Node(cluster, "Kubernetes Cluster") {
     Deployment_Node(ns, "Namespace: spring-on-k8s") {
       Deployment_Node(pod, "Pod (Deployment replicas=1)") {
-        Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, Temurin 21 JRE on Alpine, non-root (uid 65532)")
+        Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, Temurin 25 LTS JRE on Alpine, non-root (uid 65532)")
       }
       Container(svc, "Service: app", "LoadBalancer 80 → 8080")
       ContainerDb(cmres, "ConfigMap: config", "app.message = Hello Kubernetes!")
@@ -150,7 +150,7 @@ Sources: diagrams are inline Mermaid in this README — no build step; GitHub re
 
 ## Build & Package
 
-A multi-stage [Dockerfile](./Dockerfile) builds an `eclipse-temurin:21-jre-alpine` runtime image with a non-root user (UID/GID 65532) and Spring Boot JAR layering. See [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md) for the base-image decision (distroless → Alpine, 2026-05-11).
+A multi-stage [Dockerfile](./Dockerfile) builds an `eclipse-temurin:25-jre-alpine` runtime image (Java 25 LTS, Alpine 3.23) with a non-root user (UID/GID 65532) and Spring Boot JAR layering. The build stage uses `maven:3.9.15-eclipse-temurin-21` so the artifact compiles for Java 21 LTS bytecode and runs forward on the Java 25 LTS JRE. See [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md) for the base-image decision (distroless → Alpine, 2026-05-11).
 
 ```bash
 make image-build                                         # build

@@ -8,28 +8,59 @@ Spring Boot 4.0.6 reference service for Kubernetes deployment. Exposes REST endp
 
 ## Build & Run Commands
 
+Build / test / run:
 ```bash
 make build                 # Package JAR (mvn clean package -DskipTests)
 make test                  # Run unit tests (Surefire, excludes *IT.java)
 make integration-test      # Run integration tests (Failsafe, *IT.java via integration-test profile)
 make e2e                   # Full e2e: kind-up → curl LB assertions → kind-down
 make run                   # Run locally (mvn spring-boot:run) at http://localhost:8080
-make static-check          # Composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check)
+```
+
+Quality / security gates:
+```bash
+make format                # Apply google-java-format to Java sources
+make static-check          # Composite gate: format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check
 make mermaid-lint          # Validate Mermaid diagrams in README.md / CLAUDE.md against minlag/mermaid-cli
+make cve-check             # OWASP dependency-check against NVD (canonical settings.xml flow; fast with NVD_API_KEY)
+make vulncheck             # Portfolio-standard alias for cve-check
+```
+
+CI (local + act):
+```bash
 make ci                    # Full pipeline: deps → static-check → test → integration-test → build (format-check runs inside static-check)
-make ci-run                # Run subset of GitHub Actions locally via act (skips e2e, cve-check, ci-pass)
+make ci-run                # Run subset of GitHub Actions locally via act (static-check, build, test, integration-test, docker; skips e2e, cve-check, ci-pass)
+make ci-run-tag            # Simulate a tag-push event under act (exercises tag-gated docker job; cosign signing fails — expected, no OIDC under act)
+```
+
+Docker image:
+```bash
 make image-build           # Build Docker image ($(DOCKER_IMAGE):$(DOCKER_TAG))
 make image-run             # Run Docker container (port 8080)
 make image-stop            # Stop Docker container
 make image-push            # Push Docker image to registry
-make kind-up               # Local K8s: create KinD + cloud-provider-kind + deploy
-make kind-down             # Tear down local K8s
+make docker-smoke-test     # Boot the locally-built spring-on-k8s:ci-scan image; verify /actuator/health/readiness within 60s (mirrors CI Gate 3)
+make dast                  # Build image → boot → OWASP ZAP baseline → cleanup (local equivalent of CI DAST gate)
+make dast-scan             # Run ZAP baseline against http://localhost:8080 (assumes container is already running)
+```
+
+Local Kubernetes (KinD + cloud-provider-kind):
+```bash
+make kind-up               # Bring stack up: create cluster → start cloud-provider-kind → load image → deploy
+make kind-down             # Tear stack down (alias for kind-destroy)
+# Granular targets (debugging flow only — kind-up composes these in order):
+make kind-create kind-setup kind-load kind-deploy kind-undeploy kind-destroy
+```
+
+Toolchain / dependency management:
+```bash
+make deps                  # Install mise + every tool pinned in .mise.toml (idempotent)
+make deps-check            # Show installed tool versions (mise list + docker/git)
 make upgrade               # Show available Maven dependency updates (dry-run)
 make upgrade-apply         # Apply latest Maven releases (prompts, mutates pom.xml)
 make release VERSION=1.2.3 # Tag a release (with confirmation prompt)
-make renovate-validate     # Validate Renovate configuration
-make deps                  # Install mise + every tool pinned in .mise.toml (idempotent)
-make deps-check            # Show installed tool versions (mise list + docker/git)
+make renovate-bootstrap    # Install Node + pnpm via mise so renovate-validate can run
+make renovate-validate     # Validate Renovate configuration locally (npx renovate --platform=local)
 ```
 
 Direct Maven equivalents:
@@ -86,20 +117,11 @@ Local e2e path uses KinD + cloud-provider-kind: `make e2e` creates the KinD clus
 
 ## Upgrade Backlog
 
-Items surfaced by `/upgrade-analysis` 2026-04-13. Re-run 2026-04-27:
+Items surfaced by `/upgrade-analysis`; last re-run 2026-05-11.
 
-- [x] ~~`KIND_VERSION` pinned at non-existent 0.32.0~~ → downgraded to 0.31.0 + `kindest/node:v1.35.0@sha256:452d707d...`
-- [x] ~~google-java-format 1.24.0 → 1.35.0~~ → bumped, GJF jar re-downloaded
-- [x] ~~Maven 3.9.9 → 3.9.15~~ → bumped in `.mise.toml` and Dockerfile `FROM` line
-- [x] ~~metallb → 0.15.3, kubectl → 1.35.3, mermaid-cli → 11.12.0, hadolint → 2.14.0, maven-dependency-plugin → 3.10.0~~ → all bumped
-- [x] ~~Mise migration: 8 CLI tools (act, hadolint, gitleaks, trivy, actionlint, shellcheck, kind, kubectl) moved from Makefile `_VERSION` pins to `.mise.toml`~~ → single source of truth
-- [x] ~~kubectl 1.35.3 → 1.35.4~~ (2026-04-18)
-- [x] ~~Paketo builder 0.4.286 → 0.4.563~~ (`pom.xml`; buildpacks-only path, 277 versions behind)
-- [x] ~~Dockerfile ARG Renovate blind spot~~ → not needed: the Dockerfile uses a literal `FROM maven:3.9.15-eclipse-temurin-21` (no `ARG MVN_VERSION`), already tracked natively by Renovate's `dockerfile` manager. No custom-regex required.
-- [x] ~~Distroless `java21-debian12:debug` → `java21-debian13:nonroot`~~ (2026-04-18) — ahead of Debian 12 EOL 2026-06-10. Smoke-tested: readiness UP, `/v1/hello` responds, container runs as nonroot:nonroot. To revert temporarily for `kubectl exec` troubleshooting, swap the tag back to `:debug` (keep the same image path / digest pattern).
-- [x] ~~Spring Boot 4.0.5 → 4.0.6~~ (commit `ba27665`). When 4.0.7 ships, re-evaluate the hibernate-validator suppression in `dependency-check-suppressions.xml` (CVE-2025-15104) — drop it if the upstream fix lands.
 - [ ] **Post-release manifest verification (first run after next tag push)** — after the hardened `docker` job first publishes with Pattern A (`provenance: false` + `sbom: false`, single-arch `linux/amd64`), run the three checks in README §"Post-release manifest verification": (a) `docker buildx imagetools inspect` shows `linux/amd64` with zero `unknown/unknown` entries, (b) GHCR Packages UI lists the package, (c) `cosign verify` succeeds. Once verified, delete this item.
 - [ ] **Maven 4.0.0** is at RC-5 (latest: rc-5 published 2025-11-13); GA not yet released. Monitor; migrate when GA ships and plugin ecosystem signals stable 4.x support.
+- [ ] **Spring Boot 4.0.7** — when it ships, re-evaluate the hibernate-validator suppression in `dependency-check-suppressions.xml` (CVE-2025-15104); drop it if the upstream fix lands.
 
 ## Skills
 
@@ -116,9 +138,9 @@ When spawning subagents, always pass conventions from the respective skill into 
 
 ## Build Configuration Notes
 
-- **Java:** 21 across the board — `<java.version>` in pom.xml, `JDK_VERSION` in Makefile (used for Docker build args), `.mise.toml` `java = "temurin-21"` is the single source of truth consumed by both local `make deps` and the CI `jdx/mise-action` step
+- **Java:** Java 21 LTS for source/target/local build; **Java 25 LTS for the runtime image**. `<java.version>21</java.version>` in pom.xml + `JDK_VERSION := 21` in Makefile + `.mise.toml` `java = "temurin-21"` govern the build artifact (compiled bytecode targets Java 21). The Dockerfile runtime stage uses `eclipse-temurin:25-jre-alpine` for the longest-supported in-production JRE. Java 21 bytecode runs forward on Java 25 LTS — verified by the CI `docker` job's smoke test on every push.
 - **Compiler:** `failOnWarning=true` is set on maven-compiler-plugin (pom.xml); any javac warning blocks the build
-- **Docker image:** Multi-stage Dockerfile with `eclipse-temurin:21-jre-alpine` runtime (Adoptium-official Java 21 LTS, Alpine 3.23, digest-pinned), layered JAR via `spring-boot-maven-plugin`, runs as UID/GID `65532:65532` (created in the Dockerfile to match the distroless convention). Migrated from `gcr.io/distroless/java21-debian13:nonroot` 2026-05-11; rationale and tradeoffs in [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md). BusyBox shell is present (good for `kubectl exec` debugging) — small attack-surface tradeoff documented in the ADR.
+- **Docker image:** Multi-stage Dockerfile with `eclipse-temurin:25-jre-alpine` runtime (Adoptium-official Java 25 LTS, Alpine 3.23, digest-pinned), layered JAR via `spring-boot-maven-plugin`, runs as UID/GID `65532:65532` (created in the Dockerfile to match the distroless convention). Migrated from `gcr.io/distroless/java21-debian13:nonroot` on 2026-05-11 (Java 21 LTS → 25 LTS bump landed via Renovate shortly after); rationale and tradeoffs in [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md). BusyBox shell is present (good for `kubectl exec` debugging) — small attack-surface tradeoff documented in the ADR.
 - **Buildpacks alternative:** `mvn spring-boot:build-image` with Paketo builder
 - **CI workflows** (`.github/workflows/`):
   - `ci.yml` — 9 jobs: `changes` (path filter via `dorny/paths-filter`) → `static-check` → { `build`, `test`, `integration-test` } (parallel) → { `e2e` (needs build + test), `docker` (needs all three + cve-check), `cve-check` (tag/weekly/manual only) } → `ci-pass` (branch-protection gate, `if: always()`, treats `skipped` as PASS). Path filtering happens **inside** the workflow, not at the trigger level — Repository Rulesets requiring `ci-pass` would deadlock on doc-only changes if `paths-ignore` filtered triggers (no run → no `ci-pass` status). Every code-running job gates on `needs.changes.outputs.code == 'true'`; doc-only PRs skip the heavy jobs and `ci-pass` still goes green. Every job uses `jdx/mise-action` to provision java+maven+CLI tools from `.mise.toml`; `actions/cache` handles `~/.m2/repository` separately. The `docker` job follows Pattern A, single-arch (`linux/amd64`): Gates 1–3 (build + Trivy image scan blocking CRITICAL/HIGH with `scanners=vuln,secret,misconfig` + smoke test via `make docker-smoke-test`) run on every push, then DAST runs inline (OWASP ZAP baseline `-I` warn-only against the running smoke container; ZAP image is `actions/cache`-d so subsequent runs load in seconds; all DAST steps gated by `vars.ACT != 'true'`); Gate 4 publish build + Gate 5 cosign keyless signing happen only on `v*` tags. `provenance: false` + `sbom: false` keep the image index clean. Multi-arch (amd64+arm64) is intentionally disabled — the project ships a single linux/amd64 image (`docker/setup-qemu-action` is loaded for canonical-template parity, harmless on single-arch). The DAST steps (formerly a separate `dast` job, since 2026-05-03) live inside `docker` after Gate 3 to share the already-built `spring-on-k8s:ci-scan` image and the running smoke container — eliminates the duplicate ~30–60s build per push and the duplicated cleanup. Run `make dast` directly to cover the act-gap locally
@@ -129,4 +151,5 @@ When spawning subagents, always pass conventions from the respective skill into 
 - **`docker` job gates on `cve-check`** via the GitHub idiom `if: ${{ !failure() && !cancelled() && needs.changes.outputs.code == 'true' }}`. `cve-check` is in `docker.needs` so a real CVE failure on a tag push blocks the release; on regular pushes `cve-check` is `skipped` (it's tag/schedule/manual-only) and `!failure() && !cancelled()` lets `docker` proceed regardless. `ci-pass` lists both in `needs:` for branch-protection completeness
 - **`k8s/deployment.yml` uses `image: ghcr.io/.../spring-on-k8s:latest`:** intentional template-style placeholder. The actual tag is set at deploy time — `make kind-deploy` runs `kubectl set image deployment/app "app=$(DOCKER_IMAGE):$(DOCKER_TAG)"` after `kubectl apply`, and the Carvel production path uses `ytt` overlays. Renovate's `kubernetes` manager scans the file but treats `:latest` as a no-op (nothing to bump), which is fine
 - **Architecture diagrams:** three inline Mermaid diagrams in README.md (C4 Context under the description, C4 Container + C4 Deployment in the `## Architecture` section). Lint target: `make mermaid-lint` uses the `minlag/mermaid-cli` Docker image (same engine GitHub uses to render). Wired into `make static-check`. No separate PlantUML toolchain — single-service + modest K8s topology fits inside Mermaid C4 cleanly
+- **e2e guard rails (`scripts/e2e-test.sh`)** — three load-bearing details a future contributor must preserve: (1) pod selection uses `role=app` label (matches `k8s/deployment.yml` `spec.selector.matchLabels`); (2) `assert_pod_ready` filters terminating pods via `jq` `.metadata.deletionTimestamp == null` (kubectl jsonpath's subset has no negation operator — using `[?(!@...)]` fails with `unrecognized character in action: U+0021 '!'`); (3) `make docker-smoke-test` accepts both named (`nonroot:nonroot`) and numeric (`65532:65532`) container User strings via a `case` against root forms — the runtime image sets numeric UID/GID
 - **All `make` targets depend on `deps`** — tool availability is checked / auto-installed before execution
