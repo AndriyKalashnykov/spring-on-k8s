@@ -69,7 +69,7 @@ make run           # start at http://localhost:8080
 | Node | 24 | mise | Renovate validation (`renovate-validate`) |
 | kubectl, kind | pinned in `.mise.toml` | mise | Local K8s cluster for `make e2e` |
 | act, hadolint, gitleaks, trivy, actionlint, shellcheck | pinned in `.mise.toml` | mise | Workflow-local CI, linters, security scanners |
-| [Carvel](https://carvel.dev/) | latest | optional | `ytt` + `kapp` for production K8s deploy |
+| [ytt](https://carvel.dev/ytt/), [kapp](https://carvel.dev/kapp/) | pinned in `.mise.toml` | mise | Carvel — production K8s deploy (`ytt -f ./k8s \| kapp deploy ...`) |
 
 Install everything:
 

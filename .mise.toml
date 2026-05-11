@@ -2,33 +2,31 @@
 # Run `mise install` to fetch all tools; `mise activate` (shell hook) or the
 # static shim directory on PATH exposes them transparently.
 #
-# Renovate tracks these via inline `# renovate:` comments consumed by the
-# `.mise.toml` custom manager in renovate.json.
+# Renovate tracks every entry below natively via the `mise` manager (enabled in
+# renovate.json). Do NOT add a `custom.regex` over this file — it duplicates
+# the native manager and produces two PRs per bump (see `/renovate` skill,
+# ".mise.toml Renovate custom manager — DO NOT ADD ONE").
 
 [tools]
 # Java: Temurin 21 (LTS). mise picks the latest patch release; bump the major
 # when 25 LTS ships. Not Renovate-tracked — adoptium-java datasource returns
 # point releases (21.0.10+7.0.LTS) which mise's `temurin-21` alias resolves to
 # automatically. Renovate would churn PRs for every patch with no human value.
+# (Renovate suppression configured in renovate.json packageRules.)
 java = "temurin-21"
-# renovate: datasource=maven depName=org.apache.maven:apache-maven
 maven = "3.9.15"
 # Node reads from .nvmrc natively.
 node = "24"
 
-# renovate: datasource=github-releases depName=nektos/act
 act = "0.2.88"
-# renovate: datasource=github-releases depName=hadolint/hadolint
 hadolint = "2.14.0"
-# renovate: datasource=github-releases depName=gitleaks/gitleaks
 gitleaks = "8.30.1"
-# renovate: datasource=github-releases depName=aquasecurity/trivy
 trivy = "0.70.0"
-# renovate: datasource=github-releases depName=rhysd/actionlint
 actionlint = "1.7.12"
-# renovate: datasource=github-releases depName=koalaman/shellcheck
 shellcheck = "0.11.0"
-# renovate: datasource=github-releases depName=kubernetes-sigs/kind
 kind = "0.31.0"
-# renovate: datasource=github-releases depName=kubernetes/kubectl extractVersion=^kubernetes-(?<version>.+)$
 kubectl = "1.36.0"
+
+# Carvel — production K8s deploy path (`ytt -f ./k8s | kapp deploy ...`).
+ytt = "0.54.0"
+kapp = "0.65.2"

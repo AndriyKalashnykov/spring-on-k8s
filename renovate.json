@@ -109,19 +109,6 @@
     },
     {
       "customType": "regex",
-      "description": "Update .mise.toml tool pins via inline renovate comments",
-      "managerFilePatterns": [
-        "/^\\.mise\\.toml$/"
-      ],
-      "matchStrings": [
-        "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( extractVersion=(?<extractVersion>[^\\s]+))?( versioning=(?<versioning>[^\\s]+))?\\n[a-zA-Z_-]+\\s*=\\s*\"(?<currentValue>[^\"]+)\""
-      ],
-      "datasourceTemplate": "{{datasource}}",
-      "depNameTemplate": "{{depName}}",
-      "versioningTemplate": "{{#if versioning}}{{versioning}}{{else}}semver{{/if}}"
-    },
-    {
-      "customType": "regex",
       "description": "Update GitHub Actions workflow env literals via inline renovate comments",
       "managerFilePatterns": [
         "/^\\.github/workflows/.+\\.ya?ml$/"
