@@ -142,13 +142,15 @@ assert_pod_ready() {
   #
   # During a rolling update, a terminating old pod keeps `status.phase=Running` until
   # kubelet finalizes it, so `--field-selector=status.phase=Running` is not enough to
-  # exclude it. Filter `metadata.deletionTimestamp` (set on terminating pods) via
-  # jsonpath range, then take the first non-terminating Running pod.
+  # exclude it. Filter `metadata.deletionTimestamp` (set on terminating pods) via jq —
+  # kubectl's jsonpath subset does not support negation (`!@.metadata.deletionTimestamp`
+  # fails to parse), so we round-trip through `-o json | jq`. jq is preinstalled on
+  # GitHub Ubuntu runners and available locally via package manager / mise.
   local result name ready
   result=$("${KUBECTL[@]}" -n "${NS}" get pod -l role=app \
-    --field-selector=status.phase=Running \
-    -o jsonpath='{range .items[?(!@.metadata.deletionTimestamp)]}{.metadata.name}{"\t"}{.status.containerStatuses[0].ready}{"\n"}{end}' \
-    | head -n 1)
+    --field-selector=status.phase=Running -o json \
+    | jq -r '[.items[] | select(.metadata.deletionTimestamp == null)][0]
+             | "\(.metadata.name)\t\(.status.containerStatuses[0].ready)"')
   name="${result%$'\t'*}"
   ready="${result##*$'\t'}"
   if [ "${ready}" = "true" ]; then
