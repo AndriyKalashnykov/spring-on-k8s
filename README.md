@@ -31,7 +31,7 @@ C4Context
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
 | Language | Java 21 source/target, Java 25 LTS runtime | Project compiles for Java 21 LTS (`pom.xml` `<java.version>21</java.version>`); the published image ships a Java 25 LTS JRE for the longest-supported in-production runtime. Java 21 bytecode runs forward on Java 25 |
-| Framework | Spring Boot 4.0.6 | Reference target; built-in Actuator covers probes, metrics, and info |
+| Framework | Spring Boot 4.1.0-RC1 | Reference target; built-in Actuator covers probes, metrics, and info |
 | API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 | OpenAPI generated from controller annotations — no separate spec to drift |
 | Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry | Spring Boot default; zero-config Prometheus scrape endpoint |
 | Build | Maven 3.9.15 | Mature Spring Boot tooling; `pom.xml` plays well with Renovate |
@@ -90,7 +90,7 @@ C4Container
   System_Ext(k8s, "Kubernetes", "Probes pod liveness + readiness")
 
   System_Boundary(sys, "spring-on-k8s") {
-    Container(api, "API Service", "Spring Boot 4.0.6, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
+    Container(api, "API Service", "Spring Boot 4.1.0-RC1, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
     ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
   }
 

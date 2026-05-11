@@ -26,19 +26,4 @@
     <cve>CVE-2022-31691</cve>
   </suppress>
 
-  <suppress>
-    <notes>
-      CVE-2025-15104 affects hibernate-validator; the version shipped
-      transitively via Spring Boot 4.0.5 is 9.0.1.Final. The CVE relates to
-      validation of user-supplied input via Bean Validation. This demo project
-      does not expose any validated input surface (no @Valid @RequestBody
-      controllers, no external form input — the two endpoints return static or
-      ConfigMap-backed strings). Tracked upstream: Spring Boot will pull the
-      fixed hibernate-validator in a subsequent patch release; Renovate will
-      open a PR when available. Re-evaluate after Spring Boot parent bumps.
-    </notes>
-    <packageUrl regex="true">^pkg:maven/org\.hibernate\.validator/hibernate-validator@9\.0\.1\.Final$</packageUrl>
-    <cve>CVE-2025-15104</cve>
-  </suppress>
-
 </suppressions>
