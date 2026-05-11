@@ -36,9 +36,9 @@ AVD-KSV-0125  # image from untrusted registry (AVD-prefixed form)
 # Namespace — demo uses default namespace (kapp deploys into --into-ns at apply-time)
 KSV110    # should set metadata.namespace to non-default
 
-# Dockerfile — HEALTHCHECK is redundant on distroless base; K8s liveness/readiness
-# probes on /actuator/health/liveness + /actuator/health/readiness are the
-# authoritative health source for this service (see k8s/deployment.yml).
+# Dockerfile — HEALTHCHECK is redundant; K8s liveness/readiness probes on
+# /actuator/health/liveness + /actuator/health/readiness are the authoritative
+# health source for this service (see k8s/deployment.yml).
 DS-0026
 DS0026
 
@@ -53,13 +53,16 @@ CVE-2026-34500
 # Upstream Jackson Core via Spring Boot — fixed in 3.1.1; Renovate will PR the bump.
 GHSA-2m67-wjpj-xhg9
 
-# Distroless base image OS packages (gcr.io/distroless/java21-debian13:nonroot)
-# These are pinned by digest in Dockerfile and tracked by Renovate's dockerfile
-# manager. When the digest bumps, re-evaluate these suppressions — entries that
-# become stale should be removed so new CVEs surface again.
-# Pinned digest as of this suppression: sha256:80b75813...
-CVE-2026-0861    # libc6 (glibc memalign integer overflow, HIGH)
-CVE-2026-25210   # libexpat1 (information disclosure)
-CVE-2026-33416   # libpng16-16 (arbitrary code execution, fix in 1.6.39-2+deb12u4)
-CVE-2026-33636   # libpng16-16 (information disclosure / DoS)
-CVE-2023-45853   # zlib1g (integer overflow, CRITICAL, will_not_fix upstream)
+# Base image OS package suppressions: NONE.
+#
+# The runtime base is eclipse-temurin:21-jre-alpine (Alpine 3.23, digest-pinned
+# in Dockerfile, tracked by Renovate). At the time of the base swap (ADR-0001,
+# 2026-05-11) Trivy reported zero HIGH/CRITICAL findings against the Alpine
+# layer. If new findings surface, prefer fixing via Renovate-driven base bump
+# over suppression; add suppressions here only when the upstream Alpine
+# package has shipped a fix that the published base image hasn't yet picked up.
+#
+# History: the prior Google distroless base (gcr.io/distroless/java21-debian13)
+# required five standing OS-package suppressions for upstream-fixed CVEs that
+# the published distroless rebuild lagged on. Those were dropped when we
+# migrated off distroless — see docs/adr/0001-runtime-base-image.md.

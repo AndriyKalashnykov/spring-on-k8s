@@ -22,20 +22,26 @@ WORKDIR /tmp/target
 RUN java -Djarmode=tools -jar *.jar extract --layers --launcher --destination extracted
 
 # runtime image
-# https://github.com/GoogleContainerTools/distroless
-# Production-hardened: distroless :nonroot has no shell and no coreutils. For
-# troubleshooting (`kubectl exec`), temporarily swap this tag for :debug which
-# ships busybox. Debian 13 base (Debian 12 EOL 2026-06-10).
-FROM gcr.io/distroless/java${JDK_VERSION}-debian13:nonroot@sha256:80b758131ebac8564fc68c835d948497716de84e54b9eb76b49a4e892a68a8ea AS runtime
+# Eclipse Temurin 21 JRE on Alpine — Adoptium-official Java 21 LTS, faster CVE
+# rebuild cadence than Google's distroless. Decision + tradeoffs documented in
+# docs/adr/0001-runtime-base-image.md. Renovate's `dockerfile` manager tracks
+# this `FROM` line (Docker Hub library/eclipse-temurin); pinned by index digest.
+FROM eclipse-temurin:21-jre-alpine@sha256:704db3c40204a44f471191446ddd9cda5d60dab40f0e15c6507b815ed897238b AS runtime
 
-USER nonroot:nonroot
+# Alpine does not ship a nonroot user — create one at the distroless-compatible
+# UID/GID 65532 so the K8s posture (PodSecurity restricted, uid >= 10000) and
+# any future PSA / OPA-Gatekeeper rule keep working without manifest changes.
+RUN addgroup -g 65532 -S nonroot \
+ && adduser  -u 65532 -S nonroot -G nonroot -h /home/nonroot -s /sbin/nologin
+
+USER 65532:65532
 WORKDIR /application
 
 # copy layers from build image to runtime image as nonroot user
-COPY --from=build --chown=nonroot:nonroot /tmp/target/extracted/dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/extracted/snapshot-dependencies/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/extracted/spring-boot-loader/ ./
-COPY --from=build --chown=nonroot:nonroot /tmp/target/extracted/application/ ./
+COPY --from=build --chown=65532:65532 /tmp/target/extracted/dependencies/ ./
+COPY --from=build --chown=65532:65532 /tmp/target/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=65532:65532 /tmp/target/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=65532:65532 /tmp/target/extracted/application/ ./
 
 EXPOSE 8080
 
