@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Spring Boot 4.0.6 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted ConfigMap via Spring's `configtree:` property source.
+Spring Boot 4.1.0-RC1 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted ConfigMap via Spring's `configtree:` property source.
 
 ## Build & Run Commands
 
@@ -121,7 +121,7 @@ Items surfaced by `/upgrade-analysis`; last re-run 2026-05-11.
 
 - [ ] **Post-release manifest verification (first run after next tag push)** — after the hardened `docker` job first publishes with Pattern A (`provenance: false` + `sbom: false`, single-arch `linux/amd64`), run the three checks in README §"Post-release manifest verification": (a) `docker buildx imagetools inspect` shows `linux/amd64` with zero `unknown/unknown` entries, (b) GHCR Packages UI lists the package, (c) `cosign verify` succeeds. Once verified, delete this item.
 - [ ] **Maven 4.0.0** is at RC-5 (latest: rc-5 published 2025-11-13); GA not yet released. Monitor; migrate when GA ships and plugin ecosystem signals stable 4.x support.
-- [ ] **Spring Boot 4.0.7** — when it ships, re-evaluate the hibernate-validator suppression in `dependency-check-suppressions.xml` (CVE-2025-15104); drop it if the upstream fix lands.
+- [ ] **Spring Boot 4.1.0 GA** — currently pinned to `4.1.0-RC1` (pulled from `https://repo.spring.io/milestone`); promote to GA + remove the Spring milestones repository block from `pom.xml` when GA ships.
 
 ## Skills
 
