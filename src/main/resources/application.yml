@@ -29,6 +29,13 @@ logging.level.com.test.example: "DEBUG"
 logging.level.org.hibernate.SQL: "INFO"
 logging.level.liquibase: "INFO"
 logging.level.org.quartz: "INFO"
+# Silence springdoc-openapi's "endpoint is enabled by default — disable in production" WARNs
+# (org.springdoc.core.events.SpringDocAppInitializer:83 — fires once per startup for /v3/api-docs
+# and once for /swagger-ui.html). This reference service intentionally exposes both endpoints in
+# every environment — that is the documented contract (see README §API). The upstream
+# recommendation to disable in production does not apply; silence the logger rather than ship a
+# false-positive WARN on every startup.
+logging.level.org.springdoc.core.events.SpringDocAppInitializer: "ERROR"
 #logging.file.path: "."
 #logging.file.name: "application.log"
 #logging.pattern.file: "%d{yyyy-MM-dd E HH:mm:ss.SSS} %-5p ${PID} [%8.15t] %c{1}:%L : %m%n"
