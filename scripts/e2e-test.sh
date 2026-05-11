@@ -173,6 +173,45 @@ assert_security_headers() {
   assert_header "${path}" X-Frame-Options               DENY
 }
 
+assert_openapi_paths() {
+  # The OpenAPI JSON at /v3/api-docs must declare both controller paths under
+  # `paths` AND both must have a `get` operation. A substring check would pass
+  # if the path were merely mentioned in a description or example — the structural
+  # check via jq ties the assertion to the real OpenAPI contract.
+  local body
+  body=$(curl -sSf --max-time 10 "${BASE_URL}/v3/api-docs")
+  local has_hello has_bye get_hello get_bye
+  has_hello=$(echo "${body}" | jq -r '.paths | has("/v1/hello")')
+  has_bye=$(echo  "${body}" | jq -r '.paths | has("/v1/bye")')
+  get_hello=$(echo "${body}" | jq -r '.paths."/v1/hello" | has("get")')
+  get_bye=$(echo  "${body}" | jq -r '.paths."/v1/bye"   | has("get")')
+  if [ "${has_hello}" = "true" ] && [ "${has_bye}" = "true" ] \
+     && [ "${get_hello}" = "true" ] && [ "${get_bye}" = "true" ]; then
+    echo "  PASS  /v3/api-docs declares GET /v1/hello and GET /v1/bye"
+  else
+    echo "  FAIL  /v3/api-docs missing path or operation: hasHello=${has_hello} hasBye=${has_bye} getHello=${get_hello} getBye=${get_bye}"
+    exit 1
+  fi
+}
+
+assert_env_on_deployment() {
+  # Confirm an env var is set on the deployed Pod spec. Catches a regression where
+  # a ConfigMap/Secret rewires the env-source but the deploy YAML drops the var
+  # entirely — Spring then falls back to defaults and the ConfigMap override silently
+  # stops applying. Uses jq because kubectl jsonpath has no filter expressions
+  # rich enough to find an env entry by name without falling back to client-side scripting.
+  local name="$1" expected="$2"
+  local actual
+  actual=$("${KUBECTL[@]}" -n "${NS}" get deploy app -o json \
+    | jq -r --arg n "${name}" '.spec.template.spec.containers[0].env[]? | select(.name==$n) | .value // ""')
+  if [ "${actual}" = "${expected}" ]; then
+    echo "  PASS  Deployment.spec env ${name}=${actual}"
+  else
+    echo "  FAIL  Deployment.spec env ${name}='${actual}' (expected '${expected}')"
+    exit 1
+  fi
+}
+
 echo "Running e2e checks..."
 assert_pod_annotation prometheus.io/scrape "true"
 assert_pod_annotation prometheus.io/path   "/actuator/prometheus"
@@ -188,9 +227,11 @@ assert_contains /actuator/health/liveness  '"status":"UP"'
 assert_contains /actuator/health/readiness '"status":"UP"'
 assert_contains /actuator/prometheus       'jvm_memory_used_bytes'
 assert_contains /actuator/prometheus       'http_server_requests_seconds_count'
-assert_contains /v3/api-docs               '/v1/hello'
+assert_openapi_paths
 assert_status   /does-not-exist-abc 404
 assert_security_headers /v1/hello
 assert_security_headers /v1/bye
+assert_security_headers /actuator/health
+assert_env_on_deployment SPRING_CONFIG_IMPORT configtree:/etc/config/
 
 echo "All e2e checks passed."
