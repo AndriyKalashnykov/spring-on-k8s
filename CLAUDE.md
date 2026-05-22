@@ -68,7 +68,7 @@ Direct Maven equivalents:
 ```bash
 mvn clean package -DskipTests               # Build
 mvn test                                     # Run all tests
-mvn clean spring-boot:run -Djava.version=21  # Run locally
+mvn clean spring-boot:run -Djava.version=21  # Run locally (the "21" mirrors Makefile's $(JDK_VERSION))
 mvn test -Dtest=ApplicationTests#testHello   # Run single test method
 ```
 
