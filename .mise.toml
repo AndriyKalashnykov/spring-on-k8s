@@ -20,6 +20,9 @@ node = "24"
 
 act = "0.2.88"
 hadolint = "2.14.0"
+# container-structure-test — Dockerfile-contract assertions on the built image
+# (USER, exposed port, entrypoint, workdir, file existence, runtime version).
+container-structure-test = "1.22.1"
 gitleaks = "8.30.1"
 trivy = "0.70.0"
 actionlint = "1.7.12"

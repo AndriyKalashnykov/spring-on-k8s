@@ -28,22 +28,30 @@ RUN java -Djarmode=tools -jar *.jar extract --layers --launcher --destination ex
 # this `FROM` line (Docker Hub library/eclipse-temurin); pinned by index digest.
 FROM eclipse-temurin:25.0.3_9-jre-alpine@sha256:c707c0d18cb9e8556380719f80d96a7529d0746fbb42143893949b98ed2f8943 AS runtime
 
-# Alpine does not ship a nonroot user — create one at the distroless-compatible
-# UID/GID 65532 so the K8s posture (PodSecurity restricted, uid >= 10000) and
-# any future PSA / OPA-Gatekeeper rule keep working without manifest changes.
-RUN addgroup -g 65532 -S nonroot \
- && adduser  -u 65532 -S nonroot -G nonroot -h /home/nonroot -s /sbin/nologin
+# Operator-tunable runtime build args. Defaults: UID/GID 65532 matches the
+# distroless `nonroot` convention (and the k8s restricted-PodSecurity
+# expectation, uid >= 10000); APP_INTERNAL_PORT mirrors the Spring Boot bind
+# port and the k8s containerPort. Override at build time with `--build-arg`.
+ARG APP_UID=65532
+ARG APP_GID=65532
+ARG APP_INTERNAL_PORT=8080
 
-USER 65532:65532
+# Alpine does not ship a nonroot user — create one at the distroless-compatible
+# UID/GID so the K8s posture (PodSecurity restricted, uid >= 10000) and any
+# future PSA / OPA-Gatekeeper rule keep working without manifest changes.
+RUN addgroup -g ${APP_GID} -S nonroot \
+ && adduser  -u ${APP_UID} -S nonroot -G nonroot -h /home/nonroot -s /sbin/nologin
+
+USER ${APP_UID}:${APP_GID}
 WORKDIR /application
 
 # copy layers from build image to runtime image as nonroot user
-COPY --from=build --chown=65532:65532 /tmp/target/extracted/dependencies/ ./
-COPY --from=build --chown=65532:65532 /tmp/target/extracted/snapshot-dependencies/ ./
-COPY --from=build --chown=65532:65532 /tmp/target/extracted/spring-boot-loader/ ./
-COPY --from=build --chown=65532:65532 /tmp/target/extracted/application/ ./
+COPY --from=build --chown=${APP_UID}:${APP_GID} /tmp/target/extracted/dependencies/ ./
+COPY --from=build --chown=${APP_UID}:${APP_GID} /tmp/target/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=${APP_UID}:${APP_GID} /tmp/target/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=${APP_UID}:${APP_GID} /tmp/target/extracted/application/ ./
 
-EXPOSE 8080
+EXPOSE ${APP_INTERNAL_PORT}
 
 ENV _JAVA_OPTIONS="-XX:MinRAMPercentage=80.0 -XX:MaxRAMPercentage=90.0 \
 -Djava.security.egd=file:/dev/./urandom \

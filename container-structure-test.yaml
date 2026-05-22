@@ -1,0 +1,52 @@
+# Dockerfile-contract assertions for the spring-on-k8s runtime image.
+# Run via `make docker-structure-test` and the CI `docker` job against the
+# locally-built `spring-on-k8s:ci-scan` image. Asserts what the image IS —
+# user, port, entrypoint, workdir, and that the Spring Boot loader plus a real
+# Java 25 runtime are actually present. Orthogonal to `make docker-smoke-test`,
+# which asserts runtime behaviour, and to the Trivy image scan, which asserts
+# the absence of CVEs.
+#
+# Schema 2.0.0 — see https://github.com/GoogleContainerTools/container-structure-test
+schemaVersion: 2.0.0
+
+metadataTest:
+  # USER 65532:65532 — non-root, matches the distroless convention and the
+  # k8s restricted-PodSecurity expectation (uid >= 10000). A reset to root
+  # here would crash the pod under `runAsNonRoot: true`.
+  user: "65532:65532"
+  # WORKDIR /application
+  workdir: "/application"
+  # EXPOSE ${APP_INTERNAL_PORT} (default 8080) — mirrors the Spring Boot bind
+  # port and the k8s containerPort.
+  exposedPorts:
+    - "8080"
+  # ENTRYPOINT — the Spring Boot 3.2+ layered-jar launcher.
+  entrypoint:
+    - "java"
+    - "org.springframework.boot.loader.launch.JarLauncher"
+
+fileExistenceTests:
+  # The ENTRYPOINT class itself — proves the spring-boot-loader layer was
+  # COPYed in. Its absence is the classic "image built FROM the build stage /
+  # missing COPY" defect that a smoke test only surfaces as a boot failure.
+  - name: "Spring Boot loader present"
+    path: "/application/org/springframework/boot/loader/launch/JarLauncher.class"
+    shouldExist: true
+
+commandTests:
+  # Proves the runtime layer is a real Java 25 JRE — not an empty image and
+  # not the Java 21 build stage.
+  - name: "Java 25 runtime"
+    command: "java"
+    args: ["-version"]
+    expectedError:
+      - 'version "25\.'
+  # Proves the JVM heap sizing + active Spring profile contract from the
+  # Dockerfile ENV survived. Regex tokens pin the load-bearing flags without
+  # making the test brittle to flag reordering.
+  - name: "JVM options configured"
+    command: "printenv"
+    args: ["_JAVA_OPTIONS"]
+    expectedOutput:
+      - '-XX:MaxRAMPercentage=90\.0'
+      - '-Dspring\.profiles\.active=default'

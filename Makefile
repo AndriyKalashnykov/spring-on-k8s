@@ -321,6 +321,15 @@ docker-smoke-test: deps
 	docker rm -f $(SMOKE_CONTAINER) >/dev/null 2>&1 || true; \
 	exit 1
 
+#docker-structure-test: @ Run container-structure-test (Dockerfile-contract assertions) against the spring-on-k8s:ci-scan image
+# Asserts the image's USER, exposed port, entrypoint, workdir, the presence of
+# the Spring Boot loader class, and a real Java 25 runtime — orthogonal to the
+# behavioural `docker-smoke-test` and the Trivy CVE scan. Mirrors
+# `docker-smoke-test`: assumes $(SMOKE_IMAGE) is already built (CI Gate 1 builds
+# it; locally, build it first with `docker buildx build --load -t $(SMOKE_IMAGE) .`).
+docker-structure-test: deps
+	@container-structure-test test --image $(SMOKE_IMAGE) --config container-structure-test.yaml
+
 #dast-scan: @ Run OWASP ZAP baseline against http://localhost:8080 (assumes container is running)
 dast-scan: deps
 	@mkdir -p zap-output && chmod 777 zap-output
@@ -524,6 +533,6 @@ renovate-validate: renovate-bootstrap
 	clean build test integration-test run format format-check lint cve-check vulncheck \
 	secrets secrets-history trivy-fs trivy-config lint-ci mermaid-lint \
 	static-check upgrade upgrade-apply image-build image-run image-stop image-push \
-	docker-smoke-test dast dast-scan \
+	docker-smoke-test docker-structure-test dast dast-scan \
 	kind-create kind-setup kind-load kind-deploy kind-undeploy kind-destroy \
 	kind-up kind-down e2e ci ci-run ci-run-tag release renovate-bootstrap renovate-validate
