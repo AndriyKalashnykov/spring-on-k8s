@@ -12,7 +12,7 @@ C4Context
   title System Context — spring-on-k8s
 
   Person(user, "End User", "Consumes the REST API over HTTPS")
-  System(sys, "spring-on-k8s", "Spring Boot 4.0 service: REST + Actuator + Swagger")
+  System(sys, "spring-on-k8s", "Spring Boot 4.1 service: REST + Actuator + Swagger")
   System_Ext(prom, "Prometheus", "Scrapes /actuator/prometheus")
   System_Ext(k8s, "Kubernetes", "Runs the pod; probes health endpoints")
 
@@ -305,7 +305,7 @@ Run `make help` to see all available targets.
 | `make deps-gjf` | Download google-java-format JAR (not managed by mise — JAR download only) |
 | `make upgrade` | Show available Maven dependency updates (dry-run) |
 | `make upgrade-apply` | Apply latest Maven releases (prompts, mutates `pom.xml`) |
-| `make release VERSION=x.y.z` | Create a semver release tag |
+| `make release VERSION=1.2.3` | Create a semver release tag |
 | `make renovate-bootstrap` | Install Node via mise so `renovate-validate` can run |
 | `make renovate-validate` | Validate Renovate configuration locally |
 
