@@ -20,6 +20,13 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
+        <!-- CVE override: spring-boot-starter-parent 4.1.0-RC1 manages Tomcat 11.0.21,
+             which carries CVE-2026-41293 / -43512 / -43515 (CRITICAL) and
+             CVE-2026-41284 / -42498 / -43513 (HIGH). Pin tomcat-embed-* to 11.0.22
+             (the fixed release). Remove this override once the Spring Boot BOM
+             advances past 11.0.21 — tracked in CLAUDE.md "Upgrade Backlog". -->
+        <tomcat.version>11.0.22</tomcat.version>
+
         <image.publish>false</image.publish>
         <image.name>andriykalashnykov/spring-on-k8s:latest</image.name>
         <image.builder>paketobuildpacks/builder-jammy-base:0.4.563</image.builder>

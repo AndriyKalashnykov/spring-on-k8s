@@ -1,6 +1,6 @@
 # ADR-0001: Runtime base image — Eclipse Temurin 21 JRE on Alpine
 
-- **Status:** Proposed (pilot on branch `chore/pilot-temurin-jre-alpine`)
+- **Status:** Accepted — landed 2026-05-11 (pilot branch `chore/pilot-temurin-jre-alpine` merged); runtime subsequently bumped to Java 25 LTS — see Addendum
 - **Date:** 2026-05-11
 - **Deciders:** Andriy Kalashnykov
 - **Supersedes:** prior implicit choice of `gcr.io/distroless/java21-debian13:nonroot`
@@ -175,3 +175,17 @@ Local pilot results (2026-05-11):
 - Eclipse Temurin: <https://hub.docker.com/_/eclipse-temurin>
 - Adoptium containers source: <https://github.com/adoptium/containers>
 - Chainguard JRE (free tier — current-release Java): <https://images.chainguard.dev/directory/image/jre/overview>
+
+## Addendum (2026-05): runtime bumped to Java 21 → 25 LTS
+
+Shortly after this ADR landed, the runtime base image was bumped from
+`eclipse-temurin:21-jre-alpine` to `eclipse-temurin:25-jre-alpine`
+(digest-pinned `25.0.3_9-jre-alpine@sha256:c707…`) via a routine Renovate
+`dockerfile`-manager update. The decision recorded above — distroless →
+Adoptium Temurin JRE on Alpine — is unchanged; only the Java LTS line moved
+forward. Java 25 is the current LTS; the build target stays Java 21
+(`pom.xml` `<java.version>21</java.version>`, `.mise.toml` `temurin-21`,
+`maven:3.9.x-eclipse-temurin-21` build stage), and Java 21 bytecode runs
+forward on the Java 25 runtime — verified by the CI `docker` job's smoke
+test on every push. The ADR title and Decision/Options body retain "21" as
+the historically accurate record of the decision as made on 2026-05-11.

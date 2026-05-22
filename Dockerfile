@@ -22,7 +22,7 @@ WORKDIR /tmp/target
 RUN java -Djarmode=tools -jar *.jar extract --layers --launcher --destination extracted
 
 # runtime image
-# Eclipse Temurin 21 JRE on Alpine — Adoptium-official Java 21 LTS, faster CVE
+# Eclipse Temurin 25 JRE on Alpine — Adoptium-official Java 25 LTS, faster CVE
 # rebuild cadence than Google's distroless. Decision + tradeoffs documented in
 # docs/adr/0001-runtime-base-image.md. Renovate's `dockerfile` manager tracks
 # this `FROM` line (Docker Hub library/eclipse-temurin); pinned by index digest.
