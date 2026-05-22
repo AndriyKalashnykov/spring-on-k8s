@@ -212,11 +212,29 @@ assert_env_on_deployment() {
   fi
 }
 
+assert_deploy_jsonpath() {
+  # Assert a field of the deployed Deployment object. $1 = jsonpath, $2 = expected,
+  # $3 = human label. These mirror k8s/deployment.yml and catch manifest drift — a
+  # future change to the replica count, memory limit, or image pull policy that
+  # would silently alter the deployed footprint without failing any HTTP check.
+  local jp="$1" expected="$2" label="$3" actual
+  actual=$("${KUBECTL[@]}" -n "${NS}" get deploy "${SVC}" -o jsonpath="${jp}" 2>/dev/null || true)
+  if [ "${actual}" = "${expected}" ]; then
+    echo "  PASS  ${label}=${actual}"
+  else
+    echo "  FAIL  ${label}=${actual} (expected ${expected})"
+    exit 1
+  fi
+}
+
 echo "Running e2e checks..."
 assert_pod_annotation prometheus.io/scrape "true"
 assert_pod_annotation prometheus.io/path   "/actuator/prometheus"
 assert_pod_annotation prometheus.io/port   "8080"
 assert_svc_port_mapping
+assert_deploy_jsonpath '{.spec.replicas}'                                            1            'Deployment replicas'
+assert_deploy_jsonpath '{.spec.template.spec.containers[0].imagePullPolicy}'          IfNotPresent 'container imagePullPolicy'
+assert_deploy_jsonpath '{.spec.template.spec.containers[0].resources.limits.memory}'  1Gi          'container memory limit'
 assert_probe_path liveness  /actuator/health/liveness
 assert_probe_path readiness /actuator/health/readiness
 assert_pod_ready
@@ -228,6 +246,7 @@ assert_contains /actuator/health/readiness '"status":"UP"'
 assert_contains /actuator/prometheus       'jvm_memory_used_bytes'
 assert_contains /actuator/prometheus       'http_server_requests_seconds_count'
 assert_openapi_paths
+assert_status   /swagger-ui.html    302
 assert_status   /does-not-exist-abc 404
 assert_security_headers /v1/hello
 assert_security_headers /v1/bye
