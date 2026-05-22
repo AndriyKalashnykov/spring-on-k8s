@@ -273,6 +273,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      # Provision .mise.toml tools (container-structure-test) and, critically,
+      # authenticate mise's GitHub API calls with the job token — an
+      # unauthenticated `mise install` (triggered by `make ... -> deps`) hits
+      # GitHub's 60-req/hr anonymous limit and fails the job intermittently.
+      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
+        with:
+          install: true
+          cache: true
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
 
