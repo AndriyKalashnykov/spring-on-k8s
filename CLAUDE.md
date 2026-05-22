@@ -123,6 +123,7 @@ Items surfaced by `/upgrade-analysis`; last re-run 2026-05-11.
 
 - [ ] **Maven 4.0.0** is still pre-GA — latest is `4.0.0-rc-5` (published 2026-04-29); GA has no committed date ("will be there when it's there"). Monitor; migrate when GA ships and the plugin ecosystem signals stable 4.x support. Last checked 2026-05-22.
 - [ ] **Spring Boot 4.1.0 GA** — currently pinned to `4.1.0-RC1` (pulled from `https://repo.spring.io/milestone`); promote to GA + remove the Spring milestones repository block from `pom.xml` when GA ships.
+- [ ] **Tomcat CVE override** — `pom.xml` pins `<tomcat.version>11.0.22</tomcat.version>` because the `4.1.0-RC1` BOM manages the CVE-affected 11.0.21. Remove the override once the Spring Boot BOM advances past 11.0.21 (likely with 4.1.0 GA); re-check `make trivy-fs` after removal.
 
 ## Skills
 
