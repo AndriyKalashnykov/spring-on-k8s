@@ -18,7 +18,7 @@ maven = "3.9.15"
 # Node reads from .nvmrc natively.
 node = "24"
 
-act = "0.2.88"
+act = "0.2.89"
 hadolint = "2.14.0"
 # container-structure-test — Dockerfile-contract assertions on the built image
 # (USER, exposed port, entrypoint, workdir, file existence, runtime version).
