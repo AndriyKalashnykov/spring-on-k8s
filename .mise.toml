@@ -31,5 +31,5 @@ kind = "0.32.0"
 kubectl = "1.36.1"
 
 # Carvel — production K8s deploy path (`ytt -f ./k8s | kapp deploy ...`).
-ytt = "0.55.0"
+ytt = "0.55.1"
 kapp = "0.65.2"
