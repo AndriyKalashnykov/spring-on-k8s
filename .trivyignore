@@ -55,12 +55,16 @@ GHSA-2m67-wjpj-xhg9
 
 # Base image OS package suppressions: NONE.
 #
-# The runtime base is eclipse-temurin:21-jre-alpine (Alpine 3.23, digest-pinned
-# in Dockerfile, tracked by Renovate). At the time of the base swap (ADR-0001,
-# 2026-05-11) Trivy reported zero HIGH/CRITICAL findings against the Alpine
-# layer. If new findings surface, prefer fixing via Renovate-driven base bump
-# over suppression; add suppressions here only when the upstream Alpine
-# package has shipped a fix that the published base image hasn't yet picked up.
+# The runtime base is eclipse-temurin:25-jre-alpine (Alpine 3.23, digest-pinned
+# in Dockerfile, tracked by Renovate). The runtime stage runs
+# `RUN apk --no-cache upgrade` so baked-in OS packages are pulled up to the
+# latest in the pinned Alpine 3.23 branch at build time — newly-disclosed CVEs
+# that Alpine has already fixed clear immediately instead of waiting on the
+# Adoptium base rebuild (see docs/adr/0001-runtime-base-image.md Addendum
+# 2026-06; the trigger was CVE-2026-45447 in openssl 3.5.6-r0 → 3.5.7-r0).
+# Prefer this real fix (and Renovate-driven base bumps) over suppression; add
+# OS-package suppressions here only for a genuinely-unfixable finding where
+# Alpine has NOT yet shipped a fixed package, with a dated rationale.
 #
 # History: the prior Google distroless base (gcr.io/distroless/java21-debian13)
 # required five standing OS-package suppressions for upstream-fixed CVEs that

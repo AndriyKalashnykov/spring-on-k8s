@@ -189,3 +189,34 @@ forward. Java 25 is the current LTS; the build target stays Java 21
 forward on the Java 25 runtime — verified by the CI `docker` job's smoke
 test on every push. The ADR title and Decision/Options body retain "21" as
 the historically accurate record of the decision as made on 2026-05-11.
+
+## Addendum (2026-06): runtime stage upgrades Alpine OS packages (`apk upgrade`)
+
+The core premise of this ADR — Alpine ships upstream CVE fixes faster than
+Google's distroless rebuild cadence — holds, but it has a floor: the
+*published, digest-pinned* `eclipse-temurin` base only picks up new Alpine
+package versions when **Adoptium rebuilds the tag**. Between rebuilds, a
+freshly-disclosed CVE against a baked-in lib still blocks the Trivy gate even
+though Alpine has already shipped the fix.
+
+This bit on 2026-06-12 (run [27440210810](https://github.com/AndriyKalashnykov/spring-on-k8s/actions/runs/27440210810)):
+**CVE-2026-45447** (OpenSSL heap use-after-free in `PKCS7_verify()`, disclosed
+2026-06-09, CVSS 9.8) against `openssl`/`libcrypto3`/`libssl3` `3.5.6-r0`.
+Alpine 3.23 main published the fix (`3.5.7-r0`, in the secdb secfixes for this
+CVE) within days, but the pinned base `eclipse-temurin:25.0.3_9-jre-alpine`
+was built 2026-04-30 — ~40 days before the advisory — and Adoptium had not
+rebuilt the tag, so the layer still carried `3.5.6-r0`.
+
+**Decision:** add `RUN apk --no-cache upgrade` to the runtime stage (as root,
+before the `USER` switch). This pulls every baked-in OS package up to the
+latest in the pinned Alpine 3.23 branch at *our* build time, so newly-fixed
+CVEs clear immediately instead of waiting on the Adoptium rebuild. It is a
+**real fix** — the vulnerable package is gone from the image — not a
+`.trivyignore` waiver, and it self-heals the next base-lag CVE without a code
+change. This is the canonical "upgrade base packages before the scan" hardening
+step (the Alpine analogue of `apt-get upgrade`). The base `FROM` stays
+digest-pinned (Renovate-tracked) for build reproducibility of everything else;
+`apk upgrade` reintroduces a small, deliberate amount of package-version
+floatiness in exchange for not shipping known-fixed CVEs. Verified locally:
+`trivy image --severity HIGH,CRITICAL --ignore-unfixed` on the rebuilt image
+reports the Alpine layer clean (0 findings); smoke + structure tests unchanged.

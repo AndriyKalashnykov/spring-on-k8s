@@ -36,6 +36,16 @@ ARG APP_UID=65532
 ARG APP_GID=65532
 ARG APP_INTERNAL_PORT=8080
 
+# Patch the base image's OS packages to the latest in the pinned Alpine 3.23
+# branch before the image is scanned. The digest-pinned eclipse-temurin base
+# lags Alpine security updates between Adoptium rebuilds, so freshly-disclosed
+# CVEs against baked-in libs (e.g. CVE-2026-45447 in openssl/libcrypto3/libssl3,
+# fixed in 3.5.7-r0) ship until the next base rebuild. `apk upgrade` pulls the
+# fixed packages immediately and self-heals future base-lag CVEs — a real fix,
+# not a Trivy waiver. `--no-cache` leaves no apk index behind. Runs as root,
+# before the USER switch. See docs/adr/0001-runtime-base-image.md (Addendum).
+RUN apk --no-cache upgrade
+
 # Alpine does not ship a nonroot user — create one at the distroless-compatible
 # UID/GID so the K8s posture (PodSecurity restricted, uid >= 10000) and any
 # future PSA / OPA-Gatekeeper rule keep working without manifest changes.
