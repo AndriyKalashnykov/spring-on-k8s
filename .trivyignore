@@ -42,16 +42,16 @@ KSV110    # should set metadata.namespace to non-default
 DS-0026
 DS0026
 
-# Upstream Tomcat CVEs bundled via Spring Boot 4.0.5 (tomcat-embed-core 11.0.20).
-# Fixed in Tomcat 11.0.21; Renovate tracks spring-boot-starter-parent and will
-# PR the bump. Suppressing here to keep the signal on NEW findings.
-CVE-2026-34483
-CVE-2026-34486
-CVE-2026-34487
-CVE-2026-34500
-
-# Upstream Jackson Core via Spring Boot — fixed in 3.1.1; Renovate will PR the bump.
-GHSA-2m67-wjpj-xhg9
+# Dependency CVE suppressions: NONE.
+#
+# Spring Boot 4.1.0 GA (pom.xml parent) manages tomcat-embed-* 11.0.22 and
+# Jackson 3.1.4 — past the fixes for the previously-suppressed upstream CVEs
+# (Tomcat CVE-2026-34483/-34486/-34487/-34500, fixed 11.0.21; Jackson
+# GHSA-2m67-wjpj-xhg9, fixed 3.1.1). Those suppressions were removed when the
+# GA bump landed (verified: `trivy fs --severity HIGH,CRITICAL` reports zero
+# findings with no ignorefile). Renovate tracks spring-boot-starter-parent; add
+# a dependency suppression here only for a newly-disclosed CVE awaiting an
+# upstream-fixed release, with a dated rationale.
 
 # Base image OS package suppressions: NONE.
 #
