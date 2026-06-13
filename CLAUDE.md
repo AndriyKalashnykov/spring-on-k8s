@@ -122,9 +122,7 @@ Local e2e path uses KinD + cloud-provider-kind: `make e2e` creates the KinD clus
 
 Items surfaced by `/upgrade-analysis`; last re-run 2026-06-13.
 
-- [ ] **Maven 4.0.0** is still pre-GA — latest is `4.0.0-rc-5` (published 2026-04-29); GA has no committed date ("will be there when it's there"). Monitor; migrate when GA ships and the plugin ecosystem signals stable 4.x support. Last checked 2026-05-22.
-- [x] **Spring Boot 4.1.0 GA** — done 2026-06-13. Version `4.1.0` GA landed via #250; the Spring milestones `<repositories>`/`<pluginRepositories>` blocks were removed from `pom.xml` (verified: a fresh-local-repo `mvn clean package` resolves every artifact — including Micrometer 1.17.0 GA and Jackson 3.1.4 — from Maven Central with the milestone repo gone).
-- [x] **Tomcat CVE override** — done 2026-06-13. Removed the `<tomcat.version>` override; Spring Boot 4.1.0 GA's BOM now manages tomcat-embed-* `11.0.22` directly (the version the override pinned), so the effective version is unchanged and `trivy fs --severity HIGH,CRITICAL` reports zero findings. The corresponding `.trivyignore` Tomcat/Jackson suppressions were removed in the same change.
+- [ ] **Maven 4.0.0** is still pre-GA — latest is `4.0.0-rc-5` (published 2026-04-29); GA has no committed date ("will be there when it's there"). Monitor; migrate when GA ships and the plugin ecosystem signals stable 4.x support. Last checked 2026-06-13.
 
 ## Skills
 

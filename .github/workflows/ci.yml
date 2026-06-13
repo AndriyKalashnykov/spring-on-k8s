@@ -234,11 +234,19 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
           restore-keys: ${{ runner.os }}-m2-
 
+      # NVD vuln DB is independent of project deps — key on the ISO week, not
+      # pom.xml. Keying on hashFiles('pom.xml') evicts the ~hundreds-of-MB DB on
+      # every dependency bump and forces a cold NVD fetch (~30 min, rate-limit
+      # prone). Weekly rotation keeps the cache warm and still refreshes the DB.
+      - name: Compute NVD cache key (ISO week)
+        id: nvdkey
+        run: echo "week=$(date -u +%Y-%V)" >> "$GITHUB_OUTPUT"
+
       - name: Cache NVD database
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
-          key: nvd-db-${{ hashFiles('pom.xml') }}
+          key: nvd-db-${{ steps.nvdkey.outputs.week }}
           restore-keys: nvd-db-
 
       - name: CVE check

@@ -32,7 +32,7 @@ ZAP_VERSION := 2.17.0
 # Bump manually whenever Renovate bumps `kind` in `.mise.toml` — the value
 # (tag@digest concatenation) is not independently Renovate-trackable per the
 # `/renovate` skill's "Not independently trackable" exception.
-KIND_NODE_IMAGE := kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f
+KIND_NODE_IMAGE := kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
 # cloud-provider-kind runs as a host-side Docker container on the `kind`
 # network; watches Services of type LoadBalancer and allocates IPs from the
 # KinD Docker subnet. Kind-team maintained (kubernetes-sigs/cloud-provider-kind),
@@ -43,10 +43,13 @@ KIND_NODE_IMAGE := kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e0
 # renovate: datasource=docker depName=registry.k8s.io/cloud-provider-kind/cloud-controller-manager
 CLOUD_PROVIDER_KIND_VERSION := v0.10.0
 
-# act runner image — pinned so `make ci-run` produces deterministic local
-# CI runs across machines.
+# act runner image — pinned to the DATED tag (not the floating `act-24.04`,
+# which catthehacker republishes weekly) so `make ci-run` produces deterministic
+# local CI runs across machines. Renovate rolls the date suffix forward
+# (versioning=loose). The `-P` mapping key MUST be `ubuntu-latest` to match the
+# workflows' `runs-on: ubuntu-latest` (see ci-run / ci-run-tag below).
 # renovate: datasource=docker depName=catthehacker/ubuntu versioning=loose
-ACT_UBUNTU_VERSION := act-24.04
+ACT_UBUNTU_VERSION := act-24.04-20260601
 
 # === Docker image coordinates ===
 APP_NAME        := spring-on-k8s
@@ -407,7 +410,7 @@ ci-run: deps
 			--pull=false \
 			--var ACT=true \
 			--eventpath /tmp/act-push-event.json \
-			-P ubuntu-24.04=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
+			-P ubuntu-latest=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
 			--artifact-server-port "$$ACT_PORT" \
 			--artifact-server-path "$$ARTIFACT_PATH" \
 			"$${secret_args[@]}" || exit 1; \
@@ -428,7 +431,7 @@ ci-run-tag: deps
 		--container-architecture linux/amd64 \
 		--pull=false \
 		--var ACT=true \
-		-P ubuntu-24.04=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
+		-P ubuntu-latest=catthehacker/ubuntu:$(ACT_UBUNTU_VERSION) \
 		--artifact-server-port "$$ACT_PORT" \
 		--artifact-server-path "$$ARTIFACT_PATH" || true
 	@echo "Note: cosign signing fails under act (no OIDC) — expected. dast job is skipped under act."

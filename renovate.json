@@ -83,6 +83,19 @@
       "groupName": "Docker dependencies"
     },
     {
+      "description": "Don't pin digests on the Makefile custom.regex docker pins (MERMAID_CLI_VERSION, ZAP_VERSION, etc.). `config:best-practices` enables `docker:pinDigests`, which generates a pinDigest update for these tag-only pins; that pinDigest collides with the version bump on the shared `renovate/docker-dependencies` branch and Renovate's collision-dedup silently DROPS the version bump (e.g. minlag/mermaid-cli froze at 11.14.0 while 11.15.0 was suppressed). These are bare `IMAGE:TAG` literals consumed by `docker run`/`docker pull`; a tag bump is the intended update, not a digest pin.",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchFileNames": [
+        "Makefile"
+      ],
+      "matchDatasources": [
+        "docker"
+      ],
+      "pinDigests": false
+    },
+    {
       "description": "Don't churn Java patch releases — `.mise.toml` uses the `temurin-21` alias and mise auto-resolves to the latest LTS patch. Pinning to a specific patch (e.g., 21.0.11+10.0.LTS) defeats the alias and produces a Renovate PR for every patch.",
       "matchManagers": [
         "mise"
@@ -93,14 +106,9 @@
       "enabled": false
     },
     {
-      "description": "Carvel tools — wait 3 days before bumping. The mise `aqua:carvel-dev/*` backend resolves binaries from the GitHub Release page; upstream Carvel pushes the git tag `vX.Y.Z` before its release pipeline publishes the linux-amd64 / darwin-arm64 binary artifacts. Renovate's github-tags datasource sees the tag immediately and opens a PR; `mise install` then 404s on the missing artifacts. Source: spring-on-k8s PR #228 closed 2026-05-11 — kapp 0.65.2 → 0.66.0 PR opened minutes after upstream tag push; CI failed because the v0.66.0 release artifacts hadn't been published yet. Three days is enough buffer for the typical Carvel release pipeline to complete.",
+      "description": "Manager-wide 3-day buffer on every mise-managed tool (NOT a package allowlist). The mise backends resolve binaries from GitHub Releases; upstream projects push the git tag `vX.Y.Z` before their release pipeline publishes the linux-amd64 / darwin-arm64 artifacts. Renovate's github-tags/releases datasource sees the tag immediately and opens a PR; `mise install` then 404s on the missing artifacts. The original Carvel-only allowlist (ytt/kapp) protected only known offenders — the next tag-before-publish tool (maven, kind, trivy, …) would 404 first. A manager-wide buffer covers all of them. Source: spring-on-k8s PR #228 closed 2026-05-11 — kapp 0.65.2 → 0.66.0 PR opened minutes after upstream tag push; `mise install` failed because the v0.66.0 artifacts had not yet published. Three days is enough buffer for a typical release pipeline. (Java is exempt above via the `temurin-21` alias rule.)",
       "matchManagers": [
         "mise"
-      ],
-      "matchPackageNames": [
-        "ytt",
-        "kapp",
-        "/^carvel-dev\\//"
       ],
       "minimumReleaseAge": "3 days"
     }
