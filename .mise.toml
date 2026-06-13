@@ -28,7 +28,7 @@ trivy = "0.71.0"
 actionlint = "1.7.12"
 shellcheck = "0.11.0"
 kind = "0.32.0"
-kubectl = "1.36.1"
+kubectl = "1.36.2"
 
 # Carvel — production K8s deploy path (`ytt -f ./k8s | kapp deploy ...`).
 ytt = "0.55.1"
