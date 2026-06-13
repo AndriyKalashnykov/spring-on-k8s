@@ -27,7 +27,7 @@ spec:
       containers:
         - name: app
           # Make sure to update this property, and use your own Docker image.
-          image: ghcr.io/andriykalashnykov/spring-on-k8s:latest
+          image: ghcr.io/andriykalashnykov/spring-on-k8s:latest@sha256:e5acfd3c0a2ae773bbc730ccf98ea6774e342301409aa6d1f1dec42a9c323c39
           imagePullPolicy: IfNotPresent
           resources:
             limits:
