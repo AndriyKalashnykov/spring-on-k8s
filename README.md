@@ -34,10 +34,10 @@ C4Context
 | Framework | Spring Boot 4.1.0 | Reference target; built-in Actuator covers probes, metrics, and info |
 | API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 | OpenAPI generated from controller annotations — no separate spec to drift |
 | Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry | Spring Boot default; zero-config Prometheus scrape endpoint |
-| Build | Maven 3.9.15 | Mature Spring Boot tooling; `pom.xml` plays well with Renovate |
+| Build | Maven 3.9.16 | Mature Spring Boot tooling; `pom.xml` plays well with Renovate |
 | Container | Multi-stage Dockerfile, `eclipse-temurin:25-jre-alpine` runtime, non-root user (UID/GID 65532) | Adoptium-official Java 25 LTS on Alpine 3.23 — faster CVE turnaround than Google's distroless (rationale and tradeoffs in [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md)); nonroot UID enables K8s restricted pod security |
 | Orchestration | Kubernetes, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) | Carvel is GitOps-friendly without the Helm template-hell; `ytt` overlays beat string substitution |
-| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.35.0`) | KinD is what upstream K8s uses for testing; cloud-provider-kind allocates LB IPs without MetalLB's nftables fragility |
+| Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.36.1`) | KinD is what upstream K8s uses for testing; cloud-provider-kind allocates LB IPs without MetalLB's nftables fragility |
 | CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) | Native to GitHub; SHA-pinned actions; one `ci-pass` aggregator gates the whole pipeline |
 | Format | [google-java-format](https://github.com/google/google-java-format) | Opinionated, deterministic; pairs cleanly with strict `google_checks.xml` Checkstyle (zero violations after format) |
 | Static analysis | Checkstyle (Java), hadolint (Dockerfile), actionlint (workflows) | Each catches a different surface; mermaid-cli on top validates README diagrams |
@@ -65,7 +65,7 @@ make run           # start at http://localhost:8080
 | [Git](https://git-scm.com/) | latest | **system** | Version control |
 | [mise](https://mise.jdx.dev/) | latest | auto-installed by `make deps` | Manages every tool pinned in `.mise.toml` |
 | Java (Temurin) | 21 | mise | Build (compiles for Java 21); the published runtime image uses Java 25 LTS — see Tech Stack |
-| Maven | 3.9.15 | mise | Dependency management |
+| Maven | 3.9.16 | mise | Dependency management |
 | Node | 24 | mise | Renovate validation (`renovate-validate`) |
 | kubectl, kind | pinned in `.mise.toml` | mise | Local K8s cluster for `make e2e` |
 | act, hadolint, gitleaks, trivy, actionlint, shellcheck | pinned in `.mise.toml` | mise | Workflow-local CI, linters, security scanners |
@@ -150,7 +150,7 @@ Sources: diagrams are inline Mermaid in this README — no build step; GitHub re
 
 ## Build & Package
 
-A multi-stage [Dockerfile](./Dockerfile) builds an `eclipse-temurin:25-jre-alpine` runtime image (Java 25 LTS, Alpine 3.23) with a non-root user (UID/GID 65532) and Spring Boot JAR layering. The build stage uses `maven:3.9.15-eclipse-temurin-21` so the artifact compiles for Java 21 LTS bytecode and runs forward on the Java 25 LTS JRE. See [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md) for the base-image decision (distroless → Alpine, 2026-05-11).
+A multi-stage [Dockerfile](./Dockerfile) builds an `eclipse-temurin:25-jre-alpine` runtime image (Java 25 LTS, Alpine 3.23) with a non-root user (UID/GID 65532) and Spring Boot JAR layering. The build stage uses `maven:3.9.16-eclipse-temurin-21` so the artifact compiles for Java 21 LTS bytecode and runs forward on the Java 25 LTS JRE. See [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md) for the base-image decision (distroless → Alpine, 2026-05-11).
 
 ```bash
 make image-build                                         # build
