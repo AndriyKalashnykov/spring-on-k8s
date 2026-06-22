@@ -36,6 +36,16 @@ ARG APP_UID=65532
 ARG APP_GID=65532
 ARG APP_INTERNAL_PORT=8080
 
+# Cache-busting arg for the OS-package upgrade layer below. Its cache key is
+# otherwise the instruction text + the pinned base digest — neither changes — so
+# `cache-from: type=gha` reuses a STALE layer indefinitely and freezes OS
+# packages at first-build state. Freshly-disclosed CVEs then never clear until
+# the base digest bumps (e.g. CVE-2026-45186 in expat, fixed 2.8.1-r0, shipped
+# 2.7.5-r0 from a cached layer). CI passes a rotating value (the run id) so this
+# layer rebuilds every run and the upgrade reflects the latest Alpine 3.23
+# packages; `make image-build` passes a daily date. Default 0 (local cache OK).
+ARG APK_UPGRADE_BUST=0
+
 # Patch the base image's OS packages to the latest in the pinned Alpine 3.23
 # branch before the image is scanned. The digest-pinned eclipse-temurin base
 # lags Alpine security updates between Adoptium rebuilds, so freshly-disclosed
@@ -44,7 +54,8 @@ ARG APP_INTERNAL_PORT=8080
 # fixed packages immediately and self-heals future base-lag CVEs — a real fix,
 # not a Trivy waiver. `--no-cache` leaves no apk index behind. Runs as root,
 # before the USER switch. See docs/adr/0001-runtime-base-image.md (Addendum).
-RUN apk --no-cache upgrade
+RUN echo "apk-upgrade-bust=${APK_UPGRADE_BUST}" \
+ && apk --no-cache upgrade
 
 # Alpine does not ship a nonroot user — create one at the distroless-compatible
 # UID/GID so the K8s posture (PodSecurity restricted, uid >= 10000) and any

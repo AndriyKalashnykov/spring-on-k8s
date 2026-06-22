@@ -58,6 +58,13 @@ DOCKER_IMAGE    := $(DOCKER_REGISTRY)/$(APP_NAME)
 CURRENTTAG      := $(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)
 DOCKER_TAG      := $(CURRENTTAG)
 
+# Cache-busting value for the Dockerfile's `RUN apk upgrade` layer (see
+# Dockerfile ARG APK_UPGRADE_BUST). A daily date makes local image builds pull
+# the latest Alpine 3.23 OS packages at least once per day instead of reusing a
+# stale cached layer; CI passes its run id so every CI build is fresh. Override
+# to force a rebuild: `make image-build APK_UPGRADE_BUST=$(date +%s)`.
+APK_UPGRADE_BUST ?= $(shell date -u +%Y%m%d)
+
 # KinD cluster name follows the project APP_NAME so multiple projects can coexist
 # on one laptop without collision.
 KIND_CLUSTER_NAME := $(APP_NAME)
@@ -284,7 +291,7 @@ upgrade-apply: deps
 
 #image-build: @ Build Docker image (see DOCKER_IMAGE / DOCKER_TAG)
 image-build: build
-	@docker buildx build --load -t $(DOCKER_IMAGE):$(DOCKER_TAG) --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=$(JDK_VERSION) .
+	@docker buildx build --load -t $(DOCKER_IMAGE):$(DOCKER_TAG) --build-arg JDK_VENDOR=eclipse-temurin --build-arg JDK_VERSION=$(JDK_VERSION) --build-arg APK_UPGRADE_BUST=$(APK_UPGRADE_BUST) .
 
 #docker-smoke-test: @ Boot the locally-built image and verify /actuator/health/readiness reports UP within 60s (leaves container running)
 # Shared by the CI `docker` and `dast` jobs. The caller is responsible for the
@@ -332,6 +339,15 @@ docker-smoke-test: deps
 # it; locally, build it first with `docker buildx build --load -t $(SMOKE_IMAGE) .`).
 docker-structure-test: deps
 	@container-structure-test test --image $(SMOKE_IMAGE) --config container-structure-test.yaml
+
+#image-scan: @ Trivy CVE/secret/misconfig scan of the built image (mirrors CI docker Gate 2)
+# Reproduces the CI `docker` job's blocking Trivy image scan locally — the same
+# flags (vuln,secret,misconfig; HIGH,CRITICAL; --ignore-unfixed; .trivyignore).
+# This gate is image-only (the `static-check` trivy-fs scans the source tree, not
+# the built image), so a base-image OS-package CVE is only catchable here. Assumes
+# $(SMOKE_IMAGE) is already built (`make image-build` or CI Gate 1 builds it).
+image-scan: deps
+	@trivy image --scanners vuln,secret,misconfig --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed --ignorefile .trivyignore $(SMOKE_IMAGE)
 
 #dast-scan: @ Run OWASP ZAP baseline against http://localhost:8080 (assumes container is running)
 dast-scan: deps
@@ -536,6 +552,6 @@ renovate-validate: renovate-bootstrap
 	clean build test integration-test run format format-check lint cve-check vulncheck \
 	secrets secrets-history trivy-fs trivy-config lint-ci mermaid-lint \
 	static-check upgrade upgrade-apply image-build image-run image-stop image-push \
-	docker-smoke-test docker-structure-test dast dast-scan \
+	docker-smoke-test docker-structure-test image-scan dast dast-scan \
 	kind-create kind-setup kind-load kind-deploy kind-undeploy kind-destroy \
 	kind-up kind-down e2e ci ci-run ci-run-tag release renovate-bootstrap renovate-validate

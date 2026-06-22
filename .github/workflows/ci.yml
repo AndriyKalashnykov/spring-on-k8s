@@ -316,6 +316,7 @@ jobs:
           build-args: |
             JDK_VENDOR=eclipse-temurin
             JDK_VERSION=21
+            APK_UPGRADE_BUST=${{ github.run_id }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -412,6 +413,7 @@ jobs:
           build-args: |
             JDK_VENDOR=eclipse-temurin
             JDK_VERSION=21
+            APK_UPGRADE_BUST=${{ github.run_id }}
           # Pattern A default: clean image index so GHCR "OS / Arch" tab
           # renders. Cosign keyless signing (below) covers supply-chain
           # verification without buildkit in-manifest attestations.
