@@ -41,7 +41,7 @@ KIND_NODE_IMAGE := kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e5
 # to registry.k8s.io (a github-release without a corresponding image push
 # would be unpullable).
 # renovate: datasource=docker depName=registry.k8s.io/cloud-provider-kind/cloud-controller-manager
-CLOUD_PROVIDER_KIND_VERSION := v0.10.0
+CLOUD_PROVIDER_KIND_VERSION := v0.11.0
 
 # act runner image — pinned to the DATED tag (not the floating `act-24.04`,
 # which catthehacker republishes weekly) so `make ci-run` produces deterministic
