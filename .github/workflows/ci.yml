@@ -106,7 +106,7 @@ jobs:
           cache: true
 
       - name: Cache Maven repository
-        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
@@ -130,7 +130,7 @@ jobs:
           cache: true
 
       - name: Cache Maven repository
-        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
@@ -154,7 +154,7 @@ jobs:
           cache: true
 
       - name: Cache Maven repository
-        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
@@ -178,7 +178,7 @@ jobs:
           cache: true
 
       - name: Cache Maven repository
-        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
@@ -202,7 +202,7 @@ jobs:
           cache: true
 
       - name: Cache Maven repository
-        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
@@ -228,7 +228,7 @@ jobs:
           cache: true
 
       - name: Cache Maven repository
-        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
@@ -243,7 +243,7 @@ jobs:
         run: echo "week=$(date -u +%Y-%V)" >> "$GITHUB_OUTPUT"
 
       - name: Cache NVD database
-        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: nvd-db-${{ steps.nvdkey.outputs.week }}
@@ -354,7 +354,7 @@ jobs:
       - name: Cache ZAP image
         if: vars.ACT != 'true'
         id: cache-zap
-        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: /tmp/zap-image.tar
           key: zap-image-${{ env.ZAP_VERSION }}-${{ runner.os }}
