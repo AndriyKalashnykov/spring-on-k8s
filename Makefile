@@ -49,7 +49,7 @@ CLOUD_PROVIDER_KIND_VERSION := v0.11.1
 # (versioning=loose). The `-P` mapping key MUST be `ubuntu-latest` to match the
 # workflows' `runs-on: ubuntu-latest` (see ci-run / ci-run-tag below).
 # renovate: datasource=docker depName=catthehacker/ubuntu versioning=loose
-ACT_UBUNTU_VERSION := act-24.04-20260601
+ACT_UBUNTU_VERSION := act-24.04-20260629
 
 # === Docker image coordinates ===
 APP_NAME        := spring-on-k8s
