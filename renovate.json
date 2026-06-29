@@ -88,7 +88,8 @@
         "custom.regex"
       ],
       "matchFileNames": [
-        "Makefile"
+        "Makefile",
+        "pom.xml"
       ],
       "matchDatasources": [
         "docker"
@@ -135,6 +136,19 @@
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)( extractVersion=(?<extractVersion>[^\\s]+))?( versioning=(?<versioning>[^\\s]+))?\\s*\\n\\s+[A-Z_]+:\\s*(?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "{{datasource}}",
+      "depNameTemplate": "{{depName}}",
+      "versioningTemplate": "{{#if versioning}}{{versioning}}{{else}}semver{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Update pom.xml image tags (Paketo buildpacks builder in <image.builder>) via inline renovate comments. The maven manager extracts only Maven coordinates, so the buildpacks builder image was an untracked version source until this manager. pinDigests is disabled for it via the docker/pom.xml packageRule above (it is a bare IMAGE:TAG consumed by `mvn spring-boot:build-image`, a tag bump is the intended update).",
+      "managerFilePatterns": [
+        "/^pom\\.xml$/"
+      ],
+      "matchStrings": [
+        "<!-- renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)(?: versioning=(?<versioning>[^\\s]+))? -->\\s*\\n\\s*<[^>]+>[^<:]+:(?<currentValue>[\\w][\\w.+-]*)</[^>]+>"
       ],
       "datasourceTemplate": "{{datasource}}",
       "depNameTemplate": "{{depName}}",
