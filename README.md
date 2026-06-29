@@ -182,8 +182,11 @@ The CI `docker` job additionally runs an image scan (`aquasecurity/trivy-action`
 ### Production path (Carvel)
 
 ```bash
-ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
+make deploy     # ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
+make undeploy   # kapp delete -y -a spring-on-k8s
 ```
+
+`make deploy` guards on `ytt`/`kapp` presence (pinned in `.mise.toml`, installed by `make deps`) and runs `make carvel-render-check` first — a cluster-free gate (also in `make static-check`) that asserts `ytt -f ./k8s` renders the expected K8s resources, so the Carvel path can't silently rot. The manifests are plain YAML today (ytt is passthrough; **kapp** provides the app-grouping/GC/diff value).
 
 Wait for the `LoadBalancer` Service to receive an external IP:
 
@@ -277,7 +280,10 @@ Run `make help` to see all available targets.
 
 | Target | Description |
 |--------|-------------|
-| `make kind-up` | Bring the full stack up: create cluster → start cloud-provider-kind → load image → deploy |
+| `make deploy` | Production deploy via Carvel (`ytt -f ./k8s \| kapp deploy`) to the current kube-context; guards ytt/kapp presence + runs `carvel-render-check` |
+| `make undeploy` | Remove the Carvel app (`kapp delete -a spring-on-k8s`) |
+| `make carvel-render-check` | Cluster-free gate: `ytt -f ./k8s` renders Namespace + ConfigMap + Deployment + Service (also in `make static-check`) |
+| `make kind-up` | Bring the full stack up: create cluster → start cloud-provider-kind → load image → deploy (local path uses `kubectl apply`) |
 | `make kind-down` | Tear the cluster down |
 | `make kind-create` | Create KinD cluster (granular) |
 | `make kind-setup` | Start cloud-provider-kind for `LoadBalancer` IP allocation (granular) |

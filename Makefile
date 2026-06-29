@@ -261,11 +261,11 @@ deps-prune: deps
 deps-prune-check: deps
 	@mvn -B dependency:analyze -DignoreNonCompile=true -DfailOnWarning=true
 
-#static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check)
+#static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, carvel-render-check, deps-prune-check)
 # vulncheck/cve-check is intentionally excluded — runs separately as a tag /
 # manual-dispatch job in CI. NVD slow path adds 10+ min when NVD_API_KEY is
 # absent, which would dominate every static-check run. See CLAUDE.md.
-static-check: format-check lint secrets trivy-fs trivy-config lint-ci mermaid-lint deps-prune-check
+static-check: format-check lint secrets trivy-fs trivy-config lint-ci mermaid-lint carvel-render-check deps-prune-check
 	@echo "All static checks passed. Run 'make cve-check' separately for vulnerability scan (slow)."
 
 #upgrade: @ Show available Maven dependency updates (dry-run)
@@ -508,6 +508,31 @@ kind-up: kind-create kind-setup kind-load kind-deploy
 
 #kind-down: @ Tear the full stack down (alias for kind-destroy)
 kind-down: kind-destroy
+
+# === Carvel production deploy (ytt render → kapp deploy) ===
+# The canonical production path (distinct from the local kubectl-based kind-deploy).
+# ytt + kapp are pinned in .mise.toml and installed by `deps`; the recipes still
+# guard on presence so a missing tool fails with a clear message, and
+# carvel-render-check (wired into static-check) keeps the path from silently
+# rotting even though CI/e2e deploy via kubectl. App name == namespace == APP_NAME.
+#deploy: @ Production deploy via Carvel (ytt render → kapp deploy) to the current kube-context
+deploy: deps carvel-render-check
+	@command -v kapp >/dev/null 2>&1 || { echo "ERROR: kapp not found — run 'make deps'"; exit 1; }
+	@ytt -f ./k8s | kapp deploy -y --into-ns $(APP_NAME) -a $(APP_NAME) -f-
+
+#undeploy: @ Remove the Carvel app from the current cluster (kapp delete)
+undeploy: deps
+	@command -v kapp >/dev/null 2>&1 || { echo "ERROR: kapp not found — run 'make deps'"; exit 1; }
+	@kapp delete -y -a $(APP_NAME)
+
+#carvel-render-check: @ Cluster-free gate: `ytt -f ./k8s` renders the expected K8s resources (guards the Carvel path)
+carvel-render-check: deps
+	@command -v ytt >/dev/null 2>&1 || { echo "ERROR: ytt not found — run 'make deps'"; exit 1; }
+	@ytt -f ./k8s > /dev/null
+	@for k in Namespace ConfigMap Deployment Service; do \
+		ytt -f ./k8s | grep -qE "^kind: $$k$$" || { echo "ERROR: rendered Carvel output missing kind: $$k"; exit 1; }; \
+	done
+	@echo "carvel-render-check: ytt renders Namespace + ConfigMap + Deployment + Service"
 
 #e2e: @ End-to-end test against KinD (spins up, tests, tears down)
 e2e: kind-up

@@ -20,7 +20,7 @@ make run                   # Run locally (mvn spring-boot:run) at http://localho
 Quality / security gates:
 ```bash
 make format                # Apply google-java-format to Java sources
-make static-check          # Composite gate: format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check
+make static-check          # Composite gate: format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, carvel-render-check, deps-prune-check
 make mermaid-lint          # Validate Mermaid diagrams in README.md / CLAUDE.md against minlag/mermaid-cli
 make cve-check             # OWASP dependency-check against NVD (canonical settings.xml flow; fast with NVD_API_KEY)
 make vulncheck             # Portfolio-standard alias for cve-check
@@ -110,10 +110,12 @@ Controllers use `@Value("${app.message:...}")` for configurable messages. On K8s
 
 ## Kubernetes Deployment
 
-Production path uses Carvel tools (ytt + kapp):
+Production path uses Carvel tools (ytt + kapp), wrapped by `make deploy`:
 ```bash
-ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
+make deploy     # ytt -f ./k8s | kapp deploy -y --into-ns spring-on-k8s -a spring-on-k8s -f-
+make undeploy   # kapp delete -y -a spring-on-k8s
 ```
+`make deploy` guards on ytt/kapp presence (installed by `deps`, pinned in `.mise.toml`) and runs `carvel-render-check` first. **`carvel-render-check`** is a cluster-free gate (wired into `static-check`) asserting `ytt -f ./k8s` renders Namespace + ConfigMap + Deployment + Service — it keeps the Carvel path from silently rotting even though CI/e2e deploy via `kubectl` (`kind-deploy`). The `k8s/*.yml` manifests are currently plain YAML (no ytt templating), so ytt is passthrough here and **kapp** is the real value-add (app-grouping, GC, declarative diff); the render gate is in place for when ytt data-values/overlays are introduced. spring-on-k8s is the only portfolio repo using Carvel — every other k8s repo deploys with plain `kubectl apply`.
 
 K8s manifests in `k8s/`: namespace, deployment (1 replica, 1Gi memory, liveness/readiness probes), LoadBalancer service (80→8080), ConfigMap with `app.message`.
 
