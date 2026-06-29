@@ -391,8 +391,8 @@ ci: deps static-check test integration-test build
 #ci-run: @ Run a subset of GitHub Actions workflow locally via act (excludes e2e, cve-check, docker, ci-pass)
 # Skipped jobs and rationale (cross-reference: ci.yml job keys must match):
 #   e2e       — requires KinD inside act (docker-in-docker is flaky); use `make e2e` directly.
-#   cve-check — tag/manual-dispatch only in ci.yml; exercised via `make ci-run-tag`.
-#   docker    — tag/manual-dispatch only in ci.yml; its `if` is false on a push event,
+#   cve-check — v* tag only in ci.yml; exercised via `make ci-run-tag` (tag event).
+#   docker    — v* tag only in ci.yml; its `if` is false on a push event,
 #               so `act push` would skip it. Exercised via `make ci-run-tag` (tag event).
 #   ci-pass   — meta aggregator (`if: always()` over upstream needs); nothing to validate locally.
 # If you rename a job in ci.yml, update this comment AND CLAUDE.md "ci.yml" bullet so the
