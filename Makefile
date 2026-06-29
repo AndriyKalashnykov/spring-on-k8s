@@ -65,18 +65,6 @@ DOCKER_TAG      := $(CURRENTTAG)
 # to force a rebuild: `make image-build APK_UPGRADE_BUST=$(date +%s)`.
 APK_UPGRADE_BUST ?= $(shell date -u +%Y%m%d)
 
-# cve-check (OWASP dependency-check) resilience tunables. The NVD API
-# intermittently returns transient 5xx (503) while dependency-check updates its
-# local vuln database; because `failOnError` defaults to true, a single 503
-# aborts the whole scan. A cold NVD download (GitHub's 7-day cache eviction can
-# miss the warm DB) pages through many NVD requests and is more exposed to a
-# transient 503 mid-fetch — first observed on the weekly scheduled scan, now a
-# release-time (tag/dispatch) gate (see CI run 28351039067). Retry the scan a
-# few times with linear backoff to ride out brief NVD outages before failing
-# the gate. Overridable: `make cve-check CVE_CHECK_MAX_ATTEMPTS=5`.
-CVE_CHECK_MAX_ATTEMPTS          ?= 3
-CVE_CHECK_RETRY_BACKOFF_SECONDS ?= 60
-
 # KinD cluster name follows the project APP_NAME so multiple projects can coexist
 # on one laptop without collision.
 KIND_CLUSTER_NAME := $(APP_NAME)
@@ -171,6 +159,8 @@ lint: deps
 	@mvn -B compile
 	@mvn -B checkstyle:check
 	@hadolint Dockerfile
+	@# Mutation-proof the cve-check NVD-failure classifier (precedence ordering).
+	@./scripts/cve-check.sh --self-test
 	@NONEXEC=$$(find scripts -name '*.sh' -not -executable -print 2>/dev/null); \
 	if [ -n "$$NONEXEC" ]; then \
 		echo "ERROR: shell scripts missing executable bit:"; \
@@ -190,44 +180,16 @@ lint: deps
 # `ossIndexAnalyzerWarnOnlyOnRemoteErrors=true` flag does not catch 401s.
 # OSS_INDEX_USER / OSS_INDEX_TOKEN repo secrets are kept for local dev use
 # and for potential future re-enablement (paid tier or reduced dep tree).
+#
+# The scan is driven by scripts/cve-check.sh, which implements the portfolio
+# `/ci-workflow` NVD-resilience pattern: a transient NVD-API outage (503) or a
+# corrupt cached H2 DB is classified and recovered (cached-DB scan via
+# -DautoUpdate=false / purge + re-download) instead of hard-failing, while a
+# real CVE finding still fails. Secret handling (NVD_API_KEY via a private
+# settings.xml, no argv leak) lives in the script. `make lint` runs the
+# script's classifier --self-test.
 cve-check: deps
-	@# Canonical OWASP dependency-check secret pattern (rules/common/security.md):
-	@# write a private settings.xml with <server id="nvd"><password>...</password></server>
-	@# via the bash-builtin printf (no fork → no argv leak), then pass the public
-	@# -DnvdApiServerId=nvd flag. The pom.xml form `${env.NVD_API_KEY}` was avoided
-	@# because `mvn help:effective-pom` would interpolate the live value into stdout.
-	@set -e; \
-	max=$(CVE_CHECK_MAX_ATTEMPTS); backoff=$(CVE_CHECK_RETRY_BACKOFF_SECONDS); \
-	run_depcheck() { \
-		n=1; \
-		while :; do \
-			"$$@" && return 0; \
-			if [ $$n -ge $$max ]; then \
-				echo "cve-check: scan failed after $$max attempt(s)."; \
-				return 1; \
-			fi; \
-			wait=$$((n * backoff)); \
-			echo "cve-check: attempt $$n/$$max failed (likely transient NVD 5xx); retrying in $${wait}s..."; \
-			sleep $$wait; \
-			n=$$((n + 1)); \
-		done; \
-	}; \
-	if [ -z "$$NVD_API_KEY" ]; then \
-		echo "WARN: NVD_API_KEY not set — NVD slow path may take 10+ min."; \
-		run_depcheck mvn -B org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
-			-DsuppressionFiles=dependency-check-suppressions.xml \
-			-DossindexAnalyzerEnabled=false; \
-	else \
-		echo "NVD: authenticated (fast path)"; \
-		SETTINGS=$$(mktemp -t mvn-cve-settings-XXXXXX.xml); \
-		trap 'rm -f "$$SETTINGS"' EXIT; \
-		umask 077; \
-		printf '<settings><servers><server><id>nvd</id><password>%s</password></server></servers></settings>\n' "$$NVD_API_KEY" > "$$SETTINGS"; \
-		run_depcheck mvn -B -s "$$SETTINGS" org.owasp:dependency-check-maven:$(DEPCHECK_VERSION):check \
-			-DsuppressionFiles=dependency-check-suppressions.xml \
-			-DossindexAnalyzerEnabled=false \
-			-DnvdApiServerId=nvd; \
-	fi
+	@DEPCHECK_VERSION=$(DEPCHECK_VERSION) ./scripts/cve-check.sh
 
 #vulncheck: @ Alias for cve-check (portfolio-standard target name)
 vulncheck: cve-check

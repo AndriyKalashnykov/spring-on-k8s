@@ -216,10 +216,9 @@ jobs:
     needs: [changes, static-check]
     if: needs.changes.outputs.code == 'true' && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    # 45m (not 30m) gives `make cve-check`'s NVD-503 retry-with-backoff headroom:
-    # a cold NVD download can take ~10m, and up to CVE_CHECK_MAX_ATTEMPTS of them
-    # plus linear backoff must fit when GitHub's 7-day cache eviction misses the
-    # warm NVD DB. See Makefile cve-check + CVE_CHECK_* tunables.
+    # 45m (not 30m) gives headroom for a cold NVD download (~20-30m of 360k+
+    # records when the cache misses) plus one purge + re-download or cached-DB
+    # fallback by scripts/cve-check.sh on a transient NVD outage.
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -241,8 +240,14 @@ jobs:
       # pom.xml. Keying on hashFiles('pom.xml') evicts the ~hundreds-of-MB DB on
       # every dependency bump and forces a cold NVD fetch (~30 min, rate-limit
       # prone). The ISO-week key with a `nvd-db-` restore-keys fallback keeps a
-      # warm DB across release runs and refreshes it weekly; a cold/transient
-      # NVD fetch is additionally guarded by the cve-check retry-with-backoff.
+      # warm DB across release runs and refreshes it weekly; scripts/cve-check.sh
+      # self-heals a transient NVD outage by scanning that cached DB.
+      # If an interrupted update ever poisons the H2 tarball (rule 3:
+      # `MVStoreException`), version-prefix this key (`nvd-db-` -> `nvd-db-v2-`,
+      # both lines) to orphan it — but NOT during an active NVD outage, since a
+      # prefix bump empties the cache and removes the fallback DB the script
+      # needs (the rule-3/rule-4 interaction). Reach for the prefix bump only on
+      # the actual `MVStoreException` corruption signature, not preemptively.
       - name: Compute NVD cache key (ISO week)
         id: nvdkey
         run: echo "week=$(date -u +%Y-%V)" >> "$GITHUB_OUTPUT"
