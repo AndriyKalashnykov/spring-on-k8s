@@ -42,7 +42,7 @@ C4Context
 | Format | [google-java-format](https://github.com/google/google-java-format) | Opinionated, deterministic; pairs cleanly with strict `google_checks.xml` Checkstyle (zero violations after format) |
 | Static analysis | Checkstyle (Java), hadolint (Dockerfile), actionlint (workflows) | Each catches a different surface; mermaid-cli on top validates README diagrams |
 | Secret scan | gitleaks | Working-tree scan in `static-check` + full-history audit on demand |
-| Vuln scan | Trivy (filesystem + image + IaC), OWASP dependency-check (NVD) | Trivy on every push (CRITICAL/HIGH blocking); OWASP on tag/weekly (deeper Maven coordinate analysis, slow NVD fetch) |
+| Vuln scan | Trivy (filesystem + image + IaC), OWASP dependency-check (NVD) | Trivy filesystem + IaC on every push (CRITICAL/HIGH blocking); Trivy image scan + OWASP on tag/release (deeper Maven coordinate analysis, slow NVD fetch) |
 | Dep management | Renovate (automerge minor/patch, 3-day buffer on majors) | Replaces Dependabot; tracks Makefile/`.mise.toml` versions via `# renovate:` comments |
 
 ## Quick Start
@@ -175,7 +175,7 @@ Scan locally with Trivy (filesystem scan covers source, dependencies, Dockerfile
 make trivy-fs
 ```
 
-The CI `docker` job additionally runs an image scan (`aquasecurity/trivy-action` with `image-ref:`) blocking on CRITICAL/HIGH, plus an OWASP dependency-check (`make cve-check`) on tag pushes / weekly schedule.
+The CI `docker` job additionally runs an image scan (`aquasecurity/trivy-action` with `image-ref:`) blocking on CRITICAL/HIGH, plus an OWASP dependency-check (`make cve-check`) — both gated to `v*` tag pushes (a release) or manual `workflow_dispatch`.
 
 ## Deployment
 
@@ -293,7 +293,7 @@ Run `make help` to see all available targets.
 | Target | Description |
 |--------|-------------|
 | `make ci` | Full local CI: deps → static-check → test → integration-test → build (`format-check` runs transitively inside `static-check`) |
-| `make ci-run` | Run a subset of the GitHub Actions workflow locally via [act](https://github.com/nektos/act) — covers `static-check`, `build`, `test`, `integration-test`, `docker`. Skips `e2e` (KinD-in-act flakes), `cve-check` (tag/schedule-gated, slow without `NVD_API_KEY`), and `ci-pass` (meta). DAST steps inside `docker` are skipped under act (`vars.ACT == 'true'`) — run `make dast` directly to cover that ground |
+| `make ci-run` | Run a subset of the GitHub Actions workflow locally via [act](https://github.com/nektos/act) — covers `static-check`, `build`, `test`, `integration-test`. Skips `e2e` (KinD-in-act flakes), `cve-check` and `docker` (tag/dispatch-only — their `if` is false on a push event; use `make ci-run-tag`), and `ci-pass` (meta). DAST steps inside `docker` are skipped under act (`vars.ACT == 'true'`) — run `make dast` directly to cover that ground |
 | `make ci-run-tag` | Simulate a tag-push event under act (exercises the tag-gated parts of the `docker` job; cosign signing fails — expected, no OIDC under act). DAST steps in `docker` are skipped under act |
 
 ### Utilities
@@ -320,14 +320,14 @@ Every job that needs Java, Maven, or any CLI tool pinned in `.mise.toml` uses `j
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **changes** | push, PR, tags, schedule, manual | `dorny/paths-filter` — sets `code=true` on any non-doc file change; forced to `true` on tag push, schedule, and `workflow_dispatch` |
+| **changes** | push, PR, tags, manual | `dorny/paths-filter` — sets `code=true` on any non-doc file change; forced to `true` on tag push and `workflow_dispatch` |
 | **static-check** | needs: changes (gated on `code == 'true'`) | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, mermaid-lint, deps-prune-check) |
 | **build** | needs: changes, static-check | `make build` |
 | **test** | needs: changes, static-check | `make test` — unit layer (Surefire) |
 | **integration-test** | needs: changes, static-check | `make integration-test` — in-process integration via Failsafe profile |
 | **e2e** | needs: changes, build, test | `make e2e` — KinD + cloud-provider-kind, asserts ConfigMap override + LB wiring |
-| **cve-check** | tags, weekly Monday 04:00 UTC, manual dispatch (needs: changes, static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned) |
-| **docker** | every push (needs: changes, static-check, build, test, cve-check) | Pattern A hardening, single-arch (`linux/amd64`). Gates 1–3 (build → Trivy image scan blocking CRITICAL/HIGH with `scanners=vuln,secret,misconfig` → `container-structure-test` Dockerfile-contract assertions via `make docker-structure-test` → smoke test on `/actuator/health/readiness` via `make docker-smoke-test`) run on every push. **DAST** (OWASP ZAP baseline against the running smoke container) runs inline after Gate 3 — ZAP `-I` warn-only mode (only FAIL blocks), WARN findings captured in the uploaded `zap-baseline-report` artifact, ZAP image (~3.4 GB) cached via `actions/cache`, all DAST steps skipped under act (`vars.ACT == 'true'`). Gate 4 (amd64 publish build) tag-gated. Gate 5 (cosign keyless OIDC sign) tag-gated. `provenance: false` + `sbom: false` keep the image index clean. Gates on `cve-check` via `if: !failure() && !cancelled()` so a real CVE on tag push blocks publish, but `cve-check` being `skipped` on regular pushes does not skip docker |
+| **cve-check** | `v*` tags, manual dispatch (needs: changes, static-check) | `make cve-check` — OWASP dependency-check (fast with `NVD_API_KEY` secret; tag-gated so every release is scanned). Retries on transient NVD 503 (`CVE_CHECK_MAX_ATTEMPTS`); a persistent NVD outage still fails the gate |
+| **docker** | `v*` tags, manual dispatch (needs: changes, static-check, build, test, cve-check) | Pattern A hardening, single-arch (`linux/amd64`). Release-time only — not on regular pushes/PRs. Gates 1–3 (build → Trivy image scan blocking CRITICAL/HIGH with `scanners=vuln,secret,misconfig` → `container-structure-test` Dockerfile-contract assertions via `make docker-structure-test` → smoke test on `/actuator/health/readiness` via `make docker-smoke-test`) run on every tag / dispatch build. **DAST** (OWASP ZAP baseline against the running smoke container) runs inline after Gate 3 — ZAP `-I` warn-only mode (only FAIL blocks), WARN findings captured in the uploaded `zap-baseline-report` artifact, ZAP image (~3.4 GB) cached via `actions/cache`, all DAST steps skipped under act (`vars.ACT == 'true'`). Gate 4 (amd64 publish build) tag-gated. Gate 5 (cosign keyless OIDC sign) tag-gated — so a `workflow_dispatch` validates the image build without publishing. `provenance: false` + `sbom: false` keep the image index clean. Gates on `cve-check` via `if: !failure() && !cancelled()` so a real CVE on tag push blocks publish |
 | **ci-pass** | always (needs: every upstream job) | Single stable branch-protection gate. Aggregates `failure` and `cancelled` results across upstream jobs; treats `skipped` as PASS — this is what makes doc-only PRs mergeable without disabling the required check |
 
 ### Cleanup workflow (`.github/workflows/cleanup-runs.yml`)
