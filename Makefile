@@ -68,10 +68,12 @@ APK_UPGRADE_BUST ?= $(shell date -u +%Y%m%d)
 # cve-check (OWASP dependency-check) resilience tunables. The NVD API
 # intermittently returns transient 5xx (503) while dependency-check updates its
 # local vuln database; because `failOnError` defaults to true, a single 503
-# aborts the whole scan (observed on the weekly scheduled run when GitHub's
-# 7-day cache eviction forces a cold NVD download — see CI run 28351039067).
-# Retry the scan a few times with linear backoff to ride out brief NVD outages
-# before failing the gate. Overridable: `make cve-check CVE_CHECK_MAX_ATTEMPTS=5`.
+# aborts the whole scan. A cold NVD download (GitHub's 7-day cache eviction can
+# miss the warm DB) pages through many NVD requests and is more exposed to a
+# transient 503 mid-fetch — first observed on the weekly scheduled scan, now a
+# release-time (tag/dispatch) gate (see CI run 28351039067). Retry the scan a
+# few times with linear backoff to ride out brief NVD outages before failing
+# the gate. Overridable: `make cve-check CVE_CHECK_MAX_ATTEMPTS=5`.
 CVE_CHECK_MAX_ATTEMPTS          ?= 3
 CVE_CHECK_RETRY_BACKOFF_SECONDS ?= 60
 
@@ -299,7 +301,7 @@ deps-prune-check: deps
 
 #static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, deps-prune-check)
 # vulncheck/cve-check is intentionally excluded — runs separately as a tag /
-# weekly / manual job in CI. NVD slow path adds 10+ min when NVD_API_KEY is
+# manual-dispatch job in CI. NVD slow path adds 10+ min when NVD_API_KEY is
 # absent, which would dominate every static-check run. See CLAUDE.md.
 static-check: format-check lint secrets trivy-fs trivy-config lint-ci mermaid-lint deps-prune-check
 	@echo "All static checks passed. Run 'make cve-check' separately for vulnerability scan (slow)."
@@ -424,10 +426,12 @@ image-push: image-build
 ci: deps static-check test integration-test build
 	@echo "CI pipeline completed successfully."
 
-#ci-run: @ Run a subset of GitHub Actions workflow locally via act (excludes e2e, cve-check, ci-pass)
+#ci-run: @ Run a subset of GitHub Actions workflow locally via act (excludes e2e, cve-check, docker, ci-pass)
 # Skipped jobs and rationale (cross-reference: ci.yml job keys must match):
 #   e2e       — requires KinD inside act (docker-in-docker is flaky); use `make e2e` directly.
-#   cve-check — gated on tags/schedule/manual in ci.yml; requires NVD_API_KEY for fast path.
+#   cve-check — tag/manual-dispatch only in ci.yml; exercised via `make ci-run-tag`.
+#   docker    — tag/manual-dispatch only in ci.yml; its `if` is false on a push event,
+#               so `act push` would skip it. Exercised via `make ci-run-tag` (tag event).
 #   ci-pass   — meta aggregator (`if: always()` over upstream needs); nothing to validate locally.
 # If you rename a job in ci.yml, update this comment AND CLAUDE.md "ci.yml" bullet so the
 # documentation stays in sync with the workflow.
@@ -446,7 +450,7 @@ ci-run: deps
 	for v in GH_ACCESS_TOKEN NVD_API_KEY OSS_INDEX_USER OSS_INDEX_TOKEN; do \
 		if [ -n "$${!v:-}" ]; then secret_args+=(--secret "$$v"); fi; \
 	done; \
-	for j in static-check build test integration-test docker; do \
+	for j in static-check build test integration-test; do \
 		echo "==== act push --job $$j ===="; \
 		act push --job $$j --container-architecture linux/amd64 \
 			--pull=false \
