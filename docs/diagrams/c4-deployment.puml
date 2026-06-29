@@ -1,0 +1,34 @@
+@startuml c4-deployment
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.13.0/C4_Deployment.puml
+
+' Modern flat styling: no shadows, sharper corners, clean sans-serif, modern palette.
+skinparam backgroundColor #FAFAFA
+skinparam shadowing false
+skinparam roundCorner 4
+skinparam defaultFontName "Inter, Helvetica, Arial, sans-serif"
+skinparam defaultFontSize 13
+skinparam ArrowColor #37474F
+skinparam ArrowThickness 1.2
+skinparam rectangleBorderThickness 1.3
+
+UpdateElementStyle("container",    $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
+UpdateElementStyle("container_db", $fontColor="#FFFFFF", $bgColor="#7C3AED", $borderColor="#4C1D95")
+UpdateElementStyle("node",         $bgColor="#F1F5F9", $borderColor="#94A3B8", $fontColor="#1E293B")
+
+title Deployment — Kubernetes (production path via Carvel ytt + kapp)
+
+Deployment_Node(cluster, "Kubernetes Cluster", "kind / cloud-provider-kind locally; any conformant cluster in prod") {
+  Deployment_Node(ns, "Namespace: spring-on-k8s") {
+    Deployment_Node(pod, "Pod (Deployment, replicas=1)", "1Gi memory limit, restricted PodSecurity") {
+      Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s — Temurin 25 LTS JRE on Alpine, non-root (uid 65532)")
+    }
+    Container(svc, "Service: app", "Kubernetes Service", "LoadBalancer 80 → 8080")
+    ContainerDb(cmres, "ConfigMap: config", "Kubernetes ConfigMap", "app.message = Hello Kubernetes!")
+  }
+}
+
+Rel(svc, api, "Routes to :8080", "TCP")
+Rel(cmres, api, "Mounted at /etc/config/", "volume")
+
+SHOW_LEGEND()
+@enduml

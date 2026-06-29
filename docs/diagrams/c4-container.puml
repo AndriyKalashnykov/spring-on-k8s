@@ -1,0 +1,37 @@
+@startuml c4-container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.13.0/C4_Container.puml
+
+' Modern flat styling: no shadows, sharper corners, clean sans-serif, modern palette.
+skinparam backgroundColor #FAFAFA
+skinparam shadowing false
+skinparam roundCorner 4
+skinparam defaultFontName "Inter, Helvetica, Arial, sans-serif"
+skinparam defaultFontSize 13
+skinparam ArrowColor #37474F
+skinparam ArrowThickness 1.2
+skinparam rectangleBorderThickness 1.3
+
+UpdateElementStyle("person",       $fontColor="#FFFFFF", $bgColor="#0F766E", $borderColor="#134E4A")
+UpdateElementStyle("container",    $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
+UpdateElementStyle("container_db", $fontColor="#FFFFFF", $bgColor="#7C3AED", $borderColor="#4C1D95")
+UpdateElementStyle("external_system", $fontColor="#FFFFFF", $bgColor="#64748B", $borderColor="#334155")
+UpdateBoundaryStyle($bgColor="#F1F5F9", $borderColor="#94A3B8", $fontColor="#1E293B")
+
+title Container View — spring-on-k8s
+
+Person(user, "End User")
+System_Ext(prom, "Prometheus")
+System_Ext(k8s, "Kubernetes", "Probes pod liveness + readiness")
+
+System_Boundary(sys, "spring-on-k8s") {
+  Container(api, "API Service", "Spring Boot 4.1.0, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
+  ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
+}
+
+Rel(user, api, "REST endpoints (/v1/hello, /v1/bye)", "HTTPS / JSON")
+Rel(api, cm, "Reads app.message", "configtree (file mount)")
+Rel(prom, api, "Scrapes /actuator/prometheus", "HTTP")
+Rel(k8s, api, "Probes /actuator/health/{liveness,readiness}", "HTTP")
+
+SHOW_LEGEND()
+@enduml
