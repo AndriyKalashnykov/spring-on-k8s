@@ -217,7 +217,11 @@ jobs:
     needs: [changes, static-check]
     if: needs.changes.outputs.code == 'true' && (startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45m (not 30m) gives `make cve-check`'s NVD-503 retry-with-backoff headroom:
+    # a cold NVD download can take ~10m, and up to CVE_CHECK_MAX_ATTEMPTS of them
+    # plus linear backoff must fit when GitHub's 7-day cache eviction misses the
+    # warm NVD DB. See Makefile cve-check + CVE_CHECK_* tunables.
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
