@@ -7,21 +7,9 @@
 
 Reference implementation of a production-pattern Spring Boot 4 service on Kubernetes — the full path from source to signed image. The **runtime surface** exposes REST controllers (`/v1/hello`, `/v1/bye`) with OpenAPI via [springdoc-openapi](https://springdoc.org/), Micrometer + Prometheus instrumentation, Actuator-backed liveness/readiness probes, and ConfigMap-driven configuration through Spring's `configtree:` property source; the **delivery surface** covers Carvel (`ytt` + `kapp`) production deploy, a KinD + cloud-provider-kind local e2e harness, and a supply-chain–hardened GitHub Actions pipeline (Trivy CVE scan, OWASP ZAP baseline DAST, cosign keyless OIDC signing) on an `mise`-pinned toolchain with Renovate-managed dependencies.
 
-```mermaid
-C4Context
-  title System Context — spring-on-k8s
+<p align="center"><img src="docs/diagrams/out/c4-context.png" alt="C4 System Context — spring-on-k8s" width="620"></p>
 
-  Person(user, "End User", "Consumes the REST API over HTTPS")
-  System(sys, "spring-on-k8s", "Spring Boot 4.1 service: REST + Actuator + Swagger")
-  System_Ext(prom, "Prometheus", "Scrapes /actuator/prometheus")
-  System_Ext(k8s, "Kubernetes", "Runs the pod; probes health endpoints")
-
-  Rel(user, sys, "Uses", "HTTPS / JSON")
-  Rel(prom, sys, "Scrapes metrics", "HTTP")
-  Rel(k8s, sys, "Probes liveness + readiness", "HTTP")
-
-  UpdateLayoutConfig($c4ShapeInRow="2")
-```
+> Rendered from [`docs/diagrams/c4-context.puml`](docs/diagrams/c4-context.puml) (C4-PlantUML, modern-flat theme) via `make diagrams`.
 
 - **End User** — calls the REST API directly over HTTPS / JSON; no fronting gateway in this reference setup
 - **spring-on-k8s** — single Spring Boot process exposing application + Actuator endpoints
@@ -40,7 +28,7 @@ C4Context
 | Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.36.1`) | KinD is what upstream K8s uses for testing; cloud-provider-kind allocates LB IPs without MetalLB's nftables fragility |
 | CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) | Native to GitHub; SHA-pinned actions; one `ci-pass` aggregator gates the whole pipeline |
 | Format | [google-java-format](https://github.com/google/google-java-format) | Opinionated, deterministic; pairs cleanly with strict `google_checks.xml` Checkstyle (zero violations after format) |
-| Static analysis | Checkstyle (Java), hadolint (Dockerfile), actionlint (workflows) | Each catches a different surface; mermaid-cli on top validates README diagrams |
+| Static analysis | Checkstyle (Java), hadolint (Dockerfile), actionlint (workflows) | Each catches a different surface; a PlantUML render/drift gate keeps the committed C4 diagrams in sync with source |
 | Secret scan | gitleaks | Working-tree scan in `static-check` + full-history audit on demand |
 | Vuln scan | Trivy (filesystem + image + IaC), OWASP dependency-check (NVD) | Trivy filesystem + IaC on every push (CRITICAL/HIGH blocking); Trivy image scan + OWASP on tag/release (deeper Maven coordinate analysis, slow NVD fetch) |
 | Dep management | Renovate (automerge minor/patch, 3-day buffer on majors) | Replaces Dependabot; tracks Makefile/`.mise.toml` versions via `# renovate:` comments |
@@ -61,7 +49,7 @@ make run           # start at http://localhost:8080
 | Tool | Version | Source | Purpose |
 |------|---------|--------|---------|
 | [GNU Make](https://www.gnu.org/software/make/) | 3.81+ | **system** | Build orchestration |
-| [Docker](https://www.docker.com/) | latest | **system** | Container image builds, KinD nodes, Mermaid / Trivy containers |
+| [Docker](https://www.docker.com/) | latest | **system** | Container image builds, KinD nodes, PlantUML (make diagrams) / Trivy containers |
 | [Git](https://git-scm.com/) | latest | **system** | Version control |
 | [mise](https://mise.jdx.dev/) | latest | auto-installed by `make deps` | Manages every tool pinned in `.mise.toml` |
 | Java (Temurin) | 21 | mise | Build (compiles for Java 21); the published runtime image uses Java 25 LTS — see Tech Stack |
@@ -81,24 +69,9 @@ make deps
 
 ### Container View
 
-```mermaid
-C4Container
-  title Container View — spring-on-k8s
+<p align="center"><img src="docs/diagrams/out/c4-container.png" alt="C4 Container View — spring-on-k8s" width="720"></p>
 
-  Person(user, "End User")
-  System_Ext(prom, "Prometheus")
-  System_Ext(k8s, "Kubernetes", "Probes pod liveness + readiness")
-
-  System_Boundary(sys, "spring-on-k8s") {
-    Container(api, "API Service", "Spring Boot 4.1.0, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
-    ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
-  }
-
-  Rel(user, api, "REST endpoints (see API table)", "HTTPS")
-  Rel(api, cm, "Reads app.message", "configtree (file mount)")
-  Rel(prom, api, "Scrapes /actuator/prometheus", "HTTP")
-  Rel(k8s, api, "Probes /actuator/health/{liveness,readiness}", "HTTP")
-```
+> Rendered from [`docs/diagrams/c4-container.puml`](docs/diagrams/c4-container.puml) (C4-PlantUML, modern-flat theme) via `make diagrams`.
 
 - **API Service** — single Spring Boot process, Micrometer exports Prometheus metrics, Actuator backs the K8s probes (`/actuator/health/liveness`, `/actuator/health/readiness`)
 - **ConfigMap** — cluster-side K8s resource, mounted as a volume at `/etc/config/`; the env `SPRING_CONFIG_IMPORT=configtree:/etc/config/` tells Spring to read each file as a property (default `Hello world!` → ConfigMap overrides to `Hello Kubernetes!`)
@@ -106,29 +79,15 @@ C4Container
 
 ### Deployment View
 
-```mermaid
-C4Deployment
-  title Deployment — Kubernetes (via Carvel ytt + kapp)
+<p align="center"><img src="docs/diagrams/out/c4-deployment.png" alt="C4 Deployment — Kubernetes (via Carvel ytt + kapp)" width="500"></p>
 
-  Deployment_Node(cluster, "Kubernetes Cluster") {
-    Deployment_Node(ns, "Namespace: spring-on-k8s") {
-      Deployment_Node(pod, "Pod (Deployment replicas=1)") {
-        Container(api, "app container", "ghcr.io/andriykalashnykov/spring-on-k8s, Temurin 25 LTS JRE on Alpine, non-root (uid 65532)")
-      }
-      Container(svc, "Service: app", "LoadBalancer 80 → 8080")
-      ContainerDb(cmres, "ConfigMap: config", "app.message = Hello Kubernetes!")
-    }
-  }
-
-  Rel(svc, api, "Routes to :8080", "TCP")
-  Rel(cmres, api, "Mounted at /etc/config/", "volume")
-```
+> Rendered from [`docs/diagrams/c4-deployment.puml`](docs/diagrams/c4-deployment.puml) (C4-PlantUML, modern-flat theme) via `make diagrams`.
 
 - **Deployment** — 1 replica, 1 Gi memory limit, liveness+readiness probes point at Actuator
 - **Service** — LoadBalancer; locally served by `cloud-provider-kind` in the `make e2e` KinD stack (host-side controller on the `kind` Docker network), cloud-provided in production
 - **ConfigMap** — deployed alongside the Deployment; edits to `k8s/cm.yml` propagate via `kapp deploy` and trigger a pod rollout (config source-of-truth lives in git, not in `kubectl edit`)
 
-Sources: diagrams are inline Mermaid in this README — no build step; GitHub renders them natively. Lint with `make mermaid-lint` (uses the same `minlag/mermaid-cli` engine GitHub uses, so what parses locally renders on the homepage).
+Sources: the three C4 diagrams are [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) `.puml` files in [`docs/diagrams/`](docs/diagrams/), rendered to committed PNGs in `docs/diagrams/out/`. Edit the `.puml` source, then `make diagrams` to re-render (pinned `plantuml/plantuml` Docker image); `make diagrams-check` (in `static-check`) fails CI if the committed PNGs drift from source or renderer version.
 
 ## API
 
@@ -261,7 +220,7 @@ Run `make help` to see all available targets.
 | `make vulncheck` | Alias for `cve-check` (portfolio-standard target name) |
 | `make deps-prune` | Report unused/undeclared Maven dependencies |
 | `make deps-prune-check` | Fail if unused/undeclared Maven dependencies found |
-| `make static-check` | Composite gate: format-check + lint + secrets + trivy-fs + trivy-config + lint-ci + mermaid-lint + deps-prune-check |
+| `make static-check` | Composite gate: format-check + lint + secrets + trivy-fs + trivy-config + lint-ci + diagrams-check + carvel-render-check + deps-prune-check |
 
 ### Docker
 
@@ -327,7 +286,7 @@ Every job that needs Java, Maven, or any CLI tool pinned in `.mise.toml` uses `j
 | Job | Triggers | Steps |
 |-----|----------|-------|
 | **changes** | push, PR, tags, manual | `dorny/paths-filter` — sets `code=true` on any non-doc file change; forced to `true` on tag push and `workflow_dispatch` |
-| **static-check** | needs: changes (gated on `code == 'true'`) | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, mermaid-lint, deps-prune-check) |
+| **static-check** | needs: changes (gated on `code == 'true'`) | `make static-check` (format-check, Checkstyle, hadolint, compiler warnings, gitleaks, Trivy fs + config, actionlint, diagrams-check, carvel-render-check, deps-prune-check) |
 | **build** | needs: changes, static-check | `make build` |
 | **test** | needs: changes, static-check | `make test` — unit layer (Surefire) |
 | **integration-test** | needs: changes, static-check | `make integration-test` — in-process integration via Failsafe profile |

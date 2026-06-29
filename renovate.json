@@ -83,7 +83,7 @@
       "groupName": "Docker dependencies"
     },
     {
-      "description": "Don't pin digests on the Makefile custom.regex docker pins (MERMAID_CLI_VERSION, ZAP_VERSION, etc.). `config:best-practices` enables `docker:pinDigests`, which generates a pinDigest update for these tag-only pins; that pinDigest collides with the version bump on the shared `renovate/docker-dependencies` branch and Renovate's collision-dedup silently DROPS the version bump (e.g. minlag/mermaid-cli froze at 11.14.0 while 11.15.0 was suppressed). These are bare `IMAGE:TAG` literals consumed by `docker run`/`docker pull`; a tag bump is the intended update, not a digest pin.",
+      "description": "Don't pin digests on the Makefile/pom.xml custom.regex docker pins (PLANTUML_VERSION, ZAP_VERSION, CLOUD_PROVIDER_KIND_VERSION, the Paketo builder, etc.). `config:best-practices` enables `docker:pinDigests`, which generates a pinDigest update for these tag-only pins; that pinDigest collides with the version bump on the shared `renovate/docker-dependencies` branch and Renovate's collision-dedup silently DROPS the version bump (historically observed when minlag/mermaid-cli froze at 11.14.0 while 11.15.0 was suppressed, before the diagram toolchain moved to PlantUML). These are bare `IMAGE:TAG` literals consumed by `docker run`/`docker pull`; a tag bump is the intended update, not a digest pin.",
       "matchManagers": [
         "custom.regex"
       ],
@@ -153,6 +153,18 @@
       "datasourceTemplate": "{{datasource}}",
       "depNameTemplate": "{{depName}}",
       "versioningTemplate": "{{#if versioning}}{{versioning}}{{else}}semver{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "Track the C4-PlantUML stdlib version pinned in the !include URLs of docs/diagrams/*.puml. A bump changes the .puml include; the make diagrams-check drift gate then forces re-rendering the committed PNGs.",
+      "managerFilePatterns": [
+        "/^docs/diagrams/.+\\.puml$/"
+      ],
+      "matchStrings": [
+        "https://raw\\.githubusercontent\\.com/plantuml-stdlib/C4-PlantUML/(?<currentValue>v[0-9][\\w.+-]*)/"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "plantuml-stdlib/C4-PlantUML"
     }
   ]
 }

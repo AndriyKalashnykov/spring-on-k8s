@@ -85,6 +85,11 @@ jobs:
               - '!**.gif'
               - '!**.svg'
               - 'CLAUDE.md'
+              # Re-include PlantUML diagram sources so a .puml-only edit still
+              # flips code=true and runs static-check's diagrams-check drift gate
+              # (otherwise the !docs/** exclusion would skip it). See
+              # /architecture-diagrams skill "drift gate only fires if .puml is in code path".
+              - 'docs/diagrams/**/*.puml'
 
       - name: Compute changes output
         id: combine

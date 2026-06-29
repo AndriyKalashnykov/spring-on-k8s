@@ -36,3 +36,6 @@ hs_err_pid*
 
 # OWASP ZAP DAST output (make dast / dast-scan)
 zap-output/
+
+# PlantUML render version-stamp sentinel (re-render trigger, not an artifact)
+docs/diagrams/out/.plantuml-*.stamp

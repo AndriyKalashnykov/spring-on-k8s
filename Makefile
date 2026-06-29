@@ -23,8 +23,8 @@ JDK_VERSION := 21
 GJF_VERSION := 1.35.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
 DEPCHECK_VERSION := 12.2.2
-# renovate: datasource=docker depName=minlag/mermaid-cli
-MERMAID_CLI_VERSION := 11.16.0
+# renovate: datasource=docker depName=plantuml/plantuml
+PLANTUML_VERSION := 1.2026.6
 # renovate: datasource=github-releases depName=zaproxy/zaproxy extractVersion=^v(?<version>.*)$$
 ZAP_VERSION := 2.17.0
 # KIND_NODE_IMAGE is tied to the kind release in .mise.toml; each kind
@@ -215,43 +215,44 @@ lint-ci: deps
 	@actionlint
 	@echo "Workflow lint complete."
 
-#mermaid-lint: @ Validate Mermaid diagrams in markdown files
-mermaid-lint:
-	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker required for mermaid-lint"; exit 1; }
-	@set -euo pipefail; \
-	MD_FILES=$$(grep -lF '```mermaid' README.md CLAUDE.md 2>/dev/null || true); \
-	if [ -z "$$MD_FILES" ]; then \
-		echo "No Mermaid blocks found — skipping."; \
-		exit 0; \
-	fi; \
-	for attempt in 1 2 3; do \
-		if docker pull --quiet minlag/mermaid-cli:$(MERMAID_CLI_VERSION) >/dev/null 2>&1; then \
-			break; \
-		fi; \
-		[ "$$attempt" -lt 3 ] && { echo "  docker pull attempt $$attempt failed; retrying..."; sleep $$((attempt * 5)); } || { \
-			echo "ERROR: docker pull minlag/mermaid-cli:$(MERMAID_CLI_VERSION) failed after 3 attempts"; \
-			exit 1; \
-		}; \
-	done; \
-	FAILED=0; \
-	for md in $$MD_FILES; do \
-		echo "Validating Mermaid blocks in $$md..."; \
-		LOG=$$(mktemp); \
-		if docker run --rm -v "$$PWD:/data:ro" \
-			minlag/mermaid-cli:$(MERMAID_CLI_VERSION) \
-			-i "/data/$$md" -o "/tmp/$$(basename $$md .md).svg" >"$$LOG" 2>&1; then \
-			echo "  ✓ All blocks rendered cleanly."; \
-		else \
-			echo "  ✗ Parse error in $$md:"; \
-			sed 's/^/    /' "$$LOG"; \
-			FAILED=$$((FAILED + 1)); \
-		fi; \
-		rm -f "$$LOG"; \
-	done; \
-	if [ "$$FAILED" -gt 0 ]; then \
-		echo "Mermaid lint: $$FAILED file(s) had parse errors."; \
-		exit 1; \
-	fi
+# === Architecture diagrams (PlantUML + C4-PlantUML stdlib) ===
+# Source .puml in docs/diagrams/, rendered PNG committed to docs/diagrams/out/.
+# Renderer pinned + Renovate-tracked (PLANTUML_VERSION above). A version-stamped
+# sentinel (its filename encodes PLANTUML_VERSION) forces a full re-render when
+# the renderer bumps, so a renderer bump with no .puml edit can't leave stale
+# PNGs that the drift gate would pass over (see /architecture-diagrams skill).
+DIAGRAM_DIR   := docs/diagrams
+DIAGRAM_SRC   := $(wildcard $(DIAGRAM_DIR)/*.puml)
+DIAGRAM_OUT   := $(patsubst $(DIAGRAM_DIR)/%.puml,$(DIAGRAM_DIR)/out/%.png,$(DIAGRAM_SRC))
+DIAGRAM_STAMP := $(DIAGRAM_DIR)/out/.plantuml-$(PLANTUML_VERSION).stamp
+
+#diagrams: @ Render PlantUML C4 architecture diagrams to PNG (docs/diagrams/*.puml → out/*.png)
+diagrams: $(DIAGRAM_OUT)
+
+# --user + _JAVA_OPTIONS are MANDATORY: the image runs as root (would leave
+# root:root PNGs polluting git status) and a UID with no /etc/passwd entry makes
+# Java resolve user.home='?' (materialises docs/diagrams/?/.java/... in the repo).
+$(DIAGRAM_DIR)/out/%.png: $(DIAGRAM_DIR)/%.puml $(DIAGRAM_STAMP)
+	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker required for make diagrams"; exit 1; }
+	docker run --rm -v "$(CURDIR)/$(DIAGRAM_DIR):/work" -w /work \
+		--user $$(id -u):$$(id -g) \
+		-e HOME=/tmp -e _JAVA_OPTIONS=-Duser.home=/tmp \
+		plantuml/plantuml:$(PLANTUML_VERSION) \
+		-tpng -o out $(notdir $<)
+
+$(DIAGRAM_STAMP):
+	@mkdir -p $(DIAGRAM_DIR)/out
+	@rm -f $(DIAGRAM_DIR)/out/.plantuml-*.stamp
+	@touch $@
+
+#diagrams-check: @ Drift gate: re-render and fail if committed PNGs differ from current .puml source / pinned renderer
+diagrams-check: diagrams
+	@git diff --exit-code -- $(DIAGRAM_DIR)/out || \
+		{ echo "ERROR: Diagram source or renderer changed but committed PNGs were not updated. Run 'make diagrams' and commit docs/diagrams/out/."; exit 1; }
+
+#diagrams-clean: @ Remove rendered diagram artefacts
+diagrams-clean:
+	@rm -rf $(DIAGRAM_DIR)/out
 
 #deps-prune: @ Report unused/undeclared Maven dependencies (informational)
 deps-prune: deps
@@ -261,11 +262,11 @@ deps-prune: deps
 deps-prune-check: deps
 	@mvn -B dependency:analyze -DignoreNonCompile=true -DfailOnWarning=true
 
-#static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, mermaid-lint, carvel-render-check, deps-prune-check)
+#static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, diagrams-check, carvel-render-check, deps-prune-check)
 # vulncheck/cve-check is intentionally excluded — runs separately as a tag /
 # manual-dispatch job in CI. NVD slow path adds 10+ min when NVD_API_KEY is
 # absent, which would dominate every static-check run. See CLAUDE.md.
-static-check: format-check lint secrets trivy-fs trivy-config lint-ci mermaid-lint carvel-render-check deps-prune-check
+static-check: format-check lint secrets trivy-fs trivy-config lint-ci diagrams-check carvel-render-check deps-prune-check
 	@echo "All static checks passed. Run 'make cve-check' separately for vulnerability scan (slow)."
 
 #upgrade: @ Show available Maven dependency updates (dry-run)
@@ -567,7 +568,8 @@ renovate-validate: renovate-bootstrap
 
 .PHONY: help deps deps-check deps-gjf deps-prune deps-prune-check \
 	clean build test integration-test run format format-check lint cve-check vulncheck \
-	secrets secrets-history trivy-fs trivy-config lint-ci mermaid-lint \
+	secrets secrets-history trivy-fs trivy-config lint-ci \
+	diagrams diagrams-check diagrams-clean deploy undeploy \
 	static-check upgrade upgrade-apply image-build image-run image-stop image-push \
 	docker-smoke-test docker-structure-test image-scan dast dast-scan \
 	kind-create kind-setup kind-load kind-deploy kind-undeploy kind-destroy \
