@@ -342,6 +342,7 @@ image-scan: deps
 
 #dast-scan: @ Run OWASP ZAP baseline against http://localhost:8080 (assumes container is running)
 dast-scan: deps
+	@rm -rf zap-output 2>/dev/null || docker run --rm --user 0 -v "$$PWD:/work" -w /work --entrypoint rm ghcr.io/zaproxy/zaproxy:$(ZAP_VERSION) -rf zap-output
 	@mkdir -p zap-output && chmod 777 zap-output
 	@docker run --rm --network host \
 		-v "$$PWD/zap-output:/zap/wrk:rw" \
