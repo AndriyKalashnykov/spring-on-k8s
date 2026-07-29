@@ -20,7 +20,7 @@ JDK_VERSION := 21
 
 # --- Group 2: Renovate-tracked tool versions (one inline `# renovate:` per pin) ---
 # renovate: datasource=maven depName=com.google.googlejavaformat:google-java-format
-GJF_VERSION := 1.35.0
+GJF_VERSION := 1.36.0
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
 DEPCHECK_VERSION := 12.2.2
 # renovate: datasource=docker depName=plantuml/plantuml
