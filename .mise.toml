@@ -19,7 +19,7 @@ maven = "3.9.16"
 node = "24"
 
 act = "0.2.89"
-hadolint = "2.14.0"
+hadolint = "2.15.1"
 # container-structure-test — Dockerfile-contract assertions on the built image
 # (USER, exposed port, entrypoint, workdir, file existence, runtime version).
 container-structure-test = "1.22.1"
