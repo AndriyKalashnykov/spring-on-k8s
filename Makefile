@@ -22,7 +22,7 @@ JDK_VERSION := 21
 # renovate: datasource=maven depName=com.google.googlejavaformat:google-java-format
 GJF_VERSION := 1.36.1
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
-DEPCHECK_VERSION := 12.2.2
+DEPCHECK_VERSION := 13.0.0
 # renovate: datasource=docker depName=plantuml/plantuml
 PLANTUML_VERSION := 1.2026.6
 # renovate: datasource=github-releases depName=zaproxy/zaproxy extractVersion=^v(?<version>.*)$$
