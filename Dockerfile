@@ -26,7 +26,7 @@ RUN java -Djarmode=tools -jar *.jar extract --layers --launcher --destination ex
 # rebuild cadence than Google's distroless. Decision + tradeoffs documented in
 # docs/adr/0001-runtime-base-image.md. Renovate's `dockerfile` manager tracks
 # this `FROM` line (Docker Hub library/eclipse-temurin); pinned by index digest.
-FROM eclipse-temurin:25.0.3_9-jre-alpine@sha256:28db6fdf60e38945e43d840c0333aeaec66c15943070104f7586fd3c9d1665b0 AS runtime
+FROM eclipse-temurin:25.0.4_7-jre-alpine@sha256:3137541deb3cac6626b5d9a4a2187bc0d6a34312f858bd2c67dd01e732e6b682 AS runtime
 
 # Operator-tunable runtime build args. Defaults: UID/GID 65532 matches the
 # distroless `nonroot` convention (and the k8s restricted-PodSecurity
