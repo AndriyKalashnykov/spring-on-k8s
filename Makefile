@@ -24,7 +24,7 @@ GJF_VERSION := 1.36.1
 # renovate: datasource=maven depName=org.owasp:dependency-check-maven
 DEPCHECK_VERSION := 13.0.0
 # renovate: datasource=docker depName=plantuml/plantuml
-PLANTUML_VERSION := 1.2026.6
+PLANTUML_VERSION := 1.2026.7
 # renovate: datasource=github-releases depName=zaproxy/zaproxy extractVersion=^v(?<version>.*)$$
 ZAP_VERSION := 2.17.0
 # KIND_NODE_IMAGE is tied to the kind release in .mise.toml; each kind
