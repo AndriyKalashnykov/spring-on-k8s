@@ -312,7 +312,7 @@ The push token must not be `GITHUB_TOKEN` (its pushes don't trigger CI, so the r
 
 | Job | Triggers | Steps |
 |-----|----------|-------|
-| **cleanup-runs** | weekly (Sunday 00:00 UTC), manual | Prune old workflow runs (retain 7 days, keep 5 minimum) |
+| **cleanup-runs** | weekly (Sunday 00:00 UTC), manual | Prune old workflow runs (retain 7 days, keep the newest 5 **per workflow** so a rarely-run workflow is never emptied — emptying it de-registers it — and never delete an open PR's run, which carries its required `ci-pass`) |
 | **cleanup-caches** | weekly (Sunday 00:00 UTC), manual | Delete actions caches scoped to refs that no longer exist (deleted PR branches), reclaiming room against the 10 GB repo cache limit |
 
 ### Pre-push image hardening

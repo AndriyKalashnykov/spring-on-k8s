@@ -11,8 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  actions: write   # gh run delete + gh cache delete
-  contents: read   # gh api repos/.../git/refs (cleanup-caches LIVE_REFS lookup)
+  actions: write        # gh run delete + gh cache delete
+  contents: read        # gh api repos/.../git/refs (cleanup-caches LIVE_REFS lookup)
+  pull-requests: read   # gh pr list (open-PR head SHAs, retained below)
 
 jobs:
   cleanup-runs:
@@ -20,19 +21,38 @@ jobs:
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
       RETAIN_DAYS: 7
-      KEEP_MINIMUM: 5
+      KEEP_MINIMUM: 5   # PER WORKFLOW — see below
     steps:
       - name: Delete old workflow runs
         run: |
+          set -euo pipefail
           CUTOFF=$(date -u -d "${RETAIN_DAYS} days ago" +%Y-%m-%dT%H:%M:%SZ)
+          # Two retention rules, each closing a real failure mode:
+          # 1. Keep the newest KEEP_MINIMUM runs PER WORKFLOW, not globally. Deleting
+          #    a workflow's last run flips it to `state: deleted` (gone from the
+          #    Actions tab). A global minimum purges every run of a workflow that runs
+          #    less often than the busy ones — e.g. the Renovate autofix workflows.
+          # 2. Never delete a run whose head SHA is an OPEN PR's head: that run
+          #    carries the required `ci-pass` check, and deleting it leaves the PR
+          #    BLOCKED with no checks once it has been idle longer than RETAIN_DAYS.
+          OPEN_SHAS=$(gh pr list --repo "$REPO" --state open --limit 200 --json headRefOid --jq '[.[].headRefOid]')
+          # Size the listing from the API's own total so it is never silently truncated.
+          TOTAL=$(gh api "repos/$REPO/actions/runs?per_page=1" --jq .total_count)
           # `--arg`/`--argjson` pass values into jq via the JSON variable space —
           # no shell interpolation into the filter string, no quoting traps.
-          gh run list --repo "${{ github.repository }}" \
-            --json databaseId,createdAt --limit 200 \
-          | jq -r --arg cutoff "$CUTOFF" --argjson keep "$KEEP_MINIMUM" \
-              'sort_by(.createdAt) | reverse | .[$keep:] | .[] | select(.createdAt < $cutoff) | .databaseId' \
-          | xargs -r -I{} gh run delete {} --repo "${{ github.repository }}"
+          gh run list --repo "$REPO" --limit "$((TOTAL + 50))" \
+            --json databaseId,createdAt,workflowName,headSha \
+          | jq -r --arg cutoff "$CUTOFF" --argjson keep "$KEEP_MINIMUM" --argjson open "$OPEN_SHAS" '
+              group_by(.workflowName)
+              | map(sort_by(.createdAt) | reverse | .[$keep:])
+              | add // []
+              | .[]
+              | select(.createdAt < $cutoff)
+              | select(.headSha as $s | ($open | index($s)) | not)
+              | .databaseId' \
+          | xargs -r -I{} gh run delete {} --repo "$REPO"
 
   cleanup-caches:
     # Stale caches from merged/deleted branches accumulate against the 10 GB
