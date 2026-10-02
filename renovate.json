@@ -17,6 +17,9 @@
   "automergeType": "pr",
   "automergeStrategy": "squash",
   "ignoreTests": false,
+  "gitIgnoredAuthors": [
+    "renovate-autofix@users.noreply.github.com"
+  ],
   "enabledManagers": [
     "maven",
     "github-actions",
@@ -93,7 +96,7 @@
         "needs-render"
       ],
       "prBodyNotes": [
-        "This PR changes how the C4 diagrams render. Run `make diagrams` on this branch and push the updated `docs/diagrams/out/*.png`, otherwise `make diagrams-check` stays red."
+        "This PR changes how the C4 diagrams render. The `Renovate autofix` workflow re-renders `docs/diagrams/out/*.png` and pushes them to this branch (needs the AUTOFIX_* secret); otherwise run `make renovate-autofix` here and push, or `make diagrams-check` stays red."
       ]
     },
     {

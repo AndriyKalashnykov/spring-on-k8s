@@ -242,6 +242,7 @@ Run `make help` to see all available targets.
 | `make deploy` | Production deploy via Carvel (`ytt -f ./k8s \| kapp deploy`) to the current kube-context; guards ytt/kapp presence + runs `carvel-render-check` |
 | `make undeploy` | Remove the Carvel app (`kapp delete -a spring-on-k8s`) |
 | `make check-boot-overrides` | Fail when the Spring Boot parent has caught up to a temporary CVE override in `pom.xml` (a stale override silently downgrades what Boot ships; also in `make static-check`) |
+| `make renovate-autofix` | Re-render the diagrams and delete CVE overrides Spring Boot has caught up to — the commit the autofix workflow pushes; usable by hand on any branch |
 | `make carvel-render-check` | Cluster-free gate: `ytt -f ./k8s` renders Namespace + ConfigMap + Deployment + Service (also in `make static-check`) |
 | `make kind-up` | Bring the full stack up: create cluster → start cloud-provider-kind → load image → deploy (local path uses `kubectl apply`) |
 | `make kind-down` | Tear the cluster down |
@@ -296,6 +297,17 @@ Every job that needs Java, Maven, or any CLI tool pinned in `.mise.toml` uses `j
 | **docker** | `v*` tags or published Release (needs: changes, static-check, build, test, cve-check) | Pattern A hardening, single-arch (`linux/amd64`). Release-only — not on regular pushes/PRs or manual dispatch. Gates 1–3 (build → Trivy image scan blocking CRITICAL/HIGH with `scanners=vuln,secret,misconfig` → `container-structure-test` Dockerfile-contract assertions via `make docker-structure-test` → smoke test on `/actuator/health/readiness` via `make docker-smoke-test`) run on every tag/release build. **DAST** (OWASP ZAP baseline against the running smoke container) runs inline after Gate 3 — ZAP `-I` warn-only mode (only FAIL blocks), WARN findings captured in the uploaded `zap-baseline-report` artifact, ZAP image (~3.4 GB) cached via `actions/cache`, all DAST steps skipped under act (`vars.ACT == 'true'`). Gate 4 (amd64 publish build) + Gate 5 (cosign keyless OIDC sign) are tag-gated at step level (belt-and-suspenders). `provenance: false` + `sbom: false` keep the image index clean. Gates on `cve-check` via `if: !failure() && !cancelled()` so a real CVE on tag push blocks publish. Exercise locally via `make ci-run-tag` |
 | **ci-pass** | always (needs: every upstream job) | Single stable branch-protection gate. Aggregates `failure` and `cancelled` results across upstream jobs; treats `skipped` as PASS — this is what makes doc-only PRs mergeable without disabling the required check |
 
+### Renovate autofix (`.github/workflows/renovate-autofix.yml` + `renovate-autofix-commit.yml`)
+
+Two kinds of Renovate PR cannot go green on their own: a PlantUML / C4-PlantUML bump (the committed PNGs in `docs/diagrams/out/` must be re-rendered) and a Spring Boot bump that catches up to a temporary CVE override in `pom.xml` (the override must be deleted). The autofix produces and pushes that follow-up commit, split for safety:
+
+| Workflow | Trigger | Privileges | Does |
+|----------|---------|------------|------|
+| **Renovate autofix** | `pull_request` from `renovate[bot]` touching `Makefile`/`pom.xml`/`docs/diagrams/**`; or the repo owner adding the `autofix` label | read-only token, **no secrets** (it runs the PR branch's code) | `make renovate-autofix` (re-render + `check-boot-overrides.sh --fix`), uploads only changed tracked PNGs and `pom.xml` as an artifact |
+| **Renovate autofix commit** | `workflow_run` of the above (always `main`'s definition) | push token from secrets | validates and applies the artifact with `main`'s `scripts/autofix-validate.sh apply` (every destination must be an already-tracked regular file — no symlinks; real PNGs only; `pom.xml` may only lose bare override lines between the `boot-overrides` markers), commits as `renovate-autofix`, pushes onto the exact rendered SHA without force |
+
+The push token must not be `GITHUB_TOKEN` (its pushes don't trigger CI, so the required `ci-pass` would never report). Without one of the secrets below the commit job fails with instructions rather than pushing. `renovate.json` lists the bot's email in `gitIgnoredAuthors`, so Renovate keeps rebasing the branch (each rebase drops the autofix commit and the autofix re-runs).
+
 ### Cleanup workflow (`.github/workflows/cleanup-runs.yml`)
 
 | Job | Triggers | Steps |
@@ -332,6 +344,9 @@ cosign verify ghcr.io/andriykalashnykov/spring-on-k8s:<tag> \
 | Name | Type | Used by | How to obtain |
 |------|------|---------|---------------|
 | `NVD_API_KEY` | Secret (recommended) | `cve-check` job (NVD data source) | Free API key from [NIST NVD](https://nvd.nist.gov/developers/request-an-api-key). Without it, NVD uses an anonymous slow path (~15 min); with it, ~1 min |
+
+| `AUTOFIX_APP_ID` + `AUTOFIX_APP_PRIVATE_KEY` | Secrets (recommended for the autofix) | `Renovate autofix commit` workflow | Create a GitHub App with **Repository permissions → Contents: Read and write** (nothing else), install it on this repository, store its App ID and a generated private key. Tokens are short-lived (1 h) and commits are attributed to the app. |
+| `AUTOFIX_TOKEN` | Secret (alternative to the App) | `Renovate autofix commit` workflow | Fine-grained personal access token, **only this repository**, **Contents: Read and write**. Simpler, but long-lived and attributed to you — rotate before it expires. |
 
 Set via **Settings → Secrets and variables → Actions → New repository secret**. The same env var works locally (`export NVD_API_KEY=...`) for `make cve-check` runs.
 

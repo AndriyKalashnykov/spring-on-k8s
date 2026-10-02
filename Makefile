@@ -163,6 +163,8 @@ lint: deps
 	@./scripts/cve-check.sh --self-test
 	@# Mutation-proof the Boot-override gate (ordering, waiver, vacuity guards).
 	@./scripts/check-boot-overrides.sh --self-test
+	@# Mutation-proof the autofix trust boundary (what the privileged push accepts).
+	@./scripts/autofix-validate.sh --self-test
 	@NONEXEC=$$(find scripts -name '*.sh' -not -executable -print 2>/dev/null); \
 	if [ -n "$$NONEXEC" ]; then \
 		echo "ERROR: shell scripts missing executable bit:"; \
@@ -199,6 +201,15 @@ vulncheck: cve-check
 #check-boot-overrides: @ Fail when Spring Boot has caught up to a pom.xml CVE override (stale override = silent downgrade)
 check-boot-overrides: deps
 	@./scripts/check-boot-overrides.sh
+
+#renovate-autofix: @ Re-render diagrams + drop CVE overrides Spring Boot has caught up to (what the autofix workflow commits)
+# Run by .github/workflows/renovate-autofix.yml on Renovate PRs; also usable by
+# hand on any branch. --fix leaves pom.xml untouched (and warns) when removing
+# the caught-up overrides would still not make check-boot-overrides pass.
+renovate-autofix: deps diagrams
+	@rc=0; ./scripts/check-boot-overrides.sh --fix || rc=$$?; \
+	if [ $$rc -eq 1 ]; then echo "WARN: check-boot-overrides --fix could not make the gate pass; pom.xml left unchanged (needs a human)"; \
+	elif [ $$rc -ne 0 ]; then exit $$rc; fi
 
 #secrets: @ Scan working tree for secrets via gitleaks (CI-oriented; use secrets-history for full git audit)
 secrets: deps
@@ -574,7 +585,7 @@ renovate-validate: renovate-bootstrap
 	fi
 
 .PHONY: help deps deps-check deps-gjf deps-prune deps-prune-check \
-	clean build test integration-test run format format-check lint check-boot-overrides cve-check vulncheck \
+	clean build test integration-test run format format-check lint check-boot-overrides renovate-autofix cve-check vulncheck \
 	secrets secrets-history trivy-fs trivy-config lint-ci \
 	diagrams diagrams-check diagrams-clean deploy undeploy \
 	static-check upgrade upgrade-apply image-build image-run image-stop image-push \

@@ -35,7 +35,16 @@
 # today; this gate only sees <properties>.
 #
 # Usage: check-boot-overrides.sh              # check ./pom.xml
+#        check-boot-overrides.sh --fix        # delete caught-up overrides, then re-check
 #        check-boot-overrides.sh --self-test  # mutation-proof the logic (offline)
+#
+# --fix deletes ONLY block lines that are (a) strictly between the markers,
+# (b) not waived, (c) plain-numeric on both sides and (d) no longer newer than
+# Boot's value. Deleting such a line can never reintroduce a CVE: Boot then ships
+# a version >= the override. pom.xml is rewritten only when the full re-check
+# passes; anything else (qualifier, renamed property, override outside the block)
+# is left for a human and --fix exits 1 with pom.xml untouched.
+# Used by .github/workflows/renovate-autofix.yml.
 set -euo pipefail
 
 BEGIN_MARK='boot-overrides:begin'
@@ -185,6 +194,61 @@ check() {
   return "$rc"
 }
 
+# fix POM BOM BOOT_VERSION — see the header. Returns 0 when nothing needed
+# removing or the removal made the check pass; 1 (pom untouched) otherwise.
+fix() {
+  local pom="$1" bom="$2" boot_version="$3"
+  local bom_props block_props begin end name value managed lineno del="" n=0 tmp
+
+  [ -f "$pom" ] || die "pom not found: $pom"
+  [ -f "$bom" ] || die "spring-boot-dependencies BOM not found: $bom"
+  bom_props="$(props_of "$bom")"
+  begin="$(awk -v b="$BEGIN_MARK" 'index($0,b){print NR; exit}' "$pom")"
+  end="$(awk -v e="$END_MARK" 'index($0,e){print NR; exit}' "$pom")"
+  if [ -z "$begin" ] || [ -z "$end" ] || [ "$begin" -ge "$end" ]; then
+    die "$pom: override markers missing or out of order"
+  fi
+  block_props="$(elements <<< "$(block_lines "$pom")")"
+
+  while IFS='=' read -r name value; do
+    [ -n "$name" ] || continue
+    managed="$(value_of "$bom_props" "$name")"
+    [ -n "$managed" ] || continue
+    if ! is_plain_version "$value" || ! is_plain_version "$managed"; then continue; fi
+    if strictly_newer "$value" "$managed"; then continue; fi
+    # Exactly one un-waived element line strictly between the markers, or skip.
+    lineno="$(awk -v k="<$name>" -v b="$begin" -v e="$end" -v w="$WAIVER_MARK" '
+      NR > b && NR < e { l = $0; sub(/^[ \t]+/, "", l)
+                         # a line holding exactly ONE element (never a shared line)
+                         if (index(l, k) == 1 && index($0, w) == 0 &&
+                             l ~ /^<[A-Za-z0-9._-]+>[^<]*<\/[A-Za-z0-9._-]+>[ \t\r]*$/) { print NR; c++ } }
+      END { exit (c == 1 ? 0 : 1) }' "$pom")" || continue
+    case " $del " in *" $lineno "*) continue ;; esac   # a name listed twice
+    echo "FIX   removing $name=$value (Spring Boot $boot_version manages $managed) at $pom:$lineno"
+    del="$del $lineno"
+    n=$((n + 1))
+  done <<< "$block_props"
+
+  if [ "$n" -eq 0 ]; then
+    echo "check-boot-overrides --fix: no caught-up override to remove"
+    return 0
+  fi
+  tmp="$(mktemp)"
+  trap 'rm -f "$tmp"' EXIT
+  local sedexpr=() l
+  for l in $del; do sedexpr+=(-e "${l}d"); done
+  sed "${sedexpr[@]}" "$pom" > "$tmp"
+  if check "$tmp" "$bom" "$boot_version"; then
+    cat "$tmp" > "$pom"
+    rm -f "$tmp"
+    echo "check-boot-overrides --fix: removed $n override(s); re-check passes"
+    return 0
+  fi
+  rm -f "$tmp"
+  echo "check-boot-overrides --fix: re-check still fails after removing $n override(s) — pom.xml left UNCHANGED for a human"
+  return 1
+}
+
 self_test() {
   local tmp failures=0 out rc i
   tmp="$(mktemp -d)"
@@ -305,6 +369,73 @@ self_test() {
   mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version>'
   expect 'prefix-named BOM property is not mistaken for the override' 0 'tomcat.version override 11.0.25 > Boot-managed 11.0.24'
 
+  # --- --fix: deletes only caught-up, un-waived, in-block lines; re-checks ---
+  # expect_fix NAME WANT_RC NEEDLE — run fix on $tmp/pom.xml vs $tmp/bom.pom
+  expect_fix() {
+    rc=0
+    cp "$tmp/pom.xml" "$tmp/pom.before"
+    out="$(fix "$tmp/pom.xml" "$tmp/bom.pom" 9.9.9 2>&1)" || rc=$?
+    if [ "$rc" -ne "$2" ] || [ "${out#*"$3"}" = "$out" ]; then
+      echo "self-test FAIL: $1 (want rc=$2 containing '$3'; got rc=$rc)"; printf '    %s\n' "${out//$'\n'/$'\n'    }"
+      failures=$((failures + 1)); return 1
+    fi
+  }
+  # pom_has PATTERN COUNT — assert $tmp/pom.xml contains PATTERN exactly COUNT times
+  pom_has() { [ "$(grep -cF -- "$1" "$tmp/pom.xml" || true)" -eq "$2" ]; }
+  ok_or_fail() { if "$@"; then :; else echo "self-test FAIL: $FIXCASE (assertion: $*)"; failures=$((failures + 1)); return 1; fi; }
+
+  mk_bom "$tmp/bom.pom" '<tomcat.version>11.0.25</tomcat.version>' '<jackson-bom.version>3.1.5</jackson-bom.version>'
+  FIXCASE='--fix removes a caught-up override and keeps a still-ahead one'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version>\n    <jackson-bom.version>3.1.7</jackson-bom.version>'
+  if expect_fix "$FIXCASE" 0 'removed 1 override(s)'; then
+    ok_or_fail pom_has '<tomcat.version>' 0 && ok_or_fail pom_has '<jackson-bom.version>3.1.7' 1 \
+      && ok_or_fail pom_has "$BEGIN_MARK" 1 && ok_or_fail pom_has "$END_MARK" 1 && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix removes an override Boot has overtaken (older)'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.20</tomcat.version>'
+  if expect_fix "$FIXCASE" 0 'removing tomcat.version=11.0.20'; then
+    ok_or_fail pom_has '<tomcat.version>' 0 && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix leaves a WAIVED hold-back in place'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.20</tomcat.version> <!-- boot-override-ok: regression -->'
+  if expect_fix "$FIXCASE" 0 'no caught-up override to remove'; then
+    ok_or_fail cmp -s "$tmp/pom.xml" "$tmp/pom.before" && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix is a no-op when every override is still ahead'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.26</tomcat.version>'
+  if expect_fix "$FIXCASE" 0 'no caught-up override to remove'; then
+    ok_or_fail cmp -s "$tmp/pom.xml" "$tmp/pom.before" && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix leaves pom UNCHANGED when the re-check would still fail'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version>\n    <jackson-bom.version>3.1.7-RC1</jackson-bom.version>'
+  if expect_fix "$FIXCASE" 1 'pom.xml left UNCHANGED'; then
+    ok_or_fail cmp -s "$tmp/pom.xml" "$tmp/pom.before" && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix never deletes a line SHARED with a still-needed override'
+  mk_bom "$tmp/bom.pom" '<tomcat.version>11.0.25</tomcat.version>' '<jackson-bom.version>3.1.5</jackson-bom.version>'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version><jackson-bom.version>3.1.7</jackson-bom.version>'
+  if expect_fix "$FIXCASE" 0 'no caught-up override to remove'; then
+    ok_or_fail cmp -s "$tmp/pom.xml" "$tmp/pom.before" && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix keeps a missing final newline (no spurious change)'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version>'
+  printf '%s' "$(cat "$tmp/pom.xml")" > "$tmp/pom.nonl" && mv "$tmp/pom.nonl" "$tmp/pom.xml"
+  if expect_fix "$FIXCASE" 0 'removed 1 override(s)'; then
+    ok_or_fail test "$(tail -c 1 "$tmp/pom.xml" | od -An -tx1 | tr -d ' ')" != "0a" && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix never touches a same-named line OUTSIDE the block'
+  mk_pom "$tmp/pom.xml" '    <tomcat.version>11.0.25</tomcat.version>' ''
+  if expect_fix "$FIXCASE" 0 'no caught-up override to remove'; then
+    ok_or_fail cmp -s "$tmp/pom.xml" "$tmp/pom.before" && echo "self-test ok:   $FIXCASE"
+  fi
+
   if [ "$failures" -ne 0 ]; then
     echo "check-boot-overrides self-test: $failures case(s) FAILED"
     return 1
@@ -313,7 +444,7 @@ self_test() {
 }
 
 main() {
-  local pom="pom.xml" boot_version repo bom
+  local mode="$1" pom="pom.xml" boot_version repo bom
   [ -f "$pom" ] || die "run from the repo root (no $pom)"
   boot_version="$(awk '/<parent>/{f=1} /<\/parent>/{f=0} f' "$pom" | sed -nE 's/^[[:space:]]*<version>([^<]+)<\/version>.*$/\1/p' | head -n 1 || true)"
   [ -n "$boot_version" ] || die "could not read the parent version from $pom"
@@ -322,11 +453,12 @@ main() {
   repo="$(mvn -B -q help:evaluate -Dexpression=settings.localRepository -DforceStdout 2>/dev/null || true)"
   [ -n "$repo" ] && [ -d "$repo" ] || die "could not resolve the Maven local repository (got '$repo')"
   bom="$repo/org/springframework/boot/spring-boot-dependencies/$boot_version/spring-boot-dependencies-$boot_version.pom"
-  check "$pom" "$bom" "$boot_version"
+  "$mode" "$pom" "$bom" "$boot_version"
 }
 
 case "${1:-}" in
   --self-test) self_test ;;
-  '') main ;;
+  '') main check ;;
+  --fix) main fix ;;
   *) die "unknown argument: $1" ;;
 esac
