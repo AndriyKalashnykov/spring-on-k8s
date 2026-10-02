@@ -1,0 +1,162 @@
+name: Renovate autofix commit
+
+# PRIVILEGED half of the Renovate autofix (see renovate-autofix.yml).
+#
+# Triggered by workflow_run, so GitHub always runs THIS FILE AS IT IS ON main —
+# a PR cannot change what runs here. It executes no code from the PR branch:
+# only git, plus scripts/autofix-validate.sh taken from a separate checkout of
+# main. It accepts nothing but changed, already-tracked diagram PNGs and pom.xml
+# deletions of override lines between the boot-overrides markers.
+#
+# TOKEN — a push made with GITHUB_TOKEN does not trigger workflows, so ci.yml
+# would never report the required `ci-pass` on the new commit and the PR would
+# stay blocked. One of these must be configured (repository secrets):
+#   * AUTOFIX_APP_ID + AUTOFIX_APP_PRIVATE_KEY — a GitHub App with Contents
+#     read/write installed on this repo (preferred: 1-hour tokens, attributed to
+#     the app);
+#   * AUTOFIX_TOKEN — a fine-grained PAT, this repository only, Contents read/write.
+# With neither, the job FAILS with instructions instead of pushing a commit that
+# would leave the PR stuck.
+
+on:
+  workflow_run:
+    workflows: ["Renovate autofix"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read   # download the artifact of the triggering run
+
+concurrency:
+  group: renovate-autofix-commit-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  commit:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_REF: ${{ github.event.workflow_run.head_branch }}
+      AUTOFIX_NAME: renovate-autofix
+      AUTOFIX_EMAIL: renovate-autofix@users.noreply.github.com
+      HAS_APP: ${{ secrets.AUTOFIX_APP_ID != '' && secrets.AUTOFIX_APP_PRIVATE_KEY != '' }}
+      HAS_PAT: ${{ secrets.AUTOFIX_TOKEN != '' }}
+    steps:
+      - name: Checkout main (trusted validator)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          path: trusted
+          persist-credentials: false
+
+      - name: Download autofix artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: renovate-autofix
+          path: autofix
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Anything to commit?
+        id: plan
+        run: |
+          set -euo pipefail
+          [ "$(cat autofix/head-sha)" = "$HEAD_SHA" ] \
+            || { echo "::error::artifact was rendered for $(cat autofix/head-sha), not $HEAD_SHA"; exit 1; }
+          case "$HEAD_REF" in
+            ''|*[!A-Za-z0-9._/-]*|-*|*..*) echo "::error::refusing unexpected branch name '$HEAD_REF'"; exit 1 ;;
+          esac
+          if [ -s autofix/changed ]; then
+            echo "changes=true" >> "$GITHUB_OUTPUT"
+            echo "To commit:"; cat autofix/changed
+          else
+            echo "changes=false" >> "$GITHUB_OUTPUT"
+            echo "Nothing to commit for $HEAD_REF@$HEAD_SHA."
+          fi
+
+      - name: Require a push token
+        if: steps.plan.outputs.changes == 'true' && env.HAS_APP != 'true' && env.HAS_PAT != 'true'
+        run: |
+          {
+            echo "## Renovate autofix: no push token configured"
+            echo
+            echo "The fix for \`$HEAD_REF\` was rendered but NOT pushed: a push with the built-in"
+            echo "GITHUB_TOKEN would not re-run CI, leaving the PR blocked on \`ci-pass\`."
+            echo "Add AUTOFIX_APP_ID + AUTOFIX_APP_PRIVATE_KEY (GitHub App, Contents read/write)"
+            echo "or AUTOFIX_TOKEN (fine-grained PAT, this repo, Contents read/write), then re-run."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::No AUTOFIX_APP_ID/AUTOFIX_APP_PRIVATE_KEY or AUTOFIX_TOKEN secret — see the job summary."
+          exit 1
+
+      - name: Mint GitHub App token
+        id: app
+        if: steps.plan.outputs.changes == 'true' && env.HAS_APP == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.AUTOFIX_APP_ID }}
+          private-key: ${{ secrets.AUTOFIX_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Checkout PR head (exact rendered SHA)
+        if: steps.plan.outputs.changes == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          path: pr
+          token: ${{ steps.app.outputs.token || secrets.AUTOFIX_TOKEN }}
+
+      - name: Validate and apply
+        if: steps.plan.outputs.changes == 'true'
+        working-directory: pr
+        run: |
+          set -euo pipefail
+          validate="../trusted/scripts/autofix-validate.sh"
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            case "$f" in
+              pom.xml)
+                cp pom.xml ../pom.before
+                "$validate" pom ../pom.before "../autofix/files/pom.xml"
+                ;;
+              docs/diagrams/out/*.png)
+                name="${f#docs/diagrams/out/}"
+                case "$name" in */*|.*) echo "::error::refusing path $f"; exit 1 ;; esac
+                git ls-files --error-unmatch -- "$f" >/dev/null \
+                  || { echo "::error::$f is not an already-tracked file"; exit 1; }
+                "$validate" png "../autofix/files/$f"
+                ;;
+              *) echo "::error::not an allowlisted autofix path: $f"; exit 1 ;;
+            esac
+            cp "../autofix/files/$f" "$f"
+            git add -- "$f"
+          done < ../autofix/changed
+          git diff --cached --stat
+
+      - name: Commit and push (never force)
+        if: steps.plan.outputs.changes == 'true'
+        working-directory: pr
+        run: |
+          set -euo pipefail
+          if git diff --cached --quiet; then
+            echo "Artifact matches the branch already; nothing to push."
+            exit 0
+          fi
+          git -c user.name="$AUTOFIX_NAME" -c user.email="$AUTOFIX_EMAIL" \
+            commit -q -m "chore(autofix): re-render diagrams / drop caught-up CVE overrides"
+          # Plain push onto the exact SHA we rendered from. If Renovate rebased the
+          # branch meanwhile the push is rejected as non-fast-forward; that is the
+          # intended outcome — the rebase already started a fresh autofix run.
+          rc=0; git push origin "HEAD:refs/heads/$HEAD_REF" 2> ../push.err || rc=$?
+          cat ../push.err >&2
+          if [ "$rc" -eq 0 ]; then
+            echo "Pushed the autofix commit to $HEAD_REF."
+          elif grep -qE 'non-fast-forward|fetch first|stale info|\[rejected\]' ../push.err; then
+            echo "::notice::$HEAD_REF moved since $HEAD_SHA was rendered; not pushing (a newer run handles it)."
+          else
+            echo "::error::git push failed (rc=$rc)"; exit "$rc"
+          fi

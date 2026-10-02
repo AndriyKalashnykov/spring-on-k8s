@@ -1,0 +1,119 @@
+name: Renovate autofix
+
+# Renders the follow-up commit that two kinds of Renovate PR need and cannot
+# produce themselves:
+#   * PlantUML renderer / C4-PlantUML bumps — the committed PNGs under
+#     docs/diagrams/out must be re-rendered (`make diagrams`), or diagrams-check
+#     stays red;
+#   * a Spring Boot bump that catches up to a temporary CVE override in pom.xml —
+#     the override must be deleted (`check-boot-overrides.sh --fix`), or
+#     check-boot-overrides stays red.
+#
+# SECURITY — this is the UNPRIVILEGED half. On `pull_request` GitHub runs the PR
+# branch's copy of this file, with PR code (Makefile, scripts, toolchain pins).
+# So it holds NO secret and only a read-only token, and its sole output is an
+# artifact. The push happens in renovate-autofix-commit.yml, which is triggered
+# by workflow_run (so it always runs main's definition) and re-validates this
+# artifact with main's scripts/autofix-validate.sh before pushing anything.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - 'Makefile'
+      - 'pom.xml'
+      - 'docs/diagrams/**'
+
+permissions:
+  contents: read
+
+# One run per PR; a newer push supersedes an older render.
+concurrency:
+  group: renovate-autofix-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  # Commits authored with this email are the bot's own (also listed in
+  # renovate.json gitIgnoredAuthors so Renovate keeps managing the branch).
+  AUTOFIX_EMAIL: renovate-autofix@users.noreply.github.com
+
+jobs:
+  prepare:
+    # Same-repo branches only (fork PRs never reach the commit half). Renovate PRs
+    # run on open/sync/reopen; Renovate's own label additions are ignored, so one
+    # PR does not fan out into several runs. The `autofix` label lets the repo
+    # owner run it on any same-repo PR (also how this workflow is tested).
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository && (
+        (github.event.action != 'labeled' && github.event.pull_request.user.login == 'renovate[bot]') ||
+        (github.event.action == 'labeled' && github.event.label.name == 'autofix' &&
+         github.event.sender.login == github.repository_owner)
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The exact commit this run was triggered for — the commit half pushes
+          # onto this SHA only, so a branch that moved meanwhile is never overwritten.
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Skip the bot's own commit
+        id: guard
+        run: |
+          if [ "$(git log -1 --format=%ae)" = "$AUTOFIX_EMAIL" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::HEAD is the autofix commit itself; nothing to render."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        if: steps.guard.outputs.skip != 'true'
+        with:
+          install: true
+          cache: true
+
+      - name: Cache Maven repository
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2-
+
+      - name: Render fixes
+        if: steps.guard.outputs.skip != 'true'
+        run: make renovate-autofix
+
+      # Package ONLY changed, already-tracked diagram PNGs and pom.xml. Always
+      # uploads (possibly empty) so the commit half can tell "nothing to do" from
+      # "prepare never ran".
+      - name: Collect changes
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p autofix/files
+          printf '%s\n' "$HEAD_SHA" > autofix/head-sha
+          : > autofix/changed
+          git diff --name-only -- docs/diagrams/out pom.xml | while IFS= read -r f; do
+            case "$f" in
+              pom.xml|docs/diagrams/out/*.png) ;;
+              *) continue ;;
+            esac
+            mkdir -p "autofix/files/$(dirname "$f")"
+            cp "$f" "autofix/files/$f"
+            printf '%s\n' "$f" >> autofix/changed
+          done
+          echo "Changed files:"; cat autofix/changed
+
+      - name: Upload autofix artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: renovate-autofix
+          path: autofix/
+          retention-days: 1
+          if-no-files-found: error
