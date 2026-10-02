@@ -29,10 +29,14 @@
              These are the spring-boot-dependencies version properties, so each override stays
              on Boot's own minor line (patch-only). REMOVE each one as soon as the Boot parent
              manages a version >= the value here: an override left behind would then DOWNGRADE
-             what Boot ships. Not Renovate-tracked (see CLAUDE.md "Upgrade Backlog"). -->
+             what Boot ships. `make check-boot-overrides` (in static-check) enforces that: it
+             fails when Boot catches up to any override between the two markers below. Keep the
+             markers even when the block is empty. Deliberately not Renovate-tracked. -->
+        <!-- boot-overrides:begin -->
         <tomcat.version>11.0.25</tomcat.version>
         <jackson-bom.version>3.1.7</jackson-bom.version>
         <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
+        <!-- boot-overrides:end -->
 
         <image.publish>false</image.publish>
         <image.name>andriykalashnykov/spring-on-k8s:latest</image.name>

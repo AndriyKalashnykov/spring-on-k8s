@@ -60,7 +60,7 @@ DOCKER_TAG      := $(CURRENTTAG)
 
 # Cache-busting value for the Dockerfile's `RUN apk upgrade` layer (see
 # Dockerfile ARG APK_UPGRADE_BUST). A daily date makes local image builds pull
-# the latest Alpine 3.23 OS packages at least once per day instead of reusing a
+# the latest Alpine OS packages at least once per day instead of reusing a
 # stale cached layer; CI passes its run id so every CI build is fresh. Override
 # to force a rebuild: `make image-build APK_UPGRADE_BUST=$(date +%s)`.
 APK_UPGRADE_BUST ?= $(shell date -u +%Y%m%d)
@@ -161,6 +161,8 @@ lint: deps
 	@hadolint Dockerfile
 	@# Mutation-proof the cve-check NVD-failure classifier (precedence ordering).
 	@./scripts/cve-check.sh --self-test
+	@# Mutation-proof the Boot-override gate (ordering, waiver, vacuity guards).
+	@./scripts/check-boot-overrides.sh --self-test
 	@NONEXEC=$$(find scripts -name '*.sh' -not -executable -print 2>/dev/null); \
 	if [ -n "$$NONEXEC" ]; then \
 		echo "ERROR: shell scripts missing executable bit:"; \
@@ -193,6 +195,10 @@ cve-check: deps
 
 #vulncheck: @ Alias for cve-check (portfolio-standard target name)
 vulncheck: cve-check
+
+#check-boot-overrides: @ Fail when Spring Boot has caught up to a pom.xml CVE override (stale override = silent downgrade)
+check-boot-overrides: deps
+	@./scripts/check-boot-overrides.sh
 
 #secrets: @ Scan working tree for secrets via gitleaks (CI-oriented; use secrets-history for full git audit)
 secrets: deps
@@ -262,11 +268,11 @@ deps-prune: deps
 deps-prune-check: deps
 	@mvn -B dependency:analyze -DignoreNonCompile=true -DfailOnWarning=true
 
-#static-check: @ Fast composite quality gate (format-check, lint, secrets, trivy-fs, trivy-config, lint-ci, diagrams-check, carvel-render-check, deps-prune-check)
+#static-check: @ Fast composite quality gate (format-check, lint, check-boot-overrides, secrets, trivy-fs, trivy-config, lint-ci, diagrams-check, carvel-render-check, deps-prune-check)
 # vulncheck/cve-check is intentionally excluded — runs separately as a tag /
 # manual-dispatch job in CI. NVD slow path adds 10+ min when NVD_API_KEY is
 # absent, which would dominate every static-check run. See CLAUDE.md.
-static-check: format-check lint secrets trivy-fs trivy-config lint-ci diagrams-check carvel-render-check deps-prune-check
+static-check: format-check lint check-boot-overrides secrets trivy-fs trivy-config lint-ci diagrams-check carvel-render-check deps-prune-check
 	@echo "All static checks passed. Run 'make cve-check' separately for vulnerability scan (slow)."
 
 #upgrade: @ Show available Maven dependency updates (dry-run)
@@ -568,7 +574,7 @@ renovate-validate: renovate-bootstrap
 	fi
 
 .PHONY: help deps deps-check deps-gjf deps-prune deps-prune-check \
-	clean build test integration-test run format format-check lint cve-check vulncheck \
+	clean build test integration-test run format format-check lint check-boot-overrides cve-check vulncheck \
 	secrets secrets-history trivy-fs trivy-config lint-ci \
 	diagrams diagrams-check diagrams-clean deploy undeploy \
 	static-check upgrade upgrade-apply image-build image-run image-stop image-push \

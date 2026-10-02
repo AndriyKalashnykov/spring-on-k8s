@@ -24,7 +24,7 @@ System_Ext(prom, "Prometheus")
 System_Ext(k8s, "Kubernetes", "Probes pod liveness + readiness")
 
 System_Boundary(sys, "spring-on-k8s") {
-  Container(api, "API Service", "Spring Boot 4.1.0, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi 3.0.3")
+  Container(api, "API Service", "Spring Boot 4, Java 21", "REST controllers + Spring Boot Actuator + springdoc-openapi")
   ContainerDb(cm, "ConfigMap", "Kubernetes ConfigMap", "Provides app.message; Spring reads it via configtree mount at /etc/config/")
 }
 
