@@ -18,7 +18,7 @@ UpdateElementStyle("external_system", $fontColor="#FFFFFF", $bgColor="#64748B", 
 title System Context — spring-on-k8s
 
 Person(user, "End User", "Consumes the REST API over HTTPS")
-System(sys, "spring-on-k8s", "Spring Boot 4.1 service: REST API + Actuator probes + Prometheus metrics + Swagger UI")
+System(sys, "spring-on-k8s", "Spring Boot 4 service: REST API + Actuator probes + Prometheus metrics + Swagger UI")
 System_Ext(prom, "Prometheus", "Scrapes /actuator/prometheus")
 System_Ext(k8s, "Kubernetes", "Runs the pod; probes liveness + readiness")
 

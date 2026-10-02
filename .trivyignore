@@ -55,10 +55,10 @@ DS0026
 
 # Base image OS package suppressions: NONE.
 #
-# The runtime base is eclipse-temurin:25-jre-alpine (Alpine 3.23, digest-pinned
+# The runtime base is eclipse-temurin:25-jre-alpine (Alpine, digest-pinned
 # in Dockerfile, tracked by Renovate). The runtime stage runs
 # `RUN apk --no-cache upgrade` so baked-in OS packages are pulled up to the
-# latest in the pinned Alpine 3.23 branch at build time — newly-disclosed CVEs
+# latest in the pinned Alpine branch at build time — newly-disclosed CVEs
 # that Alpine has already fixed clear immediately instead of waiting on the
 # Adoptium base rebuild (see docs/adr/0001-runtime-base-image.md Addendum
 # 2026-06; the trigger was CVE-2026-45447 in openssl 3.5.6-r0 → 3.5.7-r0).

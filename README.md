@@ -19,11 +19,11 @@ Reference implementation of a production-pattern Spring Boot 4 service on Kubern
 | Component | Technology | Rationale |
 |-----------|-----------|-----------|
 | Language | Java 21 source/target, Java 25 LTS runtime | Project compiles for Java 21 LTS (`pom.xml` `<java.version>21</java.version>`); the published image ships a Java 25 LTS JRE for the longest-supported in-production runtime. Java 21 bytecode runs forward on Java 25 |
-| Framework | Spring Boot 4.1.1 | Reference target; built-in Actuator covers probes, metrics, and info |
-| API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3.0.3 | OpenAPI generated from controller annotations — no separate spec to drift |
+| Framework | Spring Boot 4 (exact version: `pom.xml` parent) | Reference target; built-in Actuator covers probes, metrics, and info |
+| API style | REST + OpenAPI via [springdoc-openapi](https://springdoc.org/) 3 | OpenAPI generated from controller annotations — no separate spec to drift |
 | Metrics | [Micrometer](https://micrometer.io/) + Prometheus registry | Spring Boot default; zero-config Prometheus scrape endpoint |
 | Build | Maven 3.9.16 | Mature Spring Boot tooling; `pom.xml` plays well with Renovate |
-| Container | Multi-stage Dockerfile, `eclipse-temurin:25-jre-alpine` runtime, non-root user (UID/GID 65532) | Adoptium-official Java 25 LTS on Alpine 3.23 — faster CVE turnaround than Google's distroless (rationale and tradeoffs in [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md)); nonroot UID enables K8s restricted pod security |
+| Container | Multi-stage Dockerfile, `eclipse-temurin:25-jre-alpine` runtime, non-root user (UID/GID 65532) | Adoptium-official Java 25 LTS on Alpine — faster CVE turnaround than Google's distroless (rationale and tradeoffs in [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md)); nonroot UID enables K8s restricted pod security |
 | Orchestration | Kubernetes, deployed via [Carvel](https://carvel.dev/) (`ytt` + `kapp`) | Carvel is GitOps-friendly without the Helm template-hell; `ytt` overlays beat string substitution |
 | Local K8s | [KinD](https://kind.sigs.k8s.io/) + [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind) (test target node image: `kindest/node:v1.36.1`) | KinD is what upstream K8s uses for testing; cloud-provider-kind allocates LB IPs without MetalLB's nftables fragility |
 | CI/CD | GitHub Actions (per-concern jobs; details in [CI/CD section](#cicd)) | Native to GitHub; SHA-pinned actions; one `ci-pass` aggregator gates the whole pipeline |
@@ -109,7 +109,7 @@ Sources: the three C4 diagrams are [C4-PlantUML](https://github.com/plantuml-std
 
 ## Build & Package
 
-A multi-stage [Dockerfile](./Dockerfile) builds an `eclipse-temurin:25-jre-alpine` runtime image (Java 25 LTS, Alpine 3.23) with a non-root user (UID/GID 65532) and Spring Boot JAR layering. The build stage uses `maven:3.9.16-eclipse-temurin-21` so the artifact compiles for Java 21 LTS bytecode and runs forward on the Java 25 LTS JRE. See [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md) for the base-image decision (distroless → Alpine, 2026-05-11).
+A multi-stage [Dockerfile](./Dockerfile) builds an `eclipse-temurin:25-jre-alpine` runtime image (Java 25 LTS, Alpine) with a non-root user (UID/GID 65532) and Spring Boot JAR layering. The build stage uses `maven:3.9.16-eclipse-temurin-21` so the artifact compiles for Java 21 LTS bytecode and runs forward on the Java 25 LTS JRE. See [`docs/adr/0001-runtime-base-image.md`](docs/adr/0001-runtime-base-image.md) for the base-image decision (distroless → Alpine, 2026-05-11).
 
 ```bash
 make image-build                                         # build
@@ -220,7 +220,7 @@ Run `make help` to see all available targets.
 | `make vulncheck` | Alias for `cve-check` (portfolio-standard target name) |
 | `make deps-prune` | Report unused/undeclared Maven dependencies |
 | `make deps-prune-check` | Fail if unused/undeclared Maven dependencies found |
-| `make static-check` | Composite gate: format-check + lint + secrets + trivy-fs + trivy-config + lint-ci + diagrams-check + carvel-render-check + deps-prune-check |
+| `make static-check` | Composite gate: format-check + lint + check-boot-overrides + secrets + trivy-fs + trivy-config + lint-ci + diagrams-check + carvel-render-check + deps-prune-check |
 
 ### Docker
 
@@ -241,6 +241,7 @@ Run `make help` to see all available targets.
 |--------|-------------|
 | `make deploy` | Production deploy via Carvel (`ytt -f ./k8s \| kapp deploy`) to the current kube-context; guards ytt/kapp presence + runs `carvel-render-check` |
 | `make undeploy` | Remove the Carvel app (`kapp delete -a spring-on-k8s`) |
+| `make check-boot-overrides` | Fail when the Spring Boot parent has caught up to a temporary CVE override in `pom.xml` (a stale override silently downgrades what Boot ships; also in `make static-check`) |
 | `make carvel-render-check` | Cluster-free gate: `ytt -f ./k8s` renders Namespace + ConfigMap + Deployment + Service (also in `make static-check`) |
 | `make kind-up` | Bring the full stack up: create cluster → start cloud-provider-kind → load image → deploy (local path uses `kubectl apply`) |
 | `make kind-down` | Tear the cluster down |

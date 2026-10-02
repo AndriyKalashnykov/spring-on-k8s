@@ -42,11 +42,11 @@ ARG APP_INTERNAL_PORT=8080
 # packages at first-build state. Freshly-disclosed CVEs then never clear until
 # the base digest bumps (e.g. CVE-2026-45186 in expat, fixed 2.8.1-r0, shipped
 # 2.7.5-r0 from a cached layer). CI passes a rotating value (the run id) so this
-# layer rebuilds every run and the upgrade reflects the latest Alpine 3.23
+# layer rebuilds every run and the upgrade reflects the latest Alpine
 # packages; `make image-build` passes a daily date. Default 0 (local cache OK).
 ARG APK_UPGRADE_BUST=0
 
-# Patch the base image's OS packages to the latest in the pinned Alpine 3.23
+# Patch the base image's OS packages to the latest in the pinned Alpine
 # branch before the image is scanned. The digest-pinned eclipse-temurin base
 # lags Alpine security updates between Adoptium rebuilds, so freshly-disclosed
 # CVEs against baked-in libs (e.g. CVE-2026-45447 in openssl/libcrypto3/libssl3,
