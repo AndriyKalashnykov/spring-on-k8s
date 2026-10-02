@@ -79,6 +79,29 @@ jobs:
             echo "Nothing to commit for $HEAD_REF@$HEAD_SHA."
           fi
 
+      # The PR tree is untrusted: checked out WITHOUT the push token (public repo,
+      # the default read token suffices) and nothing from it is executed. The push
+      # token reaches git only in the final step, via environment, never on disk.
+      - name: Checkout PR head (exact rendered SHA)
+        if: steps.plan.outputs.changes == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.HEAD_SHA }}
+          path: pr
+          persist-credentials: false
+
+      # All checks live in main's script so they are unit-tested (self-test in
+      # `make lint`): allowlisted paths only; every destination a TRACKED REGULAR
+      # file (a symlink would let cp write through to any file, e.g. the
+      # validator); real PNGs; pom.xml may only lose bare override lines between
+      # the boot-overrides markers.
+      - name: Validate and apply
+        if: steps.plan.outputs.changes == 'true'
+        run: |
+          set -euo pipefail
+          trusted/scripts/autofix-validate.sh apply autofix pr
+          git -C pr diff --cached --stat
+
       - name: Require a push token
         if: steps.plan.outputs.changes == 'true' && env.HAS_APP != 'true' && env.HAS_PAT != 'true'
         run: |
@@ -102,44 +125,11 @@ jobs:
           private-key: ${{ secrets.AUTOFIX_APP_PRIVATE_KEY }}
           permission-contents: write
 
-      - name: Checkout PR head (exact rendered SHA)
-        if: steps.plan.outputs.changes == 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ env.HEAD_SHA }}
-          path: pr
-          token: ${{ steps.app.outputs.token || secrets.AUTOFIX_TOKEN }}
-
-      - name: Validate and apply
-        if: steps.plan.outputs.changes == 'true'
-        working-directory: pr
-        run: |
-          set -euo pipefail
-          validate="../trusted/scripts/autofix-validate.sh"
-          while IFS= read -r f; do
-            [ -n "$f" ] || continue
-            case "$f" in
-              pom.xml)
-                cp pom.xml ../pom.before
-                "$validate" pom ../pom.before "../autofix/files/pom.xml"
-                ;;
-              docs/diagrams/out/*.png)
-                name="${f#docs/diagrams/out/}"
-                case "$name" in */*|.*) echo "::error::refusing path $f"; exit 1 ;; esac
-                git ls-files --error-unmatch -- "$f" >/dev/null \
-                  || { echo "::error::$f is not an already-tracked file"; exit 1; }
-                "$validate" png "../autofix/files/$f"
-                ;;
-              *) echo "::error::not an allowlisted autofix path: $f"; exit 1 ;;
-            esac
-            cp "../autofix/files/$f" "$f"
-            git add -- "$f"
-          done < ../autofix/changed
-          git diff --cached --stat
-
       - name: Commit and push (never force)
         if: steps.plan.outputs.changes == 'true'
         working-directory: pr
+        env:
+          PUSH_TOKEN: ${{ steps.app.outputs.token || secrets.AUTOFIX_TOKEN }}
         run: |
           set -euo pipefail
           if git diff --cached --quiet; then
@@ -151,6 +141,12 @@ jobs:
           # Plain push onto the exact SHA we rendered from. If Renovate rebased the
           # branch meanwhile the push is rejected as non-fast-forward; that is the
           # intended outcome — the rebase already started a fresh autofix run.
+          # Token via GIT_CONFIG_* environment: never in argv, never in .git/config.
+          auth="$(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
           rc=0; git push origin "HEAD:refs/heads/$HEAD_REF" 2> ../push.err || rc=$?
           cat ../push.err >&2
           if [ "$rc" -eq 0 ]; then

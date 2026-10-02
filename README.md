@@ -304,7 +304,7 @@ Two kinds of Renovate PR cannot go green on their own: a PlantUML / C4-PlantUML 
 | Workflow | Trigger | Privileges | Does |
 |----------|---------|------------|------|
 | **Renovate autofix** | `pull_request` from `renovate[bot]` touching `Makefile`/`pom.xml`/`docs/diagrams/**`; or the repo owner adding the `autofix` label | read-only token, **no secrets** (it runs the PR branch's code) | `make renovate-autofix` (re-render + `check-boot-overrides.sh --fix`), uploads only changed tracked PNGs and `pom.xml` as an artifact |
-| **Renovate autofix commit** | `workflow_run` of the above (always `main`'s definition) | push token from secrets | validates the artifact with `main`'s `scripts/autofix-validate.sh` (real PNGs only; `pom.xml` may only lose bare override lines between the `boot-overrides` markers), commits as `renovate-autofix`, pushes onto the exact rendered SHA without force |
+| **Renovate autofix commit** | `workflow_run` of the above (always `main`'s definition) | push token from secrets | validates and applies the artifact with `main`'s `scripts/autofix-validate.sh apply` (every destination must be an already-tracked regular file — no symlinks; real PNGs only; `pom.xml` may only lose bare override lines between the `boot-overrides` markers), commits as `renovate-autofix`, pushes onto the exact rendered SHA without force |
 
 The push token must not be `GITHUB_TOKEN` (its pushes don't trigger CI, so the required `ci-pass` would never report). Without one of the secrets below the commit job fails with instructions rather than pushing. `renovate.json` lists the bot's email in `gitIgnoredAuthors`, so Renovate keeps rebasing the branch (each rebase drops the autofix commit and the autofix re-runs).
 

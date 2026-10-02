@@ -104,6 +104,7 @@ jobs:
               pom.xml|docs/diagrams/out/*.png) ;;
               *) continue ;;
             esac
+            [ -L "$f" ] && continue   # never package a symlink (the commit half also refuses it)
             mkdir -p "autofix/files/$(dirname "$f")"
             cp "$f" "autofix/files/$f"
             printf '%s\n' "$f" >> autofix/changed

@@ -207,7 +207,9 @@ check-boot-overrides: deps
 # hand on any branch. --fix leaves pom.xml untouched (and warns) when removing
 # the caught-up overrides would still not make check-boot-overrides pass.
 renovate-autofix: deps diagrams
-	@./scripts/check-boot-overrides.sh --fix || echo "WARN: check-boot-overrides --fix could not make the gate pass; pom.xml left unchanged (needs a human)"
+	@rc=0; ./scripts/check-boot-overrides.sh --fix || rc=$$?; \
+	if [ $$rc -eq 1 ]; then echo "WARN: check-boot-overrides --fix could not make the gate pass; pom.xml left unchanged (needs a human)"; \
+	elif [ $$rc -ne 0 ]; then exit $$rc; fi
 
 #secrets: @ Scan working tree for secrets via gitleaks (CI-oriented; use secrets-history for full git audit)
 secrets: deps

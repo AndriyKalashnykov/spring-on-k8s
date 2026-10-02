@@ -219,8 +219,11 @@ fix() {
     # Exactly one un-waived element line strictly between the markers, or skip.
     lineno="$(awk -v k="<$name>" -v b="$begin" -v e="$end" -v w="$WAIVER_MARK" '
       NR > b && NR < e { l = $0; sub(/^[ \t]+/, "", l)
-                         if (index(l, k) == 1 && index($0, w) == 0) { print NR; c++ } }
+                         # a line holding exactly ONE element (never a shared line)
+                         if (index(l, k) == 1 && index($0, w) == 0 &&
+                             l ~ /^<[A-Za-z0-9._-]+>[^<]*<\/[A-Za-z0-9._-]+>[ \t\r]*$/) { print NR; c++ } }
       END { exit (c == 1 ? 0 : 1) }' "$pom")" || continue
+    case " $del " in *" $lineno "*) continue ;; esac   # a name listed twice
     echo "FIX   removing $name=$value (Spring Boot $boot_version manages $managed) at $pom:$lineno"
     del="$del $lineno"
     n=$((n + 1))
@@ -231,7 +234,10 @@ fix() {
     return 0
   fi
   tmp="$(mktemp)"
-  awk -v d="$del" 'BEGIN { split(d, a, " "); for (i in a) skip[a[i]] = 1 } !(FNR in skip)' "$pom" > "$tmp"
+  trap 'rm -f "$tmp"' EXIT
+  local sedexpr=() l
+  for l in $del; do sedexpr+=(-e "${l}d"); done
+  sed "${sedexpr[@]}" "$pom" > "$tmp"
   if check "$tmp" "$bom" "$boot_version"; then
     cat "$tmp" > "$pom"
     rm -f "$tmp"
@@ -408,6 +414,20 @@ self_test() {
   mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version>\n    <jackson-bom.version>3.1.7-RC1</jackson-bom.version>'
   if expect_fix "$FIXCASE" 1 'pom.xml left UNCHANGED'; then
     ok_or_fail cmp -s "$tmp/pom.xml" "$tmp/pom.before" && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix never deletes a line SHARED with a still-needed override'
+  mk_bom "$tmp/bom.pom" '<tomcat.version>11.0.25</tomcat.version>' '<jackson-bom.version>3.1.5</jackson-bom.version>'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version><jackson-bom.version>3.1.7</jackson-bom.version>'
+  if expect_fix "$FIXCASE" 0 'no caught-up override to remove'; then
+    ok_or_fail cmp -s "$tmp/pom.xml" "$tmp/pom.before" && echo "self-test ok:   $FIXCASE"
+  fi
+
+  FIXCASE='--fix keeps a missing final newline (no spurious change)'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version>'
+  printf '%s' "$(cat "$tmp/pom.xml")" > "$tmp/pom.nonl" && mv "$tmp/pom.nonl" "$tmp/pom.xml"
+  if expect_fix "$FIXCASE" 0 'removed 1 override(s)'; then
+    ok_or_fail test "$(tail -c 1 "$tmp/pom.xml" | od -An -tx1 | tr -d ' ')" != "0a" && echo "self-test ok:   $FIXCASE"
   fi
 
   FIXCASE='--fix never touches a same-named line OUTSIDE the block'
