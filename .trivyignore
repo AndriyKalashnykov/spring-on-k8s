@@ -44,14 +44,14 @@ DS0026
 
 # Dependency CVE suppressions: NONE.
 #
-# Spring Boot 4.1.0 GA (pom.xml parent) manages tomcat-embed-* 11.0.22 and
-# Jackson 3.1.4 — past the fixes for the previously-suppressed upstream CVEs
-# (Tomcat CVE-2026-34483/-34486/-34487/-34500, fixed 11.0.21; Jackson
-# GHSA-2m67-wjpj-xhg9, fixed 3.1.1). Those suppressions were removed when the
-# GA bump landed (verified: `trivy fs --severity HIGH,CRITICAL` reports zero
-# findings with no ignorefile). Renovate tracks spring-boot-starter-parent; add
-# a dependency suppression here only for a newly-disclosed CVE awaiting an
-# upstream-fixed release, with a dated rationale.
+# Dependency CVEs are fixed by upgrading, not suppressed. When a CVE lands in a
+# Spring Boot-managed dependency before a Boot release carries the fix, override
+# the managed version property in pom.xml (see the "TEMPORARY CVE overrides"
+# block there — currently tomcat / jackson-bom / jackson-2-bom, added 2026-10-02
+# against Boot 4.1.1) and remove the override once the Boot parent catches up.
+# Renovate tracks spring-boot-starter-parent; add a dependency suppression here
+# only for a newly-disclosed CVE with NO fixed release anywhere, with a dated
+# rationale.
 
 # Base image OS package suppressions: NONE.
 #
