@@ -24,6 +24,12 @@
 #     (-RC1, .Final, .RELEASE) fails loudly rather than being mis-ordered:
 #     `sort -V` does not implement Maven's qualifier ordering.
 #
+# Elements must be single-line `<name>value</name>`. A Boot-managed property
+# written any other way (wrapped across lines, `<name >`), or defined more than
+# once (e.g. again in a <profile>), FAILS rather than being skipped. Known false
+# RED, loud by design: an override commented out with a MULTI-line `<!-- … -->`
+# is still read as live — use a single-line comment or delete it.
+#
 # NOT COVERED (stated, not hidden): an override expressed as an explicit
 # <version> on a dependency, or via <dependencyManagement>. There are none
 # today; this gate only sees <properties>.
@@ -66,24 +72,32 @@ value_of() {
 
 is_plain_version() {
   case "$1" in
-    ''|*[!0-9.]*|.*|*.|*..*) return 1 ;;
+    ''|*[!0-9.]*|.*|*.|*..*|0[0-9]*|*.0[0-9]*) return 1 ;;
     *) return 0 ;;
   esac
 }
 
 # Exit 0 when $1 is strictly newer than $2 (both plain numeric versions).
+# Maven treats 11.0.25 and 11.0.25.0 as the same version; drop trailing ".0"s.
+normalise() {
+  local v="$1"
+  while [ "${v%.0}" != "$v" ]; do v="${v%.0}"; done
+  printf '%s' "$v"
+}
+
 strictly_newer() {
-  local newest
-  [ "$1" != "$2" ] || return 1
-  newest="$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -n 1)"
-  [ "$newest" = "$1" ]
+  local a b newest
+  a="$(normalise "$1")"; b="$(normalise "$2")"
+  [ "$a" != "$b" ] || return 1
+  newest="$(printf '%s\n%s\n' "$a" "$b" | sort -V | tail -n 1)"
+  [ "$newest" = "$a" ]
 }
 
 # check POM BOM BOOT_VERSION — the whole decision; prints a report, returns 0/1.
 check() {
   local pom="$1" bom="$2" boot_version="$3"
   local pom_props bom_props block block_props bom_count rc=0 checked=0 waived=0
-  local name value managed line
+  local name value managed line census count
 
   [ -f "$pom" ] || die "pom not found: $pom"
   [ -f "$bom" ] || die "spring-boot-dependencies BOM not found: $bom"
@@ -106,6 +120,23 @@ check() {
   block="$(block_lines "$pom")"
   block_props="$(elements <<< "$block")"
 
+  # 0. Every Boot-managed property that appears in the pom AT ALL must be a
+  #    single-line element defined exactly once — otherwise the parser cannot
+  #    see it (wrapped element) or a second copy escapes (e.g. in a <profile>).
+  census="$(sed 's/<!--.*-->//g' "$pom" | grep -oE '<[A-Za-z0-9._-]+[[:space:]]*>' | tr -d '<> \t' | sort -u || true)"
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    [ -n "$(value_of "$bom_props" "$name")" ] || continue
+    count="$(awk -F= -v k="$name" '$1==k{n++} END{print n+0}' <<< "$pom_props")"
+    if [ "$count" -eq 0 ]; then
+      echo "FAIL  $name is a Spring Boot-managed property but is not written as a single-line <$name>value</$name> element — this gate cannot read it. Put it on one line."
+      rc=1
+    elif [ "$count" -gt 1 ]; then
+      echo "FAIL  $name is defined $count times in $pom (a second copy, e.g. in a <profile>, escapes the check). Define it once, inside the $BEGIN_MARK block."
+      rc=1
+    fi
+  done <<< "$census"
+
   # 1. A Boot-managed property overridden outside the marked block escapes the check.
   while IFS='=' read -r name value; do
     [ -n "$name" ] || continue
@@ -126,7 +157,7 @@ check() {
       rc=1
       continue
     fi
-    line="$(awk -v k="<$name>" 'index($0,k){print; exit}' <<< "$block")"
+    line="$(awk -v k="<$name>" '{l=$0; sub(/^[ \t]+/,"",l)} index(l,k)==1 {print; exit}' <<< "$block")"
     if [ "${line#*"$WAIVER_MARK"}" != "$line" ]; then
       if [ -n "$(sed -E "s/.*${WAIVER_MARK}[[:space:]]*//; s/[[:space:]]*-->.*//" <<< "$line")" ]; then
         echo "WAIVED $name=$value (Boot $boot_version manages $managed) — ${WAIVER_MARK}${line#*"$WAIVER_MARK"}"
@@ -235,6 +266,44 @@ self_test() {
   mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version>'
   echo '<project><properties><tomcat.version>11.0.24</tomcat.version></properties></project>' > "$tmp/bom.pom"
   expect 'truncated/unparsed BOM is an error, not a pass' 2 'not a real BOM'
+
+  # --- cases from the implementation review (each was a reachable false GREEN) ---
+  mk_bom "$tmp/bom.pom" '<tomcat.version>11.0.25</tomcat.version>'
+
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.26</tomcat.version>'
+  printf '%s\n' '<profile><properties>' '    <tomcat.version>11.0.20</tomcat.version>' '</properties></profile>' >> "$tmp/pom.xml"
+  expect 'second copy of an override in a <profile> fails' 1 'is defined 2 times'
+
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>\n      11.0.20\n    </tomcat.version>'
+  expect 'override wrapped across lines fails (not skipped)' 1 'not written as a single-line'
+  mk_pom "$tmp/pom.xml" '    <tomcat.version >11.0.20</tomcat.version>' ''
+  expect 'override with whitespace in the tag fails (not skipped)' 1 'not written as a single-line'
+
+  mk_pom "$tmp/pom.xml" '' '    <!-- <tomcat.version> see boot-override-ok: note -->\n    <tomcat.version>11.0.20</tomcat.version>'
+  expect 'a comment line cannot lend its waiver to the element' 1 'tomcat.version override 11.0.20 is no longer ahead'
+
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25.0</tomcat.version>'
+  expect 'Maven-equal version with trailing .0 is not "newer"' 1 'no longer ahead'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.00.26</tomcat.version>'
+  expect 'leading-zero version component is rejected' 1 'only plain numeric versions'
+
+  mk_pom "$tmp/pom.xml" '' '    <!-- <tomcat.version>11.0.20</tomcat.version> -->'
+  expect 'single-line commented-out override is ignored' 0 'overrides checked: 0'
+
+  # --- guards the first self-test left unexercised (surviving mutants) ---
+  { echo '<project><properties>'; echo "    <!-- $BEGIN_MARK -->"; echo "    <!-- $END_MARK -->"; echo '</properties></project>'; } > "$tmp/pom.xml"
+  expect 'pom whose <properties> did not parse is an error' 2 "no $POM_SENTINEL_PROP"
+
+  { echo '<project><properties>'; echo '<java.version>21</java.version>'; echo "    <!-- $BEGIN_MARK -->"; echo '</properties></project>'; } > "$tmp/pom.xml"
+  expect 'pom with a begin marker but no end marker is an error' 2 "has no '$END_MARK' marker"
+
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.26</tomcat.version>'
+  mk_bom "$tmp/bom.pom" '<jackson-bom.version>3.1.5</jackson-bom.version>'
+  expect 'large BOM without the sentinel property is an error' 2 "has no $BOM_SENTINEL_PROP property"
+
+  mk_bom "$tmp/bom.pom" '<tomcat.version-legacy>99.0.0</tomcat.version-legacy>' '<tomcat.version>11.0.24</tomcat.version>'
+  mk_pom "$tmp/pom.xml" '' '    <tomcat.version>11.0.25</tomcat.version>'
+  expect 'prefix-named BOM property is not mistaken for the override' 0 'tomcat.version override 11.0.25 > Boot-managed 11.0.24'
 
   if [ "$failures" -ne 0 ]; then
     echo "check-boot-overrides self-test: $failures case(s) FAILED"
