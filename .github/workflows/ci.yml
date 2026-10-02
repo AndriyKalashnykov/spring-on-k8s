@@ -120,8 +120,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2-
+          # Per-JOB key: actions/cache saves only the FIRST job's copy under a key, so a
+          # shared key froze whichever job finished first (e.g. static-check, which never
+          # runs surefire/failsafe) and test/integration-test re-downloaded their plugins
+          # from Maven Central on every run — the 429/403 flakes. Fall back to any m2 cache.
+          key: ${{ runner.os }}-m2-${{ github.job }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-${{ github.job }}-
+            ${{ runner.os }}-m2-
 
       - name: Static check
         run: make static-check
@@ -144,8 +150,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2-
+          # Per-JOB key: actions/cache saves only the FIRST job's copy under a key, so a
+          # shared key froze whichever job finished first (e.g. static-check, which never
+          # runs surefire/failsafe) and test/integration-test re-downloaded their plugins
+          # from Maven Central on every run — the 429/403 flakes. Fall back to any m2 cache.
+          key: ${{ runner.os }}-m2-${{ github.job }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-${{ github.job }}-
+            ${{ runner.os }}-m2-
 
       - name: Build
         run: make build
@@ -168,8 +180,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2-
+          # Per-JOB key: actions/cache saves only the FIRST job's copy under a key, so a
+          # shared key froze whichever job finished first (e.g. static-check, which never
+          # runs surefire/failsafe) and test/integration-test re-downloaded their plugins
+          # from Maven Central on every run — the 429/403 flakes. Fall back to any m2 cache.
+          key: ${{ runner.os }}-m2-${{ github.job }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-${{ github.job }}-
+            ${{ runner.os }}-m2-
 
       - name: Test
         run: make test
@@ -192,8 +210,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2-
+          # Per-JOB key: actions/cache saves only the FIRST job's copy under a key, so a
+          # shared key froze whichever job finished first (e.g. static-check, which never
+          # runs surefire/failsafe) and test/integration-test re-downloaded their plugins
+          # from Maven Central on every run — the 429/403 flakes. Fall back to any m2 cache.
+          key: ${{ runner.os }}-m2-${{ github.job }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-${{ github.job }}-
+            ${{ runner.os }}-m2-
 
       - name: Integration test
         run: make integration-test
@@ -216,8 +240,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2-
+          # Per-JOB key: actions/cache saves only the FIRST job's copy under a key, so a
+          # shared key froze whichever job finished first (e.g. static-check, which never
+          # runs surefire/failsafe) and test/integration-test re-downloaded their plugins
+          # from Maven Central on every run — the 429/403 flakes. Fall back to any m2 cache.
+          key: ${{ runner.os }}-m2-${{ github.job }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-${{ github.job }}-
+            ${{ runner.os }}-m2-
 
       - name: E2E test
         run: make e2e
@@ -248,8 +278,14 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2-
+          # Per-JOB key: actions/cache saves only the FIRST job's copy under a key, so a
+          # shared key froze whichever job finished first (e.g. static-check, which never
+          # runs surefire/failsafe) and test/integration-test re-downloaded their plugins
+          # from Maven Central on every run — the 429/403 flakes. Fall back to any m2 cache.
+          key: ${{ runner.os }}-m2-${{ github.job }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-${{ github.job }}-
+            ${{ runner.os }}-m2-
 
       # NVD vuln DB is independent of project deps — key on the ISO week, not
       # pom.xml. Keying on hashFiles('pom.xml') evicts the ~hundreds-of-MB DB on
