@@ -15,7 +15,7 @@ UpdateElementStyle("person",     $fontColor="#FFFFFF", $bgColor="#0F766E", $bord
 UpdateElementStyle("system",     $fontColor="#FFFFFF", $bgColor="#2563EB", $borderColor="#1E3A8A")
 UpdateElementStyle("external_system", $fontColor="#FFFFFF", $bgColor="#64748B", $borderColor="#334155")
 
-title System Context — spring-on-k8s
+title System Context — spring-on-k8s (autofix live test)
 
 Person(user, "End User", "Consumes the REST API over HTTPS")
 System(sys, "spring-on-k8s", "Spring Boot 4 service: REST API + Actuator probes + Prometheus metrics + Swagger UI")
