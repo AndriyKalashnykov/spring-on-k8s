@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Spring Boot 4.1.0 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted ConfigMap via Spring's `configtree:` property source.
+Spring Boot 4.1.1 reference service for Kubernetes deployment. Exposes REST endpoints (`/v1/hello`, `/v1/bye`), Swagger UI, Prometheus metrics via Actuator, and K8s liveness / readiness probes. Application configuration is overridden at runtime by a mounted ConfigMap via Spring's `configtree:` property source.
 
 ## Build & Run Commands
 
@@ -127,6 +127,8 @@ Local e2e path uses KinD + cloud-provider-kind: `make e2e` creates the KinD clus
 Items surfaced by `/upgrade-analysis`; last re-run 2026-06-13.
 
 - [ ] **Maven 4.0.0** is still pre-GA — latest is `4.0.0-rc-5` (published 2026-04-29); GA has no committed date ("will be there when it's there"). Monitor; migrate when GA ships and the plugin ecosystem signals stable 4.x support. Last checked 2026-06-13.
+
+- [ ] **Remove the temporary CVE overrides in `pom.xml`** (`tomcat.version` 11.0.25, `jackson-bom.version` 3.1.7, `jackson-2-bom.version` 2.21.7; added 2026-10-02). Spring Boot 4.1.1 manages tomcat 11.0.24 / Jackson 3.1.5 / 2.21.5, which `make trivy-fs` fails on (3 CRITICAL Tomcat + 10 HIGH Jackson findings) and no newer Boot release existed. These properties are **not Renovate-tracked** (the `maven` manager only follows a property referenced as a dependency `<version>`), so two things need a human: (1) when a Spring Boot bump PR lands, delete every override whose value is `<=` what the new Boot manages (`mvn help:effective-pom | grep -E 'tomcat.version|jackson'`) — a leftover override would DOWNGRADE Boot's own version; (2) if `trivy-fs` goes red again on tomcat/jackson before then, the patched floor moved — bump the override.
 
 ## Skills
 
