@@ -76,12 +76,14 @@ jobs:
           install: true
           cache: true
 
-      - name: Cache Maven repository
+      # Restore-only: this job runs PR-branch code and resolves only a handful of
+      # artifacts, so it must never be the one that SAVES a Maven cache.
+      - name: Restore Maven repository
         if: steps.guard.outputs.skip != 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('pom.xml') }}
+          key: ${{ runner.os }}-m2-static-check-${{ hashFiles('pom.xml') }}
           restore-keys: ${{ runner.os }}-m2-
 
       - name: Render fixes
