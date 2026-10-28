@@ -4,7 +4,7 @@ ARG JDK_VERSION=21
 # `FROM` line natively (Docker Hub tags for library/maven; bump when the
 # 3.9.x-eclipse-temurin-21 variant is published).
 # https://hub.docker.com/_/maven?tab=tags&page=1&name=eclipse-temurin-21
-FROM maven:3.10.0-eclipse-temurin-21@sha256:08343b2712a8c4a71b911e734dbf4f643f0755dcf15e878ddf3d5f7e81fe7120 AS build
+FROM maven:3.10.0-eclipse-temurin-21@sha256:c665c1041e0c6e28bc7d1b41254622c79cf0b3ac63b519be8b789b05b6f69661 AS build
 
 WORKDIR /build
 COPY pom.xml .
