@@ -16,7 +16,7 @@
 java = "temurin-21"
 maven = "3.9.16"
 # Node reads from .nvmrc natively.
-node = "24"
+node = "26"
 
 act = "0.2.89"
 hadolint = "2.15.1"
