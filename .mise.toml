@@ -32,4 +32,4 @@ kubectl = "1.37.2"
 
 # Carvel — production K8s deploy path (`ytt -f ./k8s | kapp deploy ...`).
 ytt = "0.55.4"
-kapp = "0.66.1"
+kapp = "0.66.2"
