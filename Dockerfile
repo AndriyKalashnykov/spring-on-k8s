@@ -4,7 +4,7 @@ ARG JDK_VERSION=21
 # `FROM` line natively (Docker Hub tags for library/maven; bump when the
 # 3.9.x-eclipse-temurin-21 variant is published).
 # https://hub.docker.com/_/maven?tab=tags&page=1&name=eclipse-temurin-21
-FROM maven:3.10.0-eclipse-temurin-21@sha256:5730611d13b27aa6442c839d3a83dd9d4fd7d7ea2368d8849fe2464088c2c65b AS build
+FROM maven:3.10.0-eclipse-temurin-21@sha256:3e18d95a0a49d18aa5b075e5ee3c30a98078c382850467dcd4caa49bb7dc4038 AS build
 
 WORKDIR /build
 COPY pom.xml .
@@ -26,7 +26,7 @@ RUN java -Djarmode=tools -jar *.jar extract --layers --launcher --destination ex
 # rebuild cadence than Google's distroless. Decision + tradeoffs documented in
 # docs/adr/0001-runtime-base-image.md. Renovate's `dockerfile` manager tracks
 # this `FROM` line (Docker Hub library/eclipse-temurin); pinned by index digest.
-FROM eclipse-temurin:25.0.5_8-jre-alpine@sha256:e1898fd6a11fc965a994d8ace186fd3585aeb636cf8f05f47a723fcfee0b0918 AS runtime
+FROM eclipse-temurin:25.0.5.1_2-jre-alpine@sha256:69c2a26e9894016e274c880fa542956d005b3755f84db765145185e87405bd89 AS runtime
 
 # Operator-tunable runtime build args. Defaults: UID/GID 65532 matches the
 # distroless `nonroot` convention (and the k8s restricted-PodSecurity
